@@ -16,8 +16,6 @@ func main() {
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.Default()
 
-	r.Use(gin.Recovery())
-
 	webDist, err := fs.Sub(embeddedWebDist, "web/dist")
 	if err != nil {
 		panic(err)
