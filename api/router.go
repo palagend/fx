@@ -29,6 +29,7 @@ func RegisterRoutes(r *gin.Engine) {
 			{
 				protected.GET("/me", GetMe)
 				protected.POST("/logout-all", LogoutAll)
+				protected.POST("/change-password", ChangePassword)
 			}
 		}
 	}

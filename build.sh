@@ -6,7 +6,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
 # 默认启用交叉编译
-CROSS_COMPILE=1
+CROSS_COMPILE=0
 
 # 解析命令行参数
 while getopts "x" opt; do
