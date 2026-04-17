@@ -39,8 +39,8 @@ func InitDB() *gorm.DB {
 		log.Fatalf("获取数据库实例失败: %v", err)
 	}
 
-	sqlDB.SetMaxIdleConns(10)
-	sqlDB.SetMaxOpenConns(100)
+	sqlDB.SetMaxIdleConns(1)
+	sqlDB.SetMaxOpenConns(10)
 	sqlDB.SetConnMaxLifetime(time.Hour)
 
 	DB = db

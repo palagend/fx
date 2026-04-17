@@ -3,24 +3,24 @@ import axios from 'axios'
 const API_BASE_URL = '/api'
 
 export const portfolioApi = {
-  // 获取资产组合摘要
-  getSummary() {
-    return axios.get(`${API_BASE_URL}/portfolio/summary`)
+  // 获取完整资产组合（持仓 + 实现盈亏）
+  getPortfolio() {
+    return axios.get(`${API_BASE_URL}/portfolio`)
   },
 
-  // 获取持仓列表
+  // 获取持仓列表（包含成本价）
   getHoldings() {
     return axios.get(`${API_BASE_URL}/portfolio/holdings`)
   },
 
+  // 获取投资记录（实现盈亏）
+  getInvestments() {
+    return axios.get(`${API_BASE_URL}/portfolio/investments`)
+  },
+
   // 获取交易记录
-  getTrades(params = {}) {
-    const { page = 1, page_size = 50, type } = params
-    let url = `${API_BASE_URL}/portfolio/trades?page=${page}&page_size=${page_size}`
-    if (type) {
-      url += `&type=${type}`
-    }
-    return axios.get(url)
+  getTrades() {
+    return axios.get(`${API_BASE_URL}/portfolio/trades`)
   },
 
   // 创建交易
@@ -46,15 +46,5 @@ export const portfolioApi = {
   // 获取单个资产价格
   getAssetPrice(symbol) {
     return axios.get(`${API_BASE_URL}/prices/${symbol}`)
-  },
-
-  // 导入数据（覆盖式）
-  importData(data) {
-    return axios.post(`${API_BASE_URL}/portfolio/import`, data)
-  },
-
-  // 导出数据
-  exportData() {
-    return axios.get(`${API_BASE_URL}/portfolio/export`)
   }
 }
