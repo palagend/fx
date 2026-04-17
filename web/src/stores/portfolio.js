@@ -6,7 +6,7 @@ import { useUserStore } from './user'
 export const usePortfolioStore = defineStore('portfolio', () => {
   const userStore = useUserStore()
   
-  // 状态
+  // 状态 - 所有数据都来自后端
   const holdings = ref([])
   const trades = ref([])
   const prices = ref({})
@@ -16,7 +16,7 @@ export const usePortfolioStore = defineStore('portfolio', () => {
   const isLoading = ref(false)
   const error = ref(null)
 
-  // 计算属性
+  // 计算属性 - 组合资产数据（包含实时价格计算）
   const portfolio = computed(() => {
     return holdings.value.map(holding => {
       const currentPrice = prices.value[holding.symbol] || holding.avg_cost
@@ -67,7 +67,15 @@ export const usePortfolioStore = defineStore('portfolio', () => {
   }
 
   async function fetchPortfolio() {
-    if (!userStore.isLoggedIn) return
+    if (!userStore.isLoggedIn) {
+      // 未登录时清空数据
+      holdings.value = []
+      trades.value = []
+      realizedProfitLoss.value = 0
+      totalValue.value = 0
+      usdtBalance.value = 0
+      return
+    }
     
     isLoading.value = true
     error.value = null
@@ -83,7 +91,7 @@ export const usePortfolioStore = defineStore('portfolio', () => {
       totalValue.value = summaryRes.data.total_value
       usdtBalance.value = summaryRes.data.usdt_balance
       realizedProfitLoss.value = summaryRes.data.realized_profit_loss
-      holdings.value = summaryRes.data.holdings || holdingsRes.data.holdings
+      holdings.value = summaryRes.data.holdings || holdingsRes.data.holdings || []
       trades.value = tradesRes.data.trades || []
 
       // 获取最新价格
@@ -159,38 +167,61 @@ export const usePortfolioStore = defineStore('portfolio', () => {
     }
   }
 
-  // 本地存储备份（用于离线支持）
-  function saveToLocalStorage() {
-    if (!userStore.isLoggedIn) return
-    
-    const data = {
-      holdings: holdings.value,
-      trades: trades.value,
-      realizedProfitLoss: realizedProfitLoss.value,
-      timestamp: Date.now()
+  // 导出数据 - 从后端获取完整数据
+  async function exportData() {
+    if (!userStore.isLoggedIn) {
+      return { success: false, error: '请先登录' }
     }
-    localStorage.setItem(`portfolio_backup_${userStore.user.id}`, JSON.stringify(data))
-  }
 
-  function loadFromLocalStorage() {
-    if (!userStore.isLoggedIn) return
-    
-    const saved = localStorage.getItem(`portfolio_backup_${userStore.user.id}`)
-    if (saved) {
-      try {
-        const data = JSON.parse(saved)
-        holdings.value = data.holdings || []
-        trades.value = data.trades || []
-        realizedProfitLoss.value = data.realizedProfitLoss || 0
-      } catch (e) {
-        console.error('加载本地备份失败:', e)
+    try {
+      // 获取最新数据
+      const [summaryRes, holdingsRes, tradesRes] = await Promise.all([
+        portfolioApi.getSummary(),
+        portfolioApi.getHoldings(),
+        portfolioApi.getTrades({ page: 1, page_size: 1000 }) // 获取所有交易
+      ])
+
+      const data = {
+        portfolio: holdingsRes.data.holdings || [],
+        trades: tradesRes.data.trades || [],
+        realizedProfitLoss: summaryRes.data.realized_profit_loss || 0,
+        totalValue: summaryRes.data.total_value || 0,
+        usdtBalance: summaryRes.data.usdt_balance || 0
       }
+
+      return { success: true, data }
+    } catch (err) {
+      return { success: false, error: err.response?.data?.error || '导出失败' }
     }
   }
 
-  function clearLocalStorage() {
-    if (!userStore.isLoggedIn) return
-    localStorage.removeItem(`portfolio_backup_${userStore.user.id}`)
+  // 导入数据 - 覆盖后端数据
+  async function importData(data) {
+    if (!userStore.isLoggedIn) {
+      return { success: false, error: '请先登录' }
+    }
+
+    isLoading.value = true
+    error.value = null
+
+    try {
+      // 调用后端导入接口
+      const response = await portfolioApi.importData({
+        portfolio: data.portfolio || [],
+        trades: data.trades || [],
+        realized_profit_loss: data.realizedProfitLoss || 0
+      })
+
+      // 刷新数据
+      await fetchPortfolio()
+
+      return { success: true, data: response.data }
+    } catch (err) {
+      error.value = err.response?.data?.error || '导入失败'
+      return { success: false, error: error.value }
+    } finally {
+      isLoading.value = false
+    }
   }
 
   return {
@@ -217,8 +248,7 @@ export const usePortfolioStore = defineStore('portfolio', () => {
     createTrade,
     clearAllTrades,
     deleteTrade,
-    saveToLocalStorage,
-    loadFromLocalStorage,
-    clearLocalStorage
+    exportData,
+    importData
   }
 })

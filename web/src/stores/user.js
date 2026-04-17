@@ -10,6 +10,7 @@ export const useUserStore = defineStore('user', () => {
   const refreshToken = ref(localStorage.getItem('refreshToken') || '')
   const isLoading = ref(false)
   const error = ref(null)
+  const showLoginModal = ref(false)
 
   const isLoggedIn = computed(() => !!accessToken.value && !!user.value)
 
@@ -149,6 +150,14 @@ export const useUserStore = defineStore('user', () => {
     }
   }
 
+  const openLoginModal = () => {
+    showLoginModal.value = true
+  }
+
+  const closeLoginModal = () => {
+    showLoginModal.value = false
+  }
+
   return {
     user,
     accessToken,
@@ -156,6 +165,7 @@ export const useUserStore = defineStore('user', () => {
     isLoading,
     error,
     isLoggedIn,
+    showLoginModal,
     register,
     login,
     logout,
@@ -163,6 +173,8 @@ export const useUserStore = defineStore('user', () => {
     fetchUserInfo,
     refreshAccessToken,
     changePassword,
-    init
+    init,
+    openLoginModal,
+    closeLoginModal
   }
 })

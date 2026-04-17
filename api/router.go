@@ -43,6 +43,8 @@ func RegisterRoutes(r *gin.Engine) {
 			portfolioGroup.POST("/trades", CreateTrade)
 			portfolioGroup.DELETE("/trades/:id", DeleteTrade)
 			portfolioGroup.DELETE("/trades", ClearTrades)
+			portfolioGroup.POST("/import", ImportData)
+			portfolioGroup.GET("/export", ExportData)
 		}
 
 		// 价格相关接口（公开访问）

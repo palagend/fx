@@ -2,7 +2,7 @@
   <div class="user-profile" ref="profileRef">
     <!-- 未登录状态 -->
     <div v-if="!userStore.isLoggedIn" class="auth-buttons">
-      <button class="btn-login" @click="showLoginModal = true">
+      <button class="btn-login" @click="userStore.openLoginModal">
         <Icon icon="mdi:login" />
         <span>登录</span>
       </button>
@@ -53,7 +53,7 @@
     <!-- 登录/注册模态框 -->
     <Teleport to="body">
       <Transition name="modal">
-        <div v-if="showLoginModal" class="modal-overlay" @click.self="closeLoginModal">
+        <div v-if="userStore.showLoginModal" class="modal-overlay" @click.self="closeLoginModal">
           <div class="modal-container">
             <div class="modal-header">
               <h3>{{ isRegistering ? '注册账号' : '用户登录' }}</h3>
@@ -257,7 +257,6 @@ const userStore = useUserStore()
 
 const profileRef = ref(null)
 const isDropdownOpen = ref(false)
-const showLoginModal = ref(false)
 const showProfileModal = ref(false)
 const showPasswordModal = ref(false)
 const isRegistering = ref(false)
@@ -315,7 +314,7 @@ const openPasswordModal = () => {
 }
 
 const closeLoginModal = () => {
-  showLoginModal.value = false
+  userStore.closeLoginModal()
   authError.value = ''
   resetAuthForm()
 }

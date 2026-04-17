@@ -46,5 +46,15 @@ export const portfolioApi = {
   // 获取单个资产价格
   getAssetPrice(symbol) {
     return axios.get(`${API_BASE_URL}/prices/${symbol}`)
+  },
+
+  // 导入数据（覆盖式）
+  importData(data) {
+    return axios.post(`${API_BASE_URL}/portfolio/import`, data)
+  },
+
+  // 导出数据
+  exportData() {
+    return axios.get(`${API_BASE_URL}/portfolio/export`)
   }
 }

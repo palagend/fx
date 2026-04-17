@@ -213,9 +213,9 @@ func GetTrades(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"trades": response,
 		"pagination": gin.H{
-			"page":       page,
-			"page_size":  pageSize,
-			"total":      total,
+			"page":        page,
+			"page_size":   pageSize,
+			"total":       total,
 			"total_pages": (total + int64(pageSize) - 1) / int64(pageSize),
 		},
 	})
@@ -406,5 +406,191 @@ func GetAllPrices(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"prices":     prices,
 		"updated_at": time.Now().Format("2006-01-02 15:04:05"),
+	})
+}
+
+// ImportDataRequest 导入数据请求
+type ImportDataRequest struct {
+	Portfolio          []HoldingData `json:"portfolio" binding:"required"`
+	Trades             []TradeData   `json:"trades" binding:"required"`
+	RealizedProfitLoss float64       `json:"realized_profit_loss"`
+}
+
+// HoldingData 导入的持仓数据
+type HoldingData struct {
+	Symbol  string  `json:"symbol" binding:"required"`
+	Amount  float64 `json:"amount" binding:"required,gte=0"`
+	AvgCost float64 `json:"avg_cost" binding:"required,gte=0"`
+}
+
+// TradeData 导入的交易数据
+type TradeData struct {
+	Symbol     string  `json:"symbol" binding:"required"`
+	Type       string  `json:"type" binding:"required,oneof=buy sell recharge"`
+	Amount     float64 `json:"amount" binding:"required,gt=0"`
+	Price      float64 `json:"price" binding:"required,gt=0"`
+	Total      float64 `json:"total"`
+	RealizedPL float64 `json:"realized_pl"`
+	CreatedAt  string  `json:"created_at"`
+}
+
+// ImportData 导入数据（覆盖式）
+func ImportData(c *gin.Context) {
+	userID, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "未授权"})
+		return
+	}
+
+	var req ImportDataRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	db := config.GetDB()
+	uid := userID.(uint)
+
+	// 开启事务
+	tx := db.Begin()
+
+	// 1. 删除该用户的所有持仓
+	if err := tx.Where("user_id = ?", uid).Delete(&models.Holding{}).Error; err != nil {
+		tx.Rollback()
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "清空持仓失败"})
+		return
+	}
+
+	// 2. 删除该用户的所有交易记录
+	if err := tx.Where("user_id = ?", uid).Delete(&models.Trade{}).Error; err != nil {
+		tx.Rollback()
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "清空交易记录失败"})
+		return
+	}
+
+	// 3. 导入持仓数据
+	for _, h := range req.Portfolio {
+		holding := models.Holding{
+			UserID:  uid,
+			Symbol:  h.Symbol,
+			Amount:  h.Amount,
+			AvgCost: h.AvgCost,
+		}
+		if err := tx.Create(&holding).Error; err != nil {
+			tx.Rollback()
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "导入持仓失败"})
+			return
+		}
+	}
+
+	// 4. 导入交易数据
+	for _, t := range req.Trades {
+		// 解析时间
+		createdAt := time.Now()
+		if t.CreatedAt != "" {
+			if parsedTime, err := time.Parse("2006-01-02 15:04:05", t.CreatedAt); err == nil {
+				createdAt = parsedTime
+			} else if parsedTime, err := time.Parse(time.RFC3339, t.CreatedAt); err == nil {
+				createdAt = parsedTime
+			}
+		}
+
+		// 计算总额
+		total := t.Total
+		if total == 0 {
+			total = t.Amount * t.Price
+		}
+
+		trade := models.Trade{
+			UserID:     uid,
+			Symbol:     t.Symbol,
+			Type:       t.Type,
+			Amount:     t.Amount,
+			Price:      t.Price,
+			Total:      total,
+			RealizedPL: t.RealizedPL,
+			CreatedAt:  createdAt,
+		}
+		if err := tx.Create(&trade).Error; err != nil {
+			tx.Rollback()
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "导入交易记录失败"})
+			return
+		}
+	}
+
+	// 提交事务
+	if err := tx.Commit().Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "提交数据失败"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "数据导入成功",
+		"stats": gin.H{
+			"holdings_imported": len(req.Portfolio),
+			"trades_imported":   len(req.Trades),
+		},
+	})
+}
+
+// ExportData 导出所有数据
+func ExportData(c *gin.Context) {
+	userID, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "未授权"})
+		return
+	}
+
+	db := config.GetDB()
+	uid := userID.(uint)
+
+	// 获取所有持仓
+	var holdings []models.Holding
+	if err := db.Where("user_id = ?", uid).Find(&holdings).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "获取持仓失败"})
+		return
+	}
+
+	// 获取所有交易记录
+	var trades []models.Trade
+	if err := db.Where("user_id = ?", uid).Order("created_at DESC").Find(&trades).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "获取交易记录失败"})
+		return
+	}
+
+	// 计算实现盈亏
+	var totalRealizedPL float64
+	db.Model(&models.Trade{}).Where("user_id = ? AND type = ?", uid, "sell").Select("COALESCE(SUM(realized_pl), 0)").Scan(&totalRealizedPL)
+
+	// 格式化持仓数据
+	var holdingsData []HoldingData
+	for _, h := range holdings {
+		holdingsData = append(holdingsData, HoldingData{
+			Symbol:  h.Symbol,
+			Amount:  h.Amount,
+			AvgCost: h.AvgCost,
+		})
+	}
+
+	// 格式化交易数据
+	var tradesData []TradeData
+	for _, t := range trades {
+		tradesData = append(tradesData, TradeData{
+			Symbol:     t.Symbol,
+			Type:       t.Type,
+			Amount:     t.Amount,
+			Price:      t.Price,
+			Total:      t.Total,
+			RealizedPL: t.RealizedPL,
+			CreatedAt:  t.CreatedAt.Format("2006-01-02 15:04:05"),
+		})
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"version":              "2.0",
+		"export_time":          time.Now().Format("2006-01-02 15:04:05"),
+		"portfolio":            holdingsData,
+		"trades":               tradesData,
+		"realized_profit_loss": totalRealizedPL,
 	})
 }
