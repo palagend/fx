@@ -6,6 +6,8 @@ import (
 	"net/http"
 
 	"gitee.com/palagend/fx/api"
+	"gitee.com/palagend/fx/config"
+	"gitee.com/palagend/fx/models"
 	"github.com/gin-gonic/gin"
 )
 
@@ -13,6 +15,12 @@ import (
 var embeddedWebDist embed.FS
 
 func main() {
+	db := config.InitDB()
+
+	if err := models.AutoMigrate(db); err != nil {
+		panic("数据库迁移失败: " + err.Error())
+	}
+
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.Default()
 

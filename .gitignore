@@ -1,36 +1,17 @@
-# Binaries for programs and plugins
-*.exe
-*.exe~
-*.dll
-*.so
-*.dylib
-
-# Test binary
-test_binary
-*.out
-
-# Build output
+# 构建输出
 bin/
 dist/
 
-# Dependency directories
-web/node_modules/
-
-# Vite
-web/.vite/
-web/dist/
+# 依赖目录
+node_modules/
 
 # IDE
 .idea/
 .vscode/
 *.swp
-*.swo
 
-# Environment variables
-.env
-.env.*
-.env.local
-.env.*.local
+# 环境变量
+.env*
 
 # OS
 .DS_Store
