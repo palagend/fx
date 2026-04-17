@@ -123,8 +123,8 @@
                   <Icon icon="mdi:alert-circle" />
                   <span>{{ authError }}</span>
                 </div>
-                <button type="submit" class="btn-submit" :disabled="userStore.isLoading">
-                  <Icon v-if="userStore.isLoading" icon="mdi:loading" class="spin" />
+                <button type="submit" class="btn-submit" :disabled="isSubmitting || userStore.isLoading">
+                  <Icon v-if="isSubmitting || userStore.isLoading" icon="mdi:loading" class="spin" />
                   <span v-else>{{ isRegistering ? '注册' : '登录' }}</span>
                 </button>
               </form>
@@ -235,8 +235,8 @@
                   <Icon icon="mdi:check-circle" />
                   <span>{{ passwordSuccess }}</span>
                 </div>
-                <button type="submit" class="btn-submit" :disabled="userStore.isLoading">
-                  <Icon v-if="userStore.isLoading" icon="mdi:loading" class="spin" />
+                <button type="submit" class="btn-submit" :disabled="isChangingPassword || userStore.isLoading">
+                  <Icon v-if="isChangingPassword || userStore.isLoading" icon="mdi:loading" class="spin" />
                   <span v-else>确认修改</span>
                 </button>
               </form>
@@ -265,6 +265,8 @@ const showPassword = ref(false)
 const authError = ref('')
 const passwordError = ref('')
 const passwordSuccess = ref('')
+const isSubmitting = ref(false)
+const isChangingPassword = ref(false)
 
 const authForm = reactive({
   username: '',
@@ -344,51 +346,63 @@ const resetPasswordForm = () => {
 }
 
 const handleAuthSubmit = async () => {
+  if (isSubmitting.value) return
+  isSubmitting.value = true
   authError.value = ''
 
-  if (isRegistering.value) {
-    if (authForm.password !== authForm.confirmPassword) {
-      authError.value = '两次输入的密码不一致'
-      return
-    }
-    const result = await userStore.register(authForm.username, authForm.email, authForm.password)
-    if (result.success) {
-      closeLoginModal()
+  try {
+    if (isRegistering.value) {
+      if (authForm.password !== authForm.confirmPassword) {
+        authError.value = '两次输入的密码不一致'
+        return
+      }
+      const result = await userStore.register(authForm.username, authForm.email, authForm.password)
+      if (result.success) {
+        closeLoginModal()
+      } else {
+        authError.value = result.error
+      }
     } else {
-      authError.value = result.error
+      const result = await userStore.login(authForm.username, authForm.password)
+      if (result.success) {
+        closeLoginModal()
+      } else {
+        authError.value = result.error
+      }
     }
-  } else {
-    const result = await userStore.login(authForm.username, authForm.password)
-    if (result.success) {
-      closeLoginModal()
-    } else {
-      authError.value = result.error
-    }
+  } finally {
+    isSubmitting.value = false
   }
 }
 
 const handlePasswordChange = async () => {
+  if (isChangingPassword.value) return
+  isChangingPassword.value = true
   passwordError.value = ''
   passwordSuccess.value = ''
 
-  if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-    passwordError.value = '两次输入的新密码不一致'
-    return
-  }
+  try {
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      passwordError.value = '两次输入的新密码不一致'
+      return
+    }
 
-  if (passwordForm.newPassword.length < 6) {
-    passwordError.value = '新密码长度至少为6位'
-    return
-  }
+    if (passwordForm.newPassword.length < 6) {
+      passwordError.value = '新密码长度至少为6位'
+      return
+    }
 
-  const result = await userStore.changePassword(passwordForm.oldPassword, passwordForm.newPassword)
-  if (result.success) {
-    passwordSuccess.value = '密码修改成功'
-    setTimeout(() => {
-      closePasswordModal()
-    }, 1500)
-  } else {
-    passwordError.value = result.error
+    const result = await userStore.changePassword(passwordForm.oldPassword, passwordForm.newPassword)
+    if (result.success) {
+      passwordSuccess.value = '密码修改成功'
+      setTimeout(() => {
+        closePasswordModal()
+      }, 1500)
+    } else {
+      passwordError.value = result.error
+    }
+  } finally {
+    isChangingPassword.value = false
   }
 }
 

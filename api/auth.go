@@ -74,9 +74,10 @@ func Register(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{
 		"message": "注册成功",
 		"user": gin.H{
-			"id":       user.ID,
-			"username": user.Username,
-			"email":    user.Email,
+			"id":         user.ID,
+			"username":   user.Username,
+			"email":      user.Email,
+			"created_at": user.CreatedAt.Format("2006-01-02 15:04:05"),
 		},
 		"tokens": tokenPair,
 	})
@@ -111,9 +112,10 @@ func Login(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"message": "登录成功",
 		"user": gin.H{
-			"id":       user.ID,
-			"username": user.Username,
-			"email":    user.Email,
+			"id":         user.ID,
+			"username":   user.Username,
+			"email":      user.Email,
+			"created_at": user.CreatedAt.Format("2006-01-02 15:04:05"),
 		},
 		"tokens": tokenPair,
 	})
@@ -187,7 +189,7 @@ func GetMe(c *gin.Context) {
 			"id":         user.ID,
 			"username":   user.Username,
 			"email":      user.Email,
-			"created_at": user.CreatedAt,
+			"created_at": user.CreatedAt.Format("2006-01-02 15:04:05"),
 		},
 	})
 }
