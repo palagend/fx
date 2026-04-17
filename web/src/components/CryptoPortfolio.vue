@@ -376,13 +376,33 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import axios from 'axios'
 import { Icon } from '@iconify/vue'
+import { usePortfolioStore } from '../stores/portfolio'
+import { useUserStore } from '../stores/user'
 
-const portfolio = ref([])
-const trades = ref([])
-const realizedProfitLoss = ref(0)
+const portfolioStore = usePortfolioStore()
+const userStore = useUserStore()
+
+// 本地状态（优先使用store的数据）
+const portfolio = computed({
+  get: () => portfolioStore.portfolio.length > 0 ? portfolioStore.portfolio : localPortfolio.value,
+  set: (val) => { localPortfolio.value = val }
+})
+const trades = computed({
+  get: () => portfolioStore.trades.length > 0 ? portfolioStore.trades : localTrades.value,
+  set: (val) => { localTrades.value = val }
+})
+const realizedProfitLoss = computed({
+  get: () => userStore.isLoggedIn ? portfolioStore.realizedProfitLoss : localRealizedPL.value,
+  set: (val) => { localRealizedPL.value = val }
+})
+
+// 本地存储的数据（用于未登录状态）
+const localPortfolio = ref([])
+const localTrades = ref([])
+const localRealizedPL = ref(0)
 const newTrade = ref({
   symbol: '',
   type: 'buy',
@@ -476,7 +496,15 @@ const getTradeTypeText = (type) => {
   return map[type] || type
 }
 
+// 本地存储函数（仅在未登录时使用）
 const loadPortfolio = () => {
+  // 如果已登录，从后端加载数据
+  if (userStore.isLoggedIn) {
+    portfolioStore.fetchPortfolio()
+    return
+  }
+
+  // 未登录时从本地存储加载
   const savedPortfolio = localStorage.getItem(STORAGE_KEYS.PORTFOLIO)
   const savedTrades = localStorage.getItem(STORAGE_KEYS.TRADES)
   const savedRealizedPL = localStorage.getItem(STORAGE_KEYS.REALIZED_PL)
@@ -484,18 +512,18 @@ const loadPortfolio = () => {
   
   if (savedPortfolio) {
     const parsed = JSON.parse(savedPortfolio)
-    portfolio.value = parsed.map(item => ({
+    localPortfolio.value = parsed.map(item => ({
       ...item,
       id: item.id || Date.now() + Math.random()
     }))
   }
   
   if (savedTrades) {
-    trades.value = JSON.parse(savedTrades)
+    localTrades.value = JSON.parse(savedTrades)
   }
 
   if (savedRealizedPL) {
-    realizedProfitLoss.value = parseFloat(savedRealizedPL)
+    localRealizedPL.value = parseFloat(savedRealizedPL)
   }
 
   if (savedProtectHistory) {
@@ -504,15 +532,24 @@ const loadPortfolio = () => {
 }
 
 const savePortfolio = () => {
-  localStorage.setItem(STORAGE_KEYS.PORTFOLIO, JSON.stringify(portfolio.value))
+  // 未登录时保存到本地存储
+  if (!userStore.isLoggedIn) {
+    localStorage.setItem(STORAGE_KEYS.PORTFOLIO, JSON.stringify(localPortfolio.value))
+  }
 }
 
 const saveTrades = () => {
-  localStorage.setItem(STORAGE_KEYS.TRADES, JSON.stringify(trades.value))
+  // 未登录时保存到本地存储
+  if (!userStore.isLoggedIn) {
+    localStorage.setItem(STORAGE_KEYS.TRADES, JSON.stringify(localTrades.value))
+  }
 }
 
 const saveRealizedPL = () => {
-  localStorage.setItem(STORAGE_KEYS.REALIZED_PL, realizedProfitLoss.value.toString())
+  // 未登录时保存到本地存储
+  if (!userStore.isLoggedIn) {
+    localStorage.setItem(STORAGE_KEYS.REALIZED_PL, localRealizedPL.value.toString())
+  }
 }
 
 const saveProtectHistory = () => {
@@ -667,48 +704,65 @@ const executeSellTrade = (symbol, amount, price) => {
   return { success: true, realizedPL }
 }
 
-const rechargeUSDT = () => {
+const rechargeUSDT = async () => {
   if (!rechargeAmount.value || rechargeAmount.value <= 0) {
     errorMessage.value = '请输入有效的充值金额'
     setTimeout(() => errorMessage.value = '', 3000)
     return
   }
 
-  const trade = {
-    id: Date.now(),
-    symbol: 'USDT',
-    type: 'recharge',
-    amount: rechargeAmount.value,
-    price: 1,
-    total: rechargeAmount.value,
-    timestamp: Date.now()
-  }
-
-  trades.value.unshift(trade)
-
-  const existingIndex = portfolio.value.findIndex(c => c.symbol === 'USDT')
-  if (existingIndex !== -1) {
-    portfolio.value[existingIndex].amount += rechargeAmount.value
+  // 如果已登录，调用后端API
+  if (userStore.isLoggedIn) {
+    const result = await portfolioStore.createTrade({
+      symbol: 'USDT',
+      type: 'recharge',
+      amount: rechargeAmount.value,
+      price: 1
+    })
+    
+    if (!result.success) {
+      errorMessage.value = result.error
+      setTimeout(() => errorMessage.value = '', 3000)
+      return
+    }
   } else {
-    portfolio.value.push({
+    // 未登录时使用本地存储
+    const trade = {
       id: Date.now(),
       symbol: 'USDT',
+      type: 'recharge',
       amount: rechargeAmount.value,
       price: 1,
-      currentPrice: 1,
-      profitLoss: 0,
-      profitLossRate: 0
-    })
-  }
+      total: rechargeAmount.value,
+      timestamp: Date.now()
+    }
 
-  saveTrades()
-  savePortfolio()
+    localTrades.value.unshift(trade)
+
+    const existingIndex = localPortfolio.value.findIndex(c => c.symbol === 'USDT')
+    if (existingIndex !== -1) {
+      localPortfolio.value[existingIndex].amount += rechargeAmount.value
+    } else {
+      localPortfolio.value.push({
+        id: Date.now(),
+        symbol: 'USDT',
+        amount: rechargeAmount.value,
+        price: 1,
+        currentPrice: 1,
+        profitLoss: 0,
+        profitLossRate: 0
+      })
+    }
+
+    saveTrades()
+    savePortfolio()
+  }
 
   rechargeAmount.value = null
   showRechargeModal.value = false
 }
 
-const addTrade = () => {
+const addTrade = async () => {
   if (!newTrade.value.symbol) {
     errorMessage.value = '请选择加密货币'
     setTimeout(() => errorMessage.value = '', 3000)
@@ -727,37 +781,56 @@ const addTrade = () => {
     return
   }
 
-  const totalAmount = newTrade.value.amount * newTrade.value.price
-  let realizedPL = 0
-
-  if (newTrade.value.type === 'buy') {
-    if (!executeBuyTrade(newTrade.value.symbol, newTrade.value.amount, newTrade.value.price)) {
+  // 如果已登录，调用后端API
+  if (userStore.isLoggedIn) {
+    const result = await portfolioStore.createTrade({
+      symbol: newTrade.value.symbol,
+      type: newTrade.value.type,
+      amount: newTrade.value.amount,
+      price: newTrade.value.price
+    })
+    
+    if (!result.success) {
+      errorMessage.value = result.error
+      setTimeout(() => errorMessage.value = '', 3000)
       return
     }
+    
+    refreshPrices()
   } else {
-    const sellResult = executeSellTrade(newTrade.value.symbol, newTrade.value.amount, newTrade.value.price)
-    if (!sellResult || !sellResult.success) {
-      return
+    // 未登录时使用本地存储
+    const totalAmount = newTrade.value.amount * newTrade.value.price
+    let realizedPL = 0
+
+    if (newTrade.value.type === 'buy') {
+      if (!executeBuyTrade(newTrade.value.symbol, newTrade.value.amount, newTrade.value.price)) {
+        return
+      }
+    } else {
+      const sellResult = executeSellTrade(newTrade.value.symbol, newTrade.value.amount, newTrade.value.price)
+      if (!sellResult || !sellResult.success) {
+        return
+      }
+      realizedPL = sellResult.realizedPL
     }
-    realizedPL = sellResult.realizedPL
-  }
 
-  const trade = {
-    id: Date.now(),
-    symbol: newTrade.value.symbol,
-    type: newTrade.value.type,
-    amount: newTrade.value.amount,
-    price: newTrade.value.price,
-    total: totalAmount,
-    realizedPL: newTrade.value.type === 'sell' ? realizedPL : undefined,
-    timestamp: Date.now()
-  }
+    const trade = {
+      id: Date.now(),
+      symbol: newTrade.value.symbol,
+      type: newTrade.value.type,
+      amount: newTrade.value.amount,
+      price: newTrade.value.price,
+      total: totalAmount,
+      realizedPL: newTrade.value.type === 'sell' ? realizedPL : undefined,
+      timestamp: Date.now()
+    }
 
-  trades.value.unshift(trade)
-  saveTrades()
-  savePortfolio()
-  saveRealizedPL()
-  refreshPrices()
+    localTrades.value.unshift(trade)
+    saveTrades()
+    savePortfolio()
+    saveRealizedPL()
+    refreshPrices()
+  }
 
   newTrade.value = {
     symbol: '',
@@ -906,19 +979,28 @@ const deleteCrypto = (id) => {
   }
 }
 
-const clearTrades = () => {
+const clearTrades = async () => {
   if (protectHistory.value) {
     errorMessage.value = '保护开关已开启，禁止删除交易历史'
     setTimeout(() => errorMessage.value = '', 3000)
     return
   }
   if (confirm('确认清空所有交易历史？此操作将重置所有数据。')) {
-    trades.value = []
-    portfolio.value = []
-    realizedProfitLoss.value = 0
-    saveTrades()
-    savePortfolio()
-    saveRealizedPL()
+    if (userStore.isLoggedIn) {
+      const result = await portfolioStore.clearAllTrades()
+      if (!result.success) {
+        errorMessage.value = result.error
+        setTimeout(() => errorMessage.value = '', 3000)
+        return
+      }
+    } else {
+      localTrades.value = []
+      localPortfolio.value = []
+      localRealizedPL.value = 0
+      saveTrades()
+      savePortfolio()
+      saveRealizedPL()
+    }
   }
 }
 
@@ -1253,6 +1335,19 @@ onMounted(() => {
 onUnmounted(() => {
   if (refreshTimer) {
     clearInterval(refreshTimer)
+  }
+})
+
+// 监听登录状态变化，自动同步数据
+watch(() => userStore.isLoggedIn, async (isLoggedIn) => {
+  if (isLoggedIn) {
+    // 登录后从后端加载数据
+    await portfolioStore.fetchPortfolio()
+    // 刷新价格
+    await refreshPrices()
+  } else {
+    // 登出后加载本地数据
+    loadPortfolio()
   }
 })
 </script>

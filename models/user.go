@@ -25,5 +25,5 @@ type RefreshToken struct {
 }
 
 func AutoMigrate(db *gorm.DB) error {
-	return db.AutoMigrate(&User{}, &RefreshToken{})
+	return db.AutoMigrate(&User{}, &RefreshToken{}, &Trade{}, &Holding{})
 }
