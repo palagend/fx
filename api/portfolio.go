@@ -1,14 +1,64 @@
 package api
 
 import (
+	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"gitee.com/palagend/fx/config"
 	"gitee.com/palagend/fx/models"
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
+
+// 辅助函数：获取持仓
+func getHolding(tx *gorm.DB, userID uint, symbol string) (*models.Holding, error) {
+	var holding models.Holding
+	err := tx.Where("user_id = ? AND symbol = ?", userID, symbol).First(&holding).Error
+	return &holding, err
+}
+
+// 辅助函数：获取或创建持仓
+func getOrCreateHolding(tx *gorm.DB, userID uint, symbol string, defaultCost float64) (*models.Holding, error) {
+	holding, err := getHolding(tx, userID, symbol)
+	if err != nil {
+		holding = &models.Holding{UserID: userID, Symbol: symbol, AvgCost: defaultCost}
+		err = tx.Create(holding).Error
+	}
+	return holding, err
+}
+
+// 辅助函数：更新持仓数量（正数增加，负数减少）
+func updateHoldingAmount(tx *gorm.DB, holding *models.Holding, delta float64) error {
+	holding.Amount += delta
+	if holding.Amount <= 0 {
+		return tx.Delete(holding).Error
+	}
+	return tx.Save(holding).Error
+}
+
+// 辅助函数：更新加密资产持仓（买入时计算新平均成本）
+func updateCryptoHolding(tx *gorm.DB, userID uint, symbol string, amount, price float64) error {
+	holding, err := getHolding(tx, userID, symbol)
+	if err != nil {
+		// 新建持仓
+		return tx.Create(&models.Holding{
+			UserID:  userID,
+			Symbol:  symbol,
+			Amount:  amount,
+			AvgCost: price,
+		}).Error
+	}
+	// 更新平均成本
+	totalCost := holding.Amount*holding.AvgCost + amount*price
+	totalAmount := holding.Amount + amount
+	holding.Amount = totalAmount
+	holding.AvgCost = totalCost / totalAmount
+	return tx.Save(holding).Error
+}
 
 // CreateTradeRequest 创建交易请求
 type CreateTradeRequest struct {
@@ -39,15 +89,13 @@ type HoldingResponse struct {
 	CreatedAt string  `json:"created_at"`
 }
 
-// PortfolioSummaryResponse 资产组合摘要响应
+// PortfolioSummaryResponse 资产组合摘要响应 - 仅返回实现盈亏，其他数据由前端计算
 type PortfolioSummaryResponse struct {
-	TotalValue         float64           `json:"total_value"`
-	USDTBalance        float64           `json:"usdt_balance"`
 	RealizedProfitLoss float64           `json:"realized_profit_loss"`
 	Holdings           []HoldingResponse `json:"holdings"`
 }
 
-// CreateTrade 创建交易记录
+// CreateTrade 创建交易记录 - 支持USDT余额管理
 func CreateTrade(c *gin.Context) {
 	userID, exists := c.Get("userID")
 	if !exists {
@@ -63,94 +111,91 @@ func CreateTrade(c *gin.Context) {
 
 	db := config.GetDB()
 	uid := userID.(uint)
-
-	// 计算交易总额
 	total := req.Amount * req.Price
 
-	// 获取或创建持仓
-	var holding models.Holding
-	err := db.Where("user_id = ? AND symbol = ?", uid, req.Symbol).First(&holding).Error
-
-	var realizedPL float64 = 0
-
-	if req.Type == "buy" || req.Type == "recharge" {
-		// 买入或充值
-		if err != nil {
-			// 新建持仓
-			holding = models.Holding{
-				UserID:  uid,
-				Symbol:  req.Symbol,
-				Amount:  req.Amount,
-				AvgCost: req.Price,
-			}
-			if err := db.Create(&holding).Error; err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "创建持仓失败"})
-				return
-			}
-		} else {
-			// 更新持仓 - 计算新的平均成本
-			newTotalAmount := holding.Amount + req.Amount
-			newAvgCost := (holding.Amount*holding.AvgCost + req.Amount*req.Price) / newTotalAmount
-			holding.Amount = newTotalAmount
-			holding.AvgCost = newAvgCost
-			if err := db.Save(&holding).Error; err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "更新持仓失败"})
-				return
-			}
+	tx := db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
 		}
-	} else if req.Type == "sell" {
-		// 卖出
+	}()
+
+	usdtHolding, usdtErr := getOrCreateHolding(tx, uid, "USDT", 1.0)
+
+	switch req.Type {
+	case "recharge":
+		if err := updateHoldingAmount(tx, usdtHolding, req.Amount); err != nil {
+			tx.Rollback()
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+	case "buy":
+		if usdtErr != nil || usdtHolding.Amount < total {
+			tx.Rollback()
+			c.JSON(http.StatusBadRequest, gin.H{"error": "USDT余额不足"})
+			return
+		}
+
+		if err := updateHoldingAmount(tx, usdtHolding, -total); err != nil {
+			tx.Rollback()
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		if err := updateCryptoHolding(tx, uid, req.Symbol, req.Amount, req.Price); err != nil {
+			tx.Rollback()
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+	case "sell":
+		holding, err := getHolding(tx, uid, req.Symbol)
 		if err != nil || holding.Amount < req.Amount {
+			tx.Rollback()
 			c.JSON(http.StatusBadRequest, gin.H{"error": "持仓不足"})
 			return
 		}
 
-		// 计算实现盈亏
-		realizedPL = (req.Price - holding.AvgCost) * req.Amount
+		realizedPL := (req.Price - holding.AvgCost) * req.Amount
 
-		// 更新持仓
-		holding.Amount -= req.Amount
-		if holding.Amount == 0 {
-			// 如果持仓为0，删除记录
-			if err := db.Delete(&holding).Error; err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "删除持仓失败"})
-				return
-			}
-		} else {
-			if err := db.Save(&holding).Error; err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "更新持仓失败"})
-				return
-			}
+		if err := updateHoldingAmount(tx, holding, -req.Amount); err != nil {
+			tx.Rollback()
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
 		}
+
+		if err := updateHoldingAmount(tx, usdtHolding, total); err != nil {
+			tx.Rollback()
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		_ = realizedPL
 	}
 
-	// 创建交易记录
 	trade := models.Trade{
-		UserID:     uid,
-		Symbol:     req.Symbol,
-		Type:       req.Type,
-		Amount:     req.Amount,
-		Price:      req.Price,
-		Total:      total,
-		RealizedPL: realizedPL,
+		UserID: uid, Symbol: req.Symbol, Type: req.Type,
+		Amount: req.Amount, Price: req.Price, Total: total,
 	}
 
-	if err := db.Create(&trade).Error; err != nil {
+	if err := tx.Create(&trade).Error; err != nil {
+		tx.Rollback()
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "创建交易记录失败"})
+		return
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "提交交易失败"})
 		return
 	}
 
 	c.JSON(http.StatusCreated, gin.H{
 		"message": "交易成功",
 		"trade": gin.H{
-			"id":          trade.ID,
-			"symbol":      trade.Symbol,
-			"type":        trade.Type,
-			"amount":      trade.Amount,
-			"price":       trade.Price,
-			"total":       trade.Total,
-			"realized_pl": trade.RealizedPL,
-			"created_at":  trade.CreatedAt.Format("2006-01-02 15:04:05"),
+			"id": trade.ID, "symbol": trade.Symbol, "type": trade.Type,
+			"amount": trade.Amount, "price": trade.Price, "total": trade.Total,
+			"created_at": trade.CreatedAt.Format("2006-01-02 15:04:05"),
 		},
 	})
 }
@@ -254,7 +299,7 @@ func GetHoldings(c *gin.Context) {
 	})
 }
 
-// GetPortfolioSummary 获取资产组合摘要
+// GetPortfolioSummary 获取资产组合摘要 - 仅返回实现盈亏和持仓列表
 func GetPortfolioSummary(c *gin.Context) {
 	userID, exists := c.Get("userID")
 	if !exists {
@@ -272,20 +317,7 @@ func GetPortfolioSummary(c *gin.Context) {
 		return
 	}
 
-	// 计算USDT余额和总资产
-	var usdtBalance float64 = 0
-	var totalValue float64 = 0
-
-	for _, holding := range holdings {
-		if holding.Symbol == "USDT" {
-			usdtBalance = holding.Amount
-		}
-		// 这里简化处理，实际应该获取实时价格
-		// 暂时使用平均成本作为当前价格估算
-		totalValue += holding.Amount * holding.AvgCost
-	}
-
-	// 计算实现盈亏
+	// 计算实现盈亏（仅由后端计算，因为涉及历史交易记录）
 	var totalRealizedPL float64
 	db.Model(&models.Trade{}).Where("user_id = ? AND type = ?", uid, "sell").Select("COALESCE(SUM(realized_pl), 0)").Scan(&totalRealizedPL)
 
@@ -302,14 +334,12 @@ func GetPortfolioSummary(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, PortfolioSummaryResponse{
-		TotalValue:         totalValue,
-		USDTBalance:        usdtBalance,
 		RealizedProfitLoss: totalRealizedPL,
 		Holdings:           holdingsResponse,
 	})
 }
 
-// DeleteTrade 删除交易记录（仅管理员或特定情况使用）
+// DeleteTrade 删除交易记录 - 会重新计算相关资产的持仓和USDT余额
 func DeleteTrade(c *gin.Context) {
 	userID, exists := c.Get("userID")
 	if !exists {
@@ -319,19 +349,92 @@ func DeleteTrade(c *gin.Context) {
 
 	tradeID := c.Param("id")
 	db := config.GetDB()
+	uid := userID.(uint)
 
 	var trade models.Trade
-	if err := db.Where("id = ? AND user_id = ?", tradeID, userID.(uint)).First(&trade).Error; err != nil {
+	if err := db.Where("id = ? AND user_id = ?", tradeID, uid).First(&trade).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "交易记录不存在"})
 		return
 	}
 
-	if err := db.Delete(&trade).Error; err != nil {
+	tx := db.Begin()
+
+	if err := tx.Delete(&trade).Error; err != nil {
+		tx.Rollback()
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "删除交易记录失败"})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "交易记录已删除"})
+	// 重新计算该资产持仓
+	if trade.Symbol != "USDT" {
+		if err := recalcHolding(tx, uid, trade.Symbol); err != nil {
+			tx.Rollback()
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+	}
+
+	// 重新计算USDT余额
+	if err := recalcUSDT(tx, uid); err != nil {
+		tx.Rollback()
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "提交删除操作失败"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "交易记录已删除，持仓已重新计算"})
+}
+
+// 重新计算资产持仓
+func recalcHolding(tx *gorm.DB, uid uint, symbol string) error {
+	tx.Where("user_id = ? AND symbol = ?", uid, symbol).Delete(&models.Holding{})
+
+	var trades []models.Trade
+	if err := tx.Where("user_id = ? AND symbol = ? AND type IN ?", uid, symbol, []string{"buy", "sell"}).
+		Order("created_at ASC").Find(&trades).Error; err != nil {
+		return fmt.Errorf("获取交易记录失败")
+	}
+
+	var amount, cost float64
+	for _, t := range trades {
+		if t.Type == "buy" {
+			cost += t.Amount * t.Price
+			amount += t.Amount
+		} else {
+			if amount > 0 {
+				cost = cost * (amount - t.Amount) / amount
+			}
+			amount -= t.Amount
+		}
+	}
+
+	if amount > 0 {
+		return tx.Create(&models.Holding{UserID: uid, Symbol: symbol, Amount: amount, AvgCost: cost / amount}).Error
+	}
+	return nil
+}
+
+// 重新计算USDT余额
+func recalcUSDT(tx *gorm.DB, uid uint) error {
+	tx.Where("user_id = ? AND symbol = ?", uid, "USDT").Delete(&models.Holding{})
+
+	var recharge, buyTotal, sellTotal float64
+	tx.Model(&models.Trade{}).Where("user_id = ? AND symbol = ? AND type = ?", uid, "USDT", "recharge").
+		Select("COALESCE(SUM(amount), 0)").Scan(&recharge)
+	tx.Model(&models.Trade{}).Where("user_id = ? AND type = ?", uid, "buy").
+		Select("COALESCE(SUM(total), 0)").Scan(&buyTotal)
+	tx.Model(&models.Trade{}).Where("user_id = ? AND type = ?", uid, "sell").
+		Select("COALESCE(SUM(total), 0)").Scan(&sellTotal)
+
+	balance := recharge - buyTotal + sellTotal
+	if balance > 0 {
+		return tx.Create(&models.Holding{UserID: uid, Symbol: "USDT", Amount: balance, AvgCost: 1.0}).Error
+	}
+	return nil
 }
 
 // ClearTrades 清空所有交易记录
@@ -386,26 +489,69 @@ func GetAssetPrice(c *gin.Context) {
 	})
 }
 
-// GetAllPrices 获取所有资产价格
+// GetAllPrices 获取所有资产价格 - 从CoinCap获取实时价格
 func GetAllPrices(c *gin.Context) {
-	// 模拟价格数据
-	prices := map[string]float64{
-		"BTC":  65000.0,
-		"ETH":  3500.0,
-		"BNB":  600.0,
-		"XRP":  0.6,
-		"ADA":  0.5,
-		"SOL":  150.0,
-		"DOGE": 0.15,
-		"TRX":  0.12,
-		"AVAX": 35.0,
-		"HYPE": 10.0,
-		"USDT": 1.0,
+	// 支持的资产列表
+	symbols := []string{"BTC", "ETH", "BNB", "XRP", "ADA", "SOL", "DOGE", "TRX", "AVAX"}
+	symbolsParam := strings.Join(symbols, ",")
+
+	// 调用CoinCap API
+	url := fmt.Sprintf("https://rest.coincap.io/v3/assets?ids=%s", symbolsParam)
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "创建请求失败"})
+		return
 	}
 
+	// 添加Authorization头
+	req.Header.Add("Authorization", "Bearer b617d9cf029dbb40f02b058a0e74919176b768cf36fd1ea6fae55a13a1610f41")
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "获取价格失败"})
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "价格服务暂时不可用"})
+		return
+	}
+
+	var result struct {
+		Data []struct {
+			Symbol            string `json:"symbol"`
+			PriceUsd          string `json:"priceUsd"`
+			ChangePercent24Hr string `json:"changePercent24Hr"`
+		} `json:"data"`
+		Timestamp int64 `json:"timestamp"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "解析价格数据失败"})
+		return
+	}
+
+	// 构建价格映射
+	prices := make(map[string]float64)
+	priceChanges := make(map[string]float64)
+
+	for _, item := range result.Data {
+		price, _ := strconv.ParseFloat(item.PriceUsd, 64)
+		change24h, _ := strconv.ParseFloat(item.ChangePercent24Hr, 64)
+		prices[item.Symbol] = price
+		priceChanges[item.Symbol] = change24h
+	}
+
+	// USDT固定为1.0
+	prices["USDT"] = 1.0
+	priceChanges["USDT"] = 0
+
 	c.JSON(http.StatusOK, gin.H{
-		"prices":     prices,
-		"updated_at": time.Now().Format("2006-01-02 15:04:05"),
+		"prices":        prices,
+		"price_changes": priceChanges,
+		"updated_at":    time.Now().Format("2006-01-02 15:04:05"),
 	})
 }
 

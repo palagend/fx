@@ -11,8 +11,6 @@ export const usePortfolioStore = defineStore('portfolio', () => {
   const trades = ref([])
   const prices = ref({})
   const realizedProfitLoss = ref(0)
-  const totalValue = ref(0)
-  const usdtBalance = ref(0)
   const isLoading = ref(false)
   const error = ref(null)
 
@@ -34,6 +32,17 @@ export const usePortfolioStore = defineStore('portfolio', () => {
         profitLossRate
       }
     })
+  })
+
+  // 计算属性 - 总资产价值（基于实时价格）
+  const totalValue = computed(() => {
+    return portfolio.value.reduce((sum, item) => sum + item.value, 0)
+  })
+
+  // 计算属性 - USDT余额
+  const usdtBalance = computed(() => {
+    const usdtHolding = holdings.value.find(h => h.symbol === 'USDT')
+    return usdtHolding ? usdtHolding.amount : 0
   })
 
   const totalValueChange24h = computed(() => {
@@ -61,8 +70,16 @@ export const usePortfolioStore = defineStore('portfolio', () => {
     try {
       const response = await portfolioApi.getAllPrices()
       prices.value = response.data.prices
+      // 同时返回价格变化数据
+      return {
+        success: true,
+        prices: response.data.prices,
+        priceChanges: response.data.price_changes,
+        updatedAt: response.data.updated_at
+      }
     } catch (err) {
       console.error('获取价格失败:', err)
+      return { success: false, error: err.response?.data?.error || '获取价格失败' }
     }
   }
 
@@ -72,8 +89,6 @@ export const usePortfolioStore = defineStore('portfolio', () => {
       holdings.value = []
       trades.value = []
       realizedProfitLoss.value = 0
-      totalValue.value = 0
-      usdtBalance.value = 0
       return
     }
     
@@ -88,8 +103,6 @@ export const usePortfolioStore = defineStore('portfolio', () => {
         portfolioApi.getTrades()
       ])
 
-      totalValue.value = summaryRes.data.total_value
-      usdtBalance.value = summaryRes.data.usdt_balance
       realizedProfitLoss.value = summaryRes.data.realized_profit_loss
       holdings.value = summaryRes.data.holdings || holdingsRes.data.holdings || []
       trades.value = tradesRes.data.trades || []

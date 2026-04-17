@@ -54,6 +54,20 @@
             <section class="chart-section">
               <div class="chart-header">
                 <h2 class="chart-title"><Icon icon="mdi:chart-pie" /> 资产分布</h2>
+                <div class="chart-actions">
+                  <span v-if="lastUpdateTime" class="update-time">
+                    更新于: {{ lastUpdateTime }}
+                  </span>
+                  <button 
+                    class="btn-refresh" 
+                    @click="refreshPrices" 
+                    :disabled="refreshing"
+                    :class="{ 'refreshing': refreshing }"
+                  >
+                    <Icon :icon="refreshing ? 'mdi:loading' : 'mdi:refresh'" />
+                    {{ refreshing ? '刷新中...' : '刷新价格' }}
+                  </button>
+                </div>
               </div>
 
               <div class="chart-container">
@@ -127,14 +141,42 @@
                     当前: ${{ formatNumber(prices[newTrade.symbol] || 0) }}
                   </span>
                 </div>
-                <div class="estimated-value" v-if="newTrade.amount && newTrade.price">
-                  <span>预估: ${{ formatNumber(newTrade.amount * newTrade.price) }}</span>
-                  <span v-if="newTrade.type === 'sell' && newTrade.symbol" class="estimated-pl">
-                    预估盈亏: 
-                    <span :class="calculateEstimatedRealizedPL() >= 0 ? 'positive' : 'negative'">
+                <!-- 交易预览 -->
+                <div class="trade-preview" v-if="newTrade.symbol && newTrade.amount && newTrade.price">
+                  <div class="preview-row">
+                    <span class="preview-label">交易总额:</span>
+                    <span class="preview-value">${{ formatNumber(newTrade.amount * newTrade.price) }}</span>
+                  </div>
+                  <div class="preview-row" v-if="newTrade.type === 'buy'">
+                    <span class="preview-label">最新市价:</span>
+                    <span class="preview-value">${{ formatNumber(prices[newTrade.symbol] || newTrade.price) }}</span>
+                  </div>
+                  <div class="preview-row" v-if="newTrade.type === 'buy' && getHoldingAmount(newTrade.symbol) > 0">
+                    <span class="preview-label">综合成本价:</span>
+                    <span class="preview-value">${{ formatNumber(calculateNewAvgCost()) }}</span>
+                  </div>
+                  <div class="preview-row" v-if="newTrade.type === 'buy'">
+                    <span class="preview-label">买入后持仓:</span>
+                    <span class="preview-value">{{ formatNumber(getHoldingAmount(newTrade.symbol) + newTrade.amount) }} {{ newTrade.symbol }}</span>
+                  </div>
+                  <div class="preview-row" v-if="newTrade.type === 'sell'">
+                    <span class="preview-label">预估盈亏:</span>
+                    <span class="preview-value" :class="calculateEstimatedRealizedPL() >= 0 ? 'positive' : 'negative'">
                       {{ calculateEstimatedRealizedPL() >= 0 ? '+' : '-' }}${{ formatNumber(Math.abs(calculateEstimatedRealizedPL())) }}
                     </span>
-                  </span>
+                  </div>
+                  <div class="preview-row" v-if="newTrade.type === 'sell'">
+                    <span class="preview-label">卖出后持仓:</span>
+                    <span class="preview-value">{{ formatNumber(Math.max(0, getHoldingAmount(newTrade.symbol) - newTrade.amount)) }} {{ newTrade.symbol }}</span>
+                  </div>
+                  <div class="preview-row" v-if="newTrade.type === 'buy'">
+                    <span class="preview-label">USDT余额变化:</span>
+                    <span class="preview-value negative">-${{ formatNumber(newTrade.amount * newTrade.price) }}</span>
+                  </div>
+                  <div class="preview-row" v-if="newTrade.type === 'sell'">
+                    <span class="preview-label">USDT余额变化:</span>
+                    <span class="preview-value positive">+${{ formatNumber(newTrade.amount * newTrade.price) }}</span>
+                  </div>
                 </div>
                 <button class="btn-add" @click="addTrade" :disabled="!isFormValid || portfolioStore.isLoading">
                   <Icon icon="mdi:plus" />
@@ -493,6 +535,22 @@ const calculateEstimatedRealizedPL = () => {
   return (newTrade.value.price - (existing.avg_cost || existing.price)) * newTrade.value.amount
 }
 
+// 计算买入后的新综合成本价
+const calculateNewAvgCost = () => {
+  if (newTrade.value.type !== 'buy' || !newTrade.value.symbol) return 0
+  const existing = portfolio.value.find(c => c.symbol === newTrade.value.symbol)
+  const currentAmount = existing ? existing.amount : 0
+  const currentAvgCost = existing ? existing.avg_cost : 0
+  const newAmount = newTrade.value.amount
+  const newPrice = newTrade.value.price
+
+  if (currentAmount === 0) return newPrice
+
+  const totalCost = currentAmount * currentAvgCost + newAmount * newPrice
+  const totalAmount = currentAmount + newAmount
+  return totalCost / totalAmount
+}
+
 const addTrade = async () => {
   if (!newTrade.value.symbol) {
     errorMessage.value = '请选择加密货币'
@@ -744,46 +802,39 @@ const getChangeClass = (change) => {
   return ''
 }
 
-const getPricesFromCoincap = async () => {
-  try {
-    const response = await axios.get('https://rest.coincap.io/v3/assets', {
-      headers: {
-        'Authorization': 'Bearer b617d9cf029dbb40f02b058a0e74919176b768cf36fd1ea6fae55a13a1610f41'
-      }
-    })
-    const data = response.data.data
-    const serverTimestamp = response.data.timestamp
-
-    data.forEach(item => {
-      const symbol = item.symbol
-      const price = parseFloat(item.priceUsd)
-      const change24h = parseFloat(item.changePercent24Hr) || 0
-      prices.value[symbol] = price
-      priceChanges24h.value[symbol] = change24h
-    })
-
-    console.log('Successfully fetched prices from coincap')
-    return serverTimestamp
-  } catch (error) {
-    console.error('Failed to get prices from coincap:', error)
-    throw error
-  }
-}
+// 防抖计时器
+let refreshDebounceTimer = null
+const REFRESH_DEBOUNCE_MS = 5000 // 5秒内禁止重复刷新
 
 const refreshPrices = async () => {
   if (refreshing.value) return
   
+  // 防抖检查
+  if (refreshDebounceTimer) {
+    errorMessage.value = '刷新过于频繁，请稍后再试'
+    setTimeout(() => errorMessage.value = '', 2000)
+    return
+  }
+  
+  // 设置防抖计时器
+  refreshDebounceTimer = setTimeout(() => {
+    refreshDebounceTimer = null
+  }, REFRESH_DEBOUNCE_MS)
+  
   refreshing.value = true
   errorMessage.value = ''
-  prices.value = {}
 
   try {
-    const serverTimestamp = await getPricesFromCoincap()
+    const result = await portfolioStore.fetchPrices()
     
-    // 更新store中的价格
-    portfolioStore.prices = prices.value
-    
-    lastUpdateTime.value = formatDate(serverTimestamp)
+    if (result.success) {
+      // 同步本地价格状态
+      prices.value = result.prices
+      priceChanges24h.value = result.priceChanges || {}
+      lastUpdateTime.value = formatDate(result.updatedAt)
+    } else {
+      errorMessage.value = result.error || '获取价格失败'
+    }
   } catch (error) {
     console.error('Failed to fetch prices:', error)
     errorMessage.value = '获取价格失败，请检查网络连接'
@@ -821,14 +872,16 @@ const filteredTrades = computed(() => {
 })
 
 const assetAllocation = computed(() => {
-  if (portfolio.value.length === 0) return []
+  // 获取所有持仓（包括USDT）
+  const allHoldings = portfolio.value
+  if (allHoldings.length === 0) return []
 
   const total = totalValue.value
   if (total === 0) return []
 
-  const allocation = portfolio.value.map((crypto, index) => {
-    const value = crypto.amount * (crypto.currentPrice || (crypto.avg_cost || crypto.price))
-    const percentage = ((value / total) * 100).toFixed(1)
+  const allocation = allHoldings.map((crypto, index) => {
+    const value = crypto.value || 0
+    const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : '0.0'
     const color = ASSET_CONFIG.COLORS[crypto.symbol] || CHART_COLORS[index % CHART_COLORS.length]
 
     return {
@@ -837,7 +890,7 @@ const assetAllocation = computed(() => {
       value,
       color
     }
-  }).sort((a, b) => b.value - a.value)
+  }).filter(item => item.value > 0).sort((a, b) => b.value - a.value)
 
   return allocation
 })
@@ -1076,6 +1129,11 @@ watch(() => userStore.isLoggedIn, async (isLoggedIn) => {
 
 .chart-header {
   margin-bottom: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
 }
 
 .chart-title {
@@ -1089,6 +1147,55 @@ watch(() => userStore.isLoggedIn, async (isLoggedIn) => {
 
 .dark .chart-title {
   color: #f3f4f6;
+}
+
+.chart-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.update-time {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.dark .update-time {
+  color: #9ca3af;
+}
+
+.btn-refresh {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.btn-refresh:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
+}
+
+.btn-refresh:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.btn-refresh.refreshing svg {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 .chart-container {
@@ -1297,6 +1404,59 @@ watch(() => userStore.isLoggedIn, async (isLoggedIn) => {
 }
 
 .estimated-pl .negative {
+  color: #ef4444;
+}
+
+/* 交易预览样式 */
+.trade-preview {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+  padding: 16px;
+  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+  border-radius: 12px;
+  border: 1px solid #bae6fd;
+  margin-top: 8px;
+}
+
+.dark .trade-preview {
+  background: linear-gradient(135deg, #1e3a5f 0%, #1e293b 100%);
+  border-color: #334155;
+}
+
+.preview-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.preview-label {
+  font-size: 13px;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.dark .preview-label {
+  color: #9ca3af;
+}
+
+.preview-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.dark .preview-value {
+  color: #f3f4f6;
+}
+
+.preview-value.positive {
+  color: #10b981;
+}
+
+.preview-value.negative {
   color: #ef4444;
 }
 
