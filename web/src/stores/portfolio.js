@@ -17,17 +17,21 @@ export const usePortfolioStore = defineStore('portfolio', () => {
   // 计算属性 - 投资组合（包含实时价格计算）
   const portfolio = computed(() => {
     return holdings.value.map(holding => {
-      const currentPrice = prices.value[holding.symbol] || 0
-      const value = holding.amount * currentPrice
-      const cost = holding.amount * holding.avg_cost
-      const profitLoss = value - cost
-      const profitLossRate =  (profitLoss / cost) * 100
+      // USDT价格固定为1，其他资产从prices获取
+      const currentPrice = holding.symbol === 'USDT' ? 1 : (prices.value[holding.symbol] || -1)
+      const marketValue = holding.amount * currentPrice
+      // USDT的成本固定为1，其他资产使用avg_cost
+      const avgCost = holding.symbol === 'USDT' ? 1 : (holding.avg_cost || -1)
+      const cost = holding.amount * avgCost
+      const profitLoss = marketValue - cost
+      const profitLossRate = (profitLoss / cost) * 100
 
       return {
         ...holding,
         currentPrice,
-        value,
+        marketValue,
         cost,
+        avgCost,
         profitLoss,
         profitLossRate
       }
@@ -36,13 +40,13 @@ export const usePortfolioStore = defineStore('portfolio', () => {
 
   // 计算属性 - 总资产价值（包含USDT）
   const totalValue = computed(() => {
-    return portfolio.value.reduce((sum, item) => sum + item.value, 0)
+    return portfolio.value.reduce((sum, item) => sum + item.marketValue, 0)
   })
 
   // 计算属性 - USDT余额
   const usdtBalance = computed(() => {
     const usdtHolding = holdings.value.find(h => h.symbol === 'USDT')
-    return usdtHolding ? usdtHolding.amount : 0
+    return usdtHolding ? usdtHolding.amount : -1
   })
 
   // 计算属性 - 浮动盈亏（未实现盈亏）
@@ -66,15 +70,32 @@ export const usePortfolioStore = defineStore('portfolio', () => {
   async function fetchPrices() {
     try {
       const response = await portfolioApi.getAllPrices()
-      prices.value = response.data.prices
+      prices.value = response.data.prices || {}
       return {
         success: true,
-        prices: response.data.prices,
-        priceChanges: response.data.price_changes,
+        prices: response.data.prices || {},
+        priceChanges: response.data.price_changes || {},
         updatedAt: response.data.updated_at
       }
     } catch (err) {
       console.error('获取价格失败:', err)
+      return { success: false, error: err.response?.data?.error || '获取价格失败' }
+    }
+  }
+
+  // 获取单个资产价格
+  async function fetchAssetPrice(symbol) {
+    try {
+      const response = await portfolioApi.getAssetPrice(symbol)
+      // 更新 prices 对象
+      prices.value = { ...prices.value, [symbol]: response.data.price }
+      return {
+        success: true,
+        price: response.data.price,
+        updatedAt: response.data.updated_at
+      }
+    } catch (err) {
+      console.error(`获取${symbol}价格失败:`, err)
       return { success: false, error: err.response?.data?.error || '获取价格失败' }
     }
   }
@@ -183,6 +204,7 @@ export const usePortfolioStore = defineStore('portfolio', () => {
     totalProfitLoss,
     // Actions
     fetchPrices,
+    fetchAssetPrice,
     fetchPortfolio,
     createTrade,
     deleteTrade,

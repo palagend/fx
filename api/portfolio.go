@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"log"
+
 	"gitee.com/palagend/fx/config"
 	"gitee.com/palagend/fx/models"
 	"github.com/gin-gonic/gin"
@@ -23,6 +25,7 @@ func getOrCreateHolding(tx *gorm.DB, userID uint, symbol string) (*models.Holdin
 	if err != nil {
 		holding = models.Holding{UserID: userID, Symbol: symbol, Amount: 0}
 		err = tx.Create(&holding).Error
+		log.Printf("创建持仓失败: %v", err)
 		return &holding, err
 	}
 	return &holding, nil
@@ -43,7 +46,7 @@ func getOrCreateInvestment(tx *gorm.DB, userID uint, symbol string) (*models.Inv
 // updateHolding 更新持仓数量
 func updateHolding(tx *gorm.DB, holding *models.Holding, delta float64) error {
 	holding.Amount += delta
-	if holding.Amount <= 0 {
+	if holding.Amount < 0 {
 		return tx.Delete(holding).Error
 	}
 	return tx.Save(holding).Error
@@ -81,12 +84,12 @@ type TradeResponse struct {
 }
 
 type HoldingResponse struct {
-	ID       uint    `json:"id"`
-	Symbol   string  `json:"symbol"`
-	Amount   float64 `json:"amount"`
-	AvgCost  float64 `json:"avg_cost"`  // 实时计算
-	Value    float64 `json:"value"`     // 实时计算
-	Profit   float64 `json:"profit"`    // 实时计算
+	ID      uint    `json:"id"`
+	Symbol  string  `json:"symbol"`
+	Amount  float64 `json:"amount"`
+	AvgCost float64 `json:"avg_cost"` // 实时计算
+	Value   float64 `json:"value"`    // 实时计算
+	Profit  float64 `json:"profit"`   // 实时计算
 }
 
 type InvestmentResponse struct {
@@ -125,7 +128,12 @@ func CreateTrade(c *gin.Context) {
 	switch req.Type {
 	case "recharge":
 		// USDT充值：USDT持仓增加
-		usdtHolding, _ := getOrCreateHolding(tx, uid, "USDT")
+		usdtHolding, err := getOrCreateHolding(tx, uid, "USDT")
+		if err != nil {
+			tx.Rollback()
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "创建USDT持仓失败"})
+			return
+		}
 		if err := updateHolding(tx, usdtHolding, req.Amount); err != nil {
 			tx.Rollback()
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "更新USDT持仓失败"})
@@ -134,7 +142,12 @@ func CreateTrade(c *gin.Context) {
 
 	case "buy":
 		// 买入：检查USDT余额 -> 减少USDT -> 增加加密资产 -> 记录投入
-		usdtHolding, _ := getOrCreateHolding(tx, uid, "USDT")
+		usdtHolding, err := getOrCreateHolding(tx, uid, "USDT")
+		if err != nil {
+			tx.Rollback()
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "获取USDT持仓失败"})
+			return
+		}
 		if usdtHolding.Amount < total {
 			tx.Rollback()
 			c.JSON(http.StatusBadRequest, gin.H{"error": "USDT余额不足"})
@@ -149,7 +162,12 @@ func CreateTrade(c *gin.Context) {
 		}
 
 		// 增加加密资产
-		cryptoHolding, _ := getOrCreateHolding(tx, uid, req.Symbol)
+		cryptoHolding, err := getOrCreateHolding(tx, uid, req.Symbol)
+		if err != nil {
+			tx.Rollback()
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "创建持仓失败"})
+			return
+		}
 		if err := updateHolding(tx, cryptoHolding, req.Amount); err != nil {
 			tx.Rollback()
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "更新持仓失败"})
@@ -157,7 +175,12 @@ func CreateTrade(c *gin.Context) {
 		}
 
 		// 记录USDT投入
-		inv, _ := getOrCreateInvestment(tx, uid, req.Symbol)
+		inv, err := getOrCreateInvestment(tx, uid, req.Symbol)
+		if err != nil {
+			tx.Rollback()
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "创建投资记录失败"})
+			return
+		}
 		inv.TotalIn += total
 		if err := tx.Save(inv).Error; err != nil {
 			tx.Rollback()
@@ -182,7 +205,12 @@ func CreateTrade(c *gin.Context) {
 		}
 
 		// 增加USDT
-		usdtHolding, _ := getOrCreateHolding(tx, uid, "USDT")
+		usdtHolding, err := getOrCreateHolding(tx, uid, "USDT")
+		if err != nil {
+			tx.Rollback()
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "获取USDT持仓失败"})
+			return
+		}
 		if err := updateHolding(tx, usdtHolding, total); err != nil {
 			tx.Rollback()
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "更新USDT持仓失败"})
@@ -501,8 +529,8 @@ func GetPortfolio(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"portfolio":          portfolio,
-		"total_realized_pl":  totalRealizedPL,
+		"portfolio":         portfolio,
+		"total_realized_pl": totalRealizedPL,
 	})
 }
 
@@ -554,30 +582,16 @@ func ClearTrades(c *gin.Context) {
 func GetAssetPrice(c *gin.Context) {
 	symbol := c.Param("symbol")
 
-	prices := map[string]float64{
-		"BTC": 65000.0, "ETH": 3500.0, "BNB": 600.0, "XRP": 0.6,
-		"ADA": 0.5, "SOL": 150.0, "DOGE": 0.15, "TRX": 0.12,
-		"AVAX": 35.0, "HYPE": 10.0, "USDT": 1.0,
-	}
-
-	price, exists := prices[symbol]
-	if !exists {
-		c.JSON(http.StatusNotFound, gin.H{"error": "不支持的资产"})
+	// USDT 固定价格
+	if symbol == "USDT" {
+		c.JSON(http.StatusOK, gin.H{
+			"symbol": symbol,
+			"price":  1.0,
+		})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"symbol": symbol,
-		"price":  price,
-	})
-}
-
-// GetAllPrices 获取所有资产价格
-func GetAllPrices(c *gin.Context) {
-	symbols := []string{"BTC", "ETH", "BNB", "XRP", "ADA", "SOL", "DOGE", "TRX", "AVAX"}
-	symbolsParam := strings.Join(symbols, ",")
-
-	url := fmt.Sprintf("https://rest.coincap.io/v3/assets?ids=%s", symbolsParam)
+	url := fmt.Sprintf("https://rest.coincap.io/v3/price/bysymbol/%s", symbol)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "创建请求失败"})
@@ -600,7 +614,59 @@ func GetAllPrices(c *gin.Context) {
 	}
 
 	var result struct {
-		Data []struct {
+		Timestamp int64    `json:"timestamp"`
+		Data      []string `json:"data"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "解析价格数据失败"})
+		return
+	}
+
+	if len(result.Data) == 0 {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "价格数据为空"})
+		return
+	}
+
+	price, _ := strconv.ParseFloat(result.Data[0], 64)
+
+	c.JSON(http.StatusOK, gin.H{
+		"symbol":     symbol,
+		"price":      price,
+		"updated_at": result.Timestamp,
+	})
+}
+
+// GetAllPrices 获取所有资产价格
+func GetAllPrices(c *gin.Context) {
+	ids := []string{"bitcoin", "ethereum", "binance-coin", "xrp", "cardano", "solana", "dogecoin", "tron", "avalanche"}
+	idsParam := strings.Join(ids, ",")
+
+	url := fmt.Sprintf("https://rest.coincap.io/v3/assets?ids=%s", idsParam)
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "创建请求失败"})
+		return
+	}
+
+	req.Header.Add("Authorization", "Bearer b617d9cf029dbb40f02b058a0e74919176b768cf36fd1ea6fae55a13a1610f41")
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "获取价格失败"})
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "价格服务暂时不可用"})
+		return
+	}
+
+	var result struct {
+		Timestamp int64 `json:"timestamp"`
+		Data      []struct {
 			Symbol            string `json:"symbol"`
 			PriceUsd          string `json:"priceUsd"`
 			ChangePercent24Hr string `json:"changePercent24Hr"`
@@ -628,6 +694,6 @@ func GetAllPrices(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"prices":        prices,
 		"price_changes": priceChanges,
-		"updated_at":    time.Now().Format("2006-01-02 15:04:05"),
+		"updated_at":    result.Timestamp,
 	})
 }

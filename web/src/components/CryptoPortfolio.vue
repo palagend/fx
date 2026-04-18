@@ -38,8 +38,8 @@
                 <div class="value" :class="realizedProfitLoss >= 0 ? 'positive' : 'negative'">
                   {{ realizedProfitLoss >= 0 ? '+' : '-' }}${{ formatNumber(Math.abs(realizedProfitLoss)) }}
                 </div>
-                <div class="change" :class="realizedProfitLossRate >= 0 ? 'positive' : 'negative'">
-                  {{ realizedProfitLossRate >= 0 ? '+' : '-' }}{{ Math.abs(realizedProfitLossRate).toFixed(2) }}%
+                <div class="change" :class="realizedProfitLoss >= 0 ? 'positive' : 'negative'">
+                  已实现盈亏
                 </div>
               </div>
               <div class="overview-card usdt-card">
@@ -149,7 +149,7 @@
                   </div>
                   <div class="preview-row" v-if="newTrade.type === 'buy'">
                     <span class="preview-label">最新市价:</span>
-                    <span class="preview-value">${{ formatNumber(prices[newTrade.symbol] || newTrade.price) }}</span>
+                    <span class="preview-value">${{ formatNumber(prices[newTrade.symbol] || -1) }}</span>
                   </div>
                   <div class="preview-row" v-if="newTrade.type === 'buy' && getHoldingAmount(newTrade.symbol) > 0">
                     <span class="preview-label">综合成本价:</span>
@@ -232,14 +232,14 @@
                         </div>
                       </td>
                       <td class="asset-amount">{{ formatAmount(crypto.amount) }}</td>
-                      <td class="asset-price">${{ formatNumber(crypto.avg_cost || crypto.price) }}</td>
+                      <td class="asset-price">${{ formatNumber(crypto.avg_cost) }}</td>
                       <td class="asset-price">${{ formatNumber(crypto.currentPrice) }}</td>
-                      <td class="asset-value">${{ formatNumber(crypto.amount * crypto.currentPrice) }}</td>
+                      <td class="asset-value">${{ formatNumber(crypto.value) }}</td>
                       <td class="asset-profit" :class="{ positive: crypto.profitLoss >= 0, negative: crypto.profitLoss < 0 }">
                         <div class="profit-value">
                           {{ crypto.profitLoss >= 0 ? '+' : '-' }}${{ formatNumber(Math.abs(crypto.profitLoss)) }}
                         </div>
-                        <div class="profit-rate">
+                        <div class="profit-rate" v-if="crypto.symbol !== 'USDT'">
                           {{ crypto.profitLossRate >= 0 ? '+' : '-' }}{{ Math.abs(crypto.profitLossRate).toFixed(2) }}%
                         </div>
                       </td>
@@ -285,13 +285,6 @@
                   <button class="btn-clear" @click="clearTrades" v-if="filteredTrades.length > 0 && !protectHistory">
                     <Icon icon="mdi:delete-sweep" /> 清空历史
                   </button>
-                  <button class="btn-export" @click="exportData">
-                    <Icon icon="mdi:download" /> 导出数据
-                  </button>
-                  <label class="btn-import">
-                    <Icon icon="mdi:upload" /> 导入数据
-                    <input type="file" ref="importFileInput" accept=".json" @change="importData" hidden>
-                  </label>
                 </div>
               </div>
 
@@ -424,7 +417,6 @@ const amountInput = ref(null)
 const showRechargeModal = ref(false)
 const rechargeAmount = ref(null)
 const protectHistory = ref(false)
-const importFileInput = ref(null)
 let refreshTimer = null
 
 // 从store获取数据
@@ -434,8 +426,12 @@ const realizedProfitLoss = computed(() => portfolioStore.realizedProfitLoss)
 const totalValue = computed(() => portfolioStore.totalValue)
 const usdtBalance = computed(() => portfolioStore.usdtBalance)
 const unrealizedProfitLoss = computed(() => portfolioStore.unrealizedProfitLoss)
-const unrealizedProfitLossRate = computed(() => portfolioStore.unrealizedProfitLossRate)
-const realizedProfitLossRate = computed(() => portfolioStore.realizedProfitLossRate)
+const unrealizedProfitLossRate = computed(() => {
+  const totalCost = portfolio.value
+    .filter(item => item.symbol !== 'USDT')
+    .reduce((sum, item) => sum + (item.amount * item.avg_cost), 0)
+  return totalCost > 0 ? (unrealizedProfitLoss.value / totalCost) * 100 : 0
+})
 const totalValueChange24h = computed(() => portfolioStore.totalValueChange24h)
 
 const ASSET_CONFIG = {
@@ -528,25 +524,36 @@ const getHoldingAmount = (symbol) => {
   return asset ? asset.amount : 0
 }
 
+// 计算卖出时的预估实现盈亏（借贷记账法）
+// 实现盈亏 = USDT退出 - USDT投入（按卖出比例计算）
 const calculateEstimatedRealizedPL = () => {
   if (newTrade.value.type !== 'sell') return 0
   const existing = portfolio.value.find(c => c.symbol === newTrade.value.symbol)
-  if (!existing) return 0
-  return (newTrade.value.price - (existing.avg_cost || existing.price)) * newTrade.value.amount
+  if (!existing || existing.amount === 0) return 0
+
+  // 本次卖出获得的USDT
+  const usdtOut = newTrade.value.price * newTrade.value.amount
+
+  // 按卖出比例计算的USDT投入成本
+  const costRatio = newTrade.value.amount / existing.amount
+  const usdtIn = existing.cost * costRatio
+
+  return usdtOut - usdtIn
 }
 
-// 计算买入后的新综合成本价
+// 计算买入后的新综合成本价（借贷记账法）
+// 新成本价 = (USDT净投入 + 本次投入) / (当前持仓 + 本次买入量)
 const calculateNewAvgCost = () => {
   if (newTrade.value.type !== 'buy' || !newTrade.value.symbol) return 0
   const existing = portfolio.value.find(c => c.symbol === newTrade.value.symbol)
   const currentAmount = existing ? existing.amount : 0
-  const currentAvgCost = existing ? existing.avg_cost : 0
+  const currentCost = existing ? existing.cost : 0
   const newAmount = newTrade.value.amount
-  const newPrice = newTrade.value.price
+  const newTotal = newTrade.value.amount * newTrade.value.price
 
-  if (currentAmount === 0) return newPrice
+  if (currentAmount === 0) return newTrade.value.price
 
-  const totalCost = currentAmount * currentAvgCost + newAmount * newPrice
+  const totalCost = currentCost + newTotal
   const totalAmount = currentAmount + newAmount
   return totalCost / totalAmount
 }
@@ -661,72 +668,6 @@ const clearForm = () => {
       symbolSelect.value.focus()
     }
   })
-}
-
-const exportData = async () => {
-  const result = await portfolioStore.exportData()
-  if (!result.success) {
-    errorMessage.value = result.error || '导出失败'
-    setTimeout(() => errorMessage.value = '', 3000)
-    return
-  }
-
-  const exportData = {
-    version: '2.0',
-    exportTime: new Date().toISOString(),
-    portfolio: result.data.portfolio,
-    trades: result.data.trades,
-    realizedProfitLoss: result.data.realizedProfitLoss
-  }
-
-  const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' })
-  const url = URL.createObjectURL(blob)
-  const link = document.createElement('a')
-  link.href = url
-  const date = new Date().toISOString().slice(0, 10)
-  link.download = `crypto-portfolio-backup-${date}.json`
-  document.body.appendChild(link)
-  link.click()
-  document.body.removeChild(link)
-  URL.revokeObjectURL(url)
-}
-
-const importData = async (event) => {
-  const file = event.target.files[0]
-  if (!file) return
-
-  const reader = new FileReader()
-  reader.onload = async (e) => {
-    try {
-      const data = JSON.parse(e.target.result)
-      
-      if (!data.portfolio || !data.trades) {
-        throw new Error('无效的数据格式')
-      }
-
-      if (confirm('导入数据将覆盖当前所有数据，确定要继续吗？')) {
-        const result = await portfolioStore.importData({
-          portfolio: data.portfolio,
-          trades: data.trades,
-          realizedProfitLoss: data.realizedProfitLoss || 0
-        })
-        
-        if (result.success) {
-          errorMessage.value = ''
-          refreshPrices()
-        } else {
-          errorMessage.value = result.error || '导入失败'
-          setTimeout(() => errorMessage.value = '', 5000)
-        }
-      }
-    } catch (error) {
-      console.error('Import error:', error)
-      errorMessage.value = '导入失败，文件格式无效或数据已损坏'
-      setTimeout(() => errorMessage.value = '', 5000)
-    }
-  }
-  reader.readAsText(file)
-  event.target.value = ''
 }
 
 const selectAsset = (symbol) => {

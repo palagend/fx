@@ -21,7 +21,7 @@ func main() {
 		panic("数据库迁移失败: " + err.Error())
 	}
 
-	gin.SetMode(gin.ReleaseMode)
+	gin.SetMode(gin.DebugMode)
 	r := gin.Default()
 
 	webDist, err := fs.Sub(embeddedWebDist, "web/dist")
