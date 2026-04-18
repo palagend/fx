@@ -410,130 +410,6 @@ func recalcUSDT(tx *gorm.DB, uid uint) error {
 // ========== 持仓和投资接口 ==========
 
 // GetHoldings 获取所有持仓
-func GetHoldings(c *gin.Context) {
-	userID, exists := c.Get("userID")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "未授权"})
-		return
-	}
-
-	db := config.GetDB()
-	uid := userID.(uint)
-
-	var holdings []models.Holding
-	if err := db.Where("user_id = ?", uid).Find(&holdings).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "获取持仓失败"})
-		return
-	}
-
-	// 获取投资记录用于计算成本价
-	var investments []models.Investment
-	db.Where("user_id = ?", uid).Find(&investments)
-	invMap := make(map[string]*models.Investment)
-	for i := range investments {
-		invMap[investments[i].Symbol] = &investments[i]
-	}
-
-	var response []HoldingResponse
-	for _, h := range holdings {
-		avgCost := 0.0
-		if inv, ok := invMap[h.Symbol]; ok && h.Amount > 0 {
-			netInvestment := inv.TotalIn - inv.TotalOut
-			if netInvestment > 0 {
-				avgCost = netInvestment / h.Amount
-			}
-		}
-		response = append(response, HoldingResponse{
-			ID:      h.ID,
-			Symbol:  h.Symbol,
-			Amount:  h.Amount,
-			AvgCost: avgCost,
-		})
-	}
-
-	c.JSON(http.StatusOK, gin.H{"holdings": response})
-}
-
-// GetInvestments 获取投资记录（实现盈亏）
-func GetInvestments(c *gin.Context) {
-	userID, exists := c.Get("userID")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "未授权"})
-		return
-	}
-
-	db := config.GetDB()
-	uid := userID.(uint)
-
-	var investments []models.Investment
-	if err := db.Where("user_id = ?", uid).Find(&investments).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "获取投资记录失败"})
-		return
-	}
-
-	var response []InvestmentResponse
-	for _, inv := range investments {
-		response = append(response, InvestmentResponse{
-			Symbol:     inv.Symbol,
-			TotalIn:    inv.TotalIn,
-			TotalOut:   inv.TotalOut,
-			RealizedPL: inv.RealizedPL,
-		})
-	}
-
-	c.JSON(http.StatusOK, gin.H{"investments": response})
-}
-
-// GetPortfolio 获取完整资产组合数据
-func GetPortfolio(c *gin.Context) {
-	userID, exists := c.Get("userID")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "未授权"})
-		return
-	}
-
-	db := config.GetDB()
-	uid := userID.(uint)
-
-	// 获取持仓
-	var holdings []models.Holding
-	db.Where("user_id = ?", uid).Find(&holdings)
-
-	// 获取投资记录
-	var investments []models.Investment
-	db.Where("user_id = ?", uid).Find(&investments)
-	invMap := make(map[string]*models.Investment)
-	for i := range investments {
-		invMap[investments[i].Symbol] = &investments[i]
-	}
-
-	// 构建响应
-	var portfolio []HoldingResponse
-	var totalRealizedPL float64
-
-	for _, h := range holdings {
-		avgCost := 0.0
-		if inv, ok := invMap[h.Symbol]; ok && h.Amount > 0 {
-			netInvestment := inv.TotalIn - inv.TotalOut
-			if netInvestment > 0 {
-				avgCost = netInvestment / h.Amount
-			}
-			totalRealizedPL += inv.RealizedPL
-		}
-		portfolio = append(portfolio, HoldingResponse{
-			ID:      h.ID,
-			Symbol:  h.Symbol,
-			Amount:  h.Amount,
-			AvgCost: avgCost,
-		})
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"portfolio":         portfolio,
-		"total_realized_pl": totalRealizedPL,
-	})
-}
-
 // ClearTrades 清空所有交易记录
 func ClearTrades(c *gin.Context) {
 	userID, exists := c.Get("userID")
@@ -637,18 +513,27 @@ func GetAssetPrice(c *gin.Context) {
 	})
 }
 
-// GetAllPrices 获取所有资产价格
-func GetAllPrices(c *gin.Context) {
+// GetDashboard 获取仪表盘聚合数据（价格+持仓+统计）
+func GetDashboard(c *gin.Context) {
+	userID, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "未授权"})
+		return
+	}
+
+	db := config.GetDB()
+	uid := userID.(uint)
+
+	// 获取价格数据
 	ids := []string{"bitcoin", "ethereum", "binance-coin", "xrp", "cardano", "solana", "dogecoin", "tron", "avalanche"}
 	idsParam := strings.Join(ids, ",")
-
 	url := fmt.Sprintf("https://rest.coincap.io/v3/assets?ids=%s", idsParam)
+
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "创建请求失败"})
 		return
 	}
-
 	req.Header.Add("Authorization", "Bearer b617d9cf029dbb40f02b058a0e74919176b768cf36fd1ea6fae55a13a1610f41")
 
 	client := &http.Client{Timeout: 10 * time.Second}
@@ -659,41 +544,133 @@ func GetAllPrices(c *gin.Context) {
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "价格服务暂时不可用"})
-		return
-	}
-
-	var result struct {
-		Timestamp int64 `json:"timestamp"`
-		Data      []struct {
-			Symbol            string `json:"symbol"`
-			PriceUsd          string `json:"priceUsd"`
-			ChangePercent24Hr string `json:"changePercent24Hr"`
-		} `json:"data"`
-	}
-
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "解析价格数据失败"})
-		return
-	}
-
 	prices := make(map[string]float64)
 	priceChanges := make(map[string]float64)
+	var updatedAt int64
 
-	for _, item := range result.Data {
-		price, _ := strconv.ParseFloat(item.PriceUsd, 64)
-		change24h, _ := strconv.ParseFloat(item.ChangePercent24Hr, 64)
-		prices[item.Symbol] = price
-		priceChanges[item.Symbol] = change24h
+	if resp.StatusCode == http.StatusOK {
+		var result struct {
+			Timestamp int64 `json:"timestamp"`
+			Data      []struct {
+				Symbol            string `json:"symbol"`
+				PriceUsd          string `json:"priceUsd"`
+				ChangePercent24Hr string `json:"changePercent24Hr"`
+			} `json:"data"`
+		}
+
+		if err := json.NewDecoder(resp.Body).Decode(&result); err == nil {
+			for _, item := range result.Data {
+				price, _ := strconv.ParseFloat(item.PriceUsd, 64)
+				change24h, _ := strconv.ParseFloat(item.ChangePercent24Hr, 64)
+				prices[item.Symbol] = price
+				priceChanges[item.Symbol] = change24h
+			}
+			updatedAt = result.Timestamp
+		}
 	}
-
 	prices["USDT"] = 1.0
 	priceChanges["USDT"] = 0
 
+	// 获取持仓
+	var holdings []models.Holding
+	db.Where("user_id = ?", uid).Find(&holdings)
+
+	// 获取投资记录
+	var investments []models.Investment
+	db.Where("user_id = ?", uid).Find(&investments)
+	invMap := make(map[string]*models.Investment)
+	for i := range investments {
+		invMap[investments[i].Symbol] = &investments[i]
+	}
+
+	// 计算统计数据
+	type PortfolioItem struct {
+		Symbol       string  `json:"symbol"`
+		Amount       float64 `json:"amount"`
+		CurrentPrice float64 `json:"current_price"`
+		AvgCost      float64 `json:"avg_cost"`
+		MarketValue  float64 `json:"market_value"`
+		Cost         float64 `json:"cost"`
+		ProfitLoss   float64 `json:"profit_loss"`
+		PLRate       float64 `json:"pl_rate"`
+	}
+
+	var portfolio []PortfolioItem
+	var totalValue, usdtBalance, unrealizedPL, totalCost float64
+	var totalRealizedPL float64
+	var weightedChange float64
+
+	for _, h := range holdings {
+		isUSDT := h.Symbol == "USDT"
+		price := prices[h.Symbol]
+		if isUSDT {
+			price = 1
+		}
+
+		marketValue := h.Amount * price
+		totalValue += marketValue
+
+		avgCost := 0.0
+		cost := 0.0
+		profitLoss := 0.0
+		plRate := 0.0
+
+		if isUSDT {
+			usdtBalance = h.Amount
+			avgCost = 1
+			cost = h.Amount
+		} else {
+			if inv, ok := invMap[h.Symbol]; ok && h.Amount > 0 {
+				netInvestment := inv.TotalIn - inv.TotalOut
+				if netInvestment > 0 {
+					avgCost = netInvestment / h.Amount
+				}
+				totalRealizedPL += inv.RealizedPL
+			}
+			cost = h.Amount * avgCost
+			profitLoss = marketValue - cost
+			if cost > 0 {
+				plRate = (profitLoss / cost) * 100
+			}
+			unrealizedPL += profitLoss
+			totalCost += cost
+			change24h := priceChanges[h.Symbol]
+			weightedChange += marketValue * change24h
+		}
+
+		portfolio = append(portfolio, PortfolioItem{
+			Symbol:       h.Symbol,
+			Amount:       h.Amount,
+			CurrentPrice: price,
+			AvgCost:      avgCost,
+			MarketValue:  marketValue,
+			Cost:         cost,
+			ProfitLoss:   profitLoss,
+			PLRate:       plRate,
+		})
+	}
+
+	unrealizedPLRate := 0.0
+	if totalCost > 0 {
+		unrealizedPLRate = (unrealizedPL / totalCost) * 100
+	}
+
+	totalValueChange24h := 0.0
+	if totalValue > 0 {
+		totalValueChange24h = weightedChange / totalValue
+	}
+
 	c.JSON(http.StatusOK, gin.H{
-		"prices":        prices,
-		"price_changes": priceChanges,
-		"updated_at":    result.Timestamp,
+		"prices":                 prices,
+		"price_changes":          priceChanges,
+		"updated_at":             updatedAt,
+		"portfolio":              portfolio,
+		"total_value":            totalValue,
+		"usdt_balance":           usdtBalance,
+		"unrealized_pl":          unrealizedPL,
+		"unrealized_pl_rate":     unrealizedPLRate,
+		"realized_pl":            totalRealizedPL,
+		"total_pl":               unrealizedPL + totalRealizedPL,
+		"total_value_change_24h": totalValueChange24h,
 	})
 }

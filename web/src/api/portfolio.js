@@ -3,19 +3,9 @@ import axios from 'axios'
 const API_BASE_URL = '/api'
 
 export const portfolioApi = {
-  // 获取完整资产组合（持仓 + 实现盈亏）
-  getPortfolio() {
-    return axios.get(`${API_BASE_URL}/portfolio`)
-  },
-
-  // 获取持仓列表（包含成本价）
-  getHoldings() {
-    return axios.get(`${API_BASE_URL}/portfolio/holdings`)
-  },
-
-  // 获取投资记录（实现盈亏）
-  getInvestments() {
-    return axios.get(`${API_BASE_URL}/portfolio/investments`)
+  // 获取仪表盘聚合数据（价格+持仓+统计）
+  getDashboard() {
+    return axios.get(`${API_BASE_URL}/portfolio/dashboard`)
   },
 
   // 获取交易记录
@@ -38,12 +28,7 @@ export const portfolioApi = {
     return axios.delete(`${API_BASE_URL}/portfolio/trades`)
   },
 
-  // 获取所有资产价格
-  getAllPrices() {
-    return axios.get(`${API_BASE_URL}/prices`)
-  },
-
-  // 获取单个资产价格
+  // 获取单个资产价格（用于交易时获取最新价）
   getAssetPrice(symbol) {
     return axios.get(`${API_BASE_URL}/prices/${symbol}`)
   }

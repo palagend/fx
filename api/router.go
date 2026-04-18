@@ -37,19 +37,16 @@ func RegisterRoutes(r *gin.Engine) {
 		portfolioGroup := apiGroup.Group("/portfolio")
 		portfolioGroup.Use(middleware.AuthMiddleware())
 		{
-			portfolioGroup.GET("", GetPortfolio)               // 获取完整资产组合
-			portfolioGroup.GET("/holdings", GetHoldings)       // 获取持仓
-			portfolioGroup.GET("/investments", GetInvestments) // 获取投资记录（实现盈亏）
-			portfolioGroup.GET("/trades", GetTrades)           // 获取交易记录
-			portfolioGroup.POST("/trades", CreateTrade)        // 创建交易
-			portfolioGroup.DELETE("/trades/:id", DeleteTrade)  // 删除交易
-			portfolioGroup.DELETE("/trades", ClearTrades)      // 清空交易
+			portfolioGroup.GET("/dashboard", GetDashboard)    // 获取仪表盘聚合数据
+			portfolioGroup.GET("/trades", GetTrades)          // 获取交易记录
+			portfolioGroup.POST("/trades", CreateTrade)       // 创建交易
+			portfolioGroup.DELETE("/trades/:id", DeleteTrade) // 删除交易
+			portfolioGroup.DELETE("/trades", ClearTrades)     // 清空交易
 		}
 
 		// 价格相关接口（公开访问）
 		priceGroup := apiGroup.Group("/prices")
 		{
-			priceGroup.GET("", GetAllPrices)
 			priceGroup.GET("/:symbol", GetAssetPrice)
 		}
 	}

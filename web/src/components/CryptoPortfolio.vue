@@ -20,25 +20,25 @@
               <div class="overview-card">
                 <h3><Icon icon="mdi:wallet" /> 总资产价值</h3>
                 <div class="value">${{ formatNumber(totalValue) }}</div>
-                <div class="change" :class="getChangeClass(totalValueChange24h)">
-                  {{ totalValueChange24h >= 0 ? '+' : '-' }}{{ Math.abs(totalValueChange24h).toFixed(2) }}% (24h)
+                <div class="change" :class="displayTotalValueChange.class">
+                  {{ displayTotalValueChange.sign }}{{ displayTotalValueChange.value }}% (24h)
                 </div>
               </div>
               <div class="overview-card">
                 <h3><Icon icon="mdi:trending-up" /> 浮动盈亏</h3>
-                <div class="value" :class="unrealizedProfitLoss >= 0 ? 'positive' : 'negative'">
-                  {{ unrealizedProfitLoss >= 0 ? '+' : '-' }}${{ formatNumber(Math.abs(unrealizedProfitLoss)) }}
+                <div class="value" :class="displayUnrealizedPL.class">
+                  {{ displayUnrealizedPL.sign }}${{ displayUnrealizedPL.value }}
                 </div>
-                <div class="change" :class="unrealizedProfitLoss >= 0 ? 'positive' : 'negative'">
-                  {{ unrealizedProfitLossRate >= 0 ? '+' : '-' }}{{ Math.abs(unrealizedProfitLossRate).toFixed(2) }}%
+                <div class="change" :class="displayUnrealizedPL.class">
+                  {{ displayUnrealizedPL.rate }}
                 </div>
               </div>
               <div class="overview-card">
                 <h3><Icon icon="mdi:cash-multiple" /> 实现盈亏</h3>
-                <div class="value" :class="realizedProfitLoss >= 0 ? 'positive' : 'negative'">
-                  {{ realizedProfitLoss >= 0 ? '+' : '-' }}${{ formatNumber(Math.abs(realizedProfitLoss)) }}
+                <div class="value" :class="displayRealizedPL.class">
+                  {{ displayRealizedPL.sign }}${{ displayRealizedPL.value }}
                 </div>
-                <div class="change" :class="realizedProfitLoss >= 0 ? 'positive' : 'negative'">
+                <div class="change" :class="displayRealizedPL.class">
                   已实现盈亏
                 </div>
               </div>
@@ -233,14 +233,14 @@
                       </td>
                       <td class="asset-amount">{{ formatAmount(crypto.amount) }}</td>
                       <td class="asset-price">${{ formatNumber(crypto.avg_cost) }}</td>
-                      <td class="asset-price">${{ formatNumber(crypto.currentPrice) }}</td>
-                      <td class="asset-value">${{ formatNumber(crypto.marketValue) }}</td>
-                      <td class="asset-profit" :class="{ positive: crypto.profitLoss >= 0, negative: crypto.profitLoss < 0 }">
+                      <td class="asset-price">${{ formatNumber(crypto.current_price) }}</td>
+                      <td class="asset-value">${{ formatNumber(crypto.market_value) }}</td>
+                      <td class="asset-profit" :class="{ positive: crypto.profit_loss >= 0, negative: crypto.profit_loss < 0 }">
                         <div class="profit-value">
-                          {{ crypto.profitLoss >= 0 ? '+' : '-' }}${{ formatNumber(Math.abs(crypto.profitLoss)) }}
+                          {{ crypto.profit_loss >= 0 ? '+' : '-' }}${{ formatNumber(Math.abs(crypto.profit_loss)) }}
                         </div>
                         <div class="profit-rate" v-if="crypto.symbol !== 'USDT'">
-                          {{ crypto.profitLossRate >= 0 ? '+' : '-' }}{{ Math.abs(crypto.profitLossRate).toFixed(2) }}%
+                          {{ crypto.pl_rate >= 0 ? '+' : '-' }}{{ Math.abs(crypto.pl_rate).toFixed(2) }}%
                         </div>
                       </td>
                       <td class="action-cell">
@@ -425,19 +425,44 @@ const isSubmitting = ref({
   clear: false
 })
 
-// 从store获取数据
+// 从store获取数据（后端已计算好）
 const portfolio = computed(() => portfolioStore.portfolio)
 const trades = computed(() => portfolioStore.trades)
-const realizedProfitLoss = computed(() => portfolioStore.realizedProfitLoss)
 const totalValue = computed(() => portfolioStore.totalValue)
 const usdtBalance = computed(() => portfolioStore.usdtBalance)
 const unrealizedProfitLoss = computed(() => portfolioStore.unrealizedProfitLoss)
-const unrealizedProfitLossRate = computed(() => {
-  const totalCost = portfolio.value.reduce((sum, item) => 
-    item.symbol !== 'USDT' ? sum + item.cost : sum, 0)
-  return totalCost > 0 ? (unrealizedProfitLoss.value / totalCost) * 100 : 0
-})
+const unrealizedProfitLossRate = computed(() => portfolioStore.unrealizedProfitLossRate)
+const realizedProfitLoss = computed(() => portfolioStore.realizedProfitLoss)
 const totalValueChange24h = computed(() => portfolioStore.totalValueChange24h)
+
+// 格式化的显示值（避免模板中重复计算）
+const displayUnrealizedPL = computed(() => {
+  const val = unrealizedProfitLoss.value
+  return {
+    sign: val >= 0 ? '+' : '-',
+    value: formatNumber(Math.abs(val)),
+    class: val >= 0 ? 'positive' : 'negative',
+    rate: (unrealizedProfitLossRate.value >= 0 ? '+' : '-') + Math.abs(unrealizedProfitLossRate.value).toFixed(2) + '%'
+  }
+})
+
+const displayRealizedPL = computed(() => {
+  const val = realizedProfitLoss.value
+  return {
+    sign: val >= 0 ? '+' : '-',
+    value: formatNumber(Math.abs(val)),
+    class: val >= 0 ? 'positive' : 'negative'
+  }
+})
+
+const displayTotalValueChange = computed(() => {
+  const val = totalValueChange24h.value
+  return {
+    sign: val >= 0 ? '+' : '-',
+    value: Math.abs(val).toFixed(2),
+    class: getChangeClass(val)
+  }
+})
 
 const ASSET_CONFIG = {
   COLORS: {
@@ -762,18 +787,20 @@ const formatAmount = (amount) => {
   })
 }
 
+// 缓存日期格式化器，避免重复创建
+const dateFormatter = new Intl.DateTimeFormat('zh-CN', {
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit'
+})
+
 const formatDate = (timestamp) => {
   if (!timestamp) return '-'
-  // 处理ISO格式字符串或时间戳
   const date = new Date(timestamp)
-  return date.toLocaleString('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit'
-  })
+  return dateFormatter.format(date)
 }
 
 const getChangeClass = (change) => {
@@ -805,8 +832,8 @@ const refreshPrices = async () => {
   errorMessage.value = ''
 
   try {
-    const result = await portfolioStore.fetchPrices()
-    
+    const result = await portfolioStore.fetchDashboard()
+
     if (result.success) {
       lastUpdateTime.value = formatDate(result.updatedAt)
     } else {
@@ -855,8 +882,8 @@ const assetAllocation = computed(() => {
   return allHoldings
     .map((crypto, index) => ({
       name: crypto.symbol,
-      percentage: parseFloat(((crypto.marketValue || 0) / total * 100).toFixed(1)),
-      value: crypto.marketValue || 0,
+      percentage: parseFloat(((crypto.market_value || 0) / total * 100).toFixed(1)),
+      value: crypto.market_value || 0,
       color: ASSET_CONFIG.COLORS[crypto.symbol] || CHART_COLORS[index % CHART_COLORS.length]
     }))
     .filter(item => item.value > 0)
@@ -882,8 +909,7 @@ const pieChartStyle = computed(() => {
 
 onMounted(() => {
   if (userStore.isLoggedIn) {
-    portfolioStore.fetchPortfolio()
-    refreshPrices()
+    portfolioStore.fetchDashboard()
   }
 })
 
@@ -896,8 +922,7 @@ onUnmounted(() => {
 // 监听登录状态变化
 watch(() => userStore.isLoggedIn, async (isLoggedIn) => {
   if (isLoggedIn) {
-    await portfolioStore.fetchPortfolio()
-    await refreshPrices()
+    await portfolioStore.fetchDashboard()
   }
 })
 </script>

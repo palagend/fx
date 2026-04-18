@@ -6,106 +6,67 @@ import { useUserStore } from './user'
 export const usePortfolioStore = defineStore('portfolio', () => {
   const userStore = useUserStore()
 
-  // 状态
-  const holdings = ref([])
-  const investments = ref([])
+  // 状态 - 从dashboard接口获取的原始数据
+  const dashboardData = ref(null)
   const trades = ref([])
-  const prices = ref({})
-  const priceChanges = ref({})
   const isLoading = ref(false)
   const error = ref(null)
 
-  // 计算属性 - 投资组合（包含实时价格计算）
-  const portfolio = computed(() => {
-    const pricesVal = prices.value
-    return holdings.value.map(holding => {
-      // USDT价格固定为1，其他资产从prices获取
-      const currentPrice = holding.symbol === 'USDT' ? 1 : (pricesVal[holding.symbol] || 0)
-      const marketValue = holding.amount * currentPrice
-      // USDT的成本固定为1，其他资产使用avgCost
-      const avgCost = holding.symbol === 'USDT' ? 1 : (holding.avg_cost || 0)
-      const cost = holding.amount * avgCost
-      const profitLoss = marketValue - cost
-      const profitLossRate = cost > 0 ? (profitLoss / cost) * 100 : 0
+  // 计算属性 - 价格数据
+  const prices = computed(() => dashboardData.value?.prices || {})
+  const priceChanges = computed(() => dashboardData.value?.price_changes || {})
 
-      return {
-        ...holding,
-        currentPrice,
-        marketValue,
-        cost,
-        avgCost,
-        profitLoss,
-        profitLossRate
-      }
-    })
-  })
+  // 计算属性 - 投资组合（后端已计算好）
+  const portfolio = computed(() => dashboardData.value?.portfolio || [])
 
-  // 计算属性 - 总资产价值（包含USDT）
-  const totalValue = computed(() => {
-    return portfolio.value.reduce((sum, item) => sum + item.marketValue, 0)
-  })
+  // 计算属性 - 统计数据（后端已计算好）
+  const totalValue = computed(() => dashboardData.value?.total_value || 0)
+  const usdtBalance = computed(() => dashboardData.value?.usdt_balance || 0)
+  const unrealizedProfitLoss = computed(() => dashboardData.value?.unrealized_pl || 0)
+  const realizedProfitLoss = computed(() => dashboardData.value?.realized_pl || 0)
+  const totalProfitLoss = computed(() => dashboardData.value?.total_pl || 0)
+  const totalValueChange24h = computed(() => dashboardData.value?.total_value_change_24h || 0)
 
-  // 计算属性 - USDT余额
-  const usdtBalance = computed(() => {
-    const usdtHolding = holdings.value.find(h => h.symbol === 'USDT')
-    return usdtHolding ? usdtHolding.amount : 0
-  })
-
-  // 计算属性 - 浮动盈亏（未实现盈亏）
-  const unrealizedProfitLoss = computed(() => {
-    return portfolio.value
+  // 计算属性 - 浮动盈亏率
+  const unrealizedProfitLossRate = computed(() => {
+    const portfolioData = portfolio.value
+    const nonUSDTCost = portfolioData
       .filter(item => item.symbol !== 'USDT')
-      .reduce((sum, item) => sum + item.profitLoss, 0)
-  })
-
-  // 计算属性 - 实现盈亏
-  const realizedProfitLoss = computed(() => {
-    return investments.value.reduce((sum, inv) => sum + inv.realized_pl, 0)
-  })
-
-  // 计算属性 - 总盈亏 = 浮动盈亏 + 实现盈亏
-  const totalProfitLoss = computed(() => {
-    return unrealizedProfitLoss.value + realizedProfitLoss.value
-  })
-
-  // 计算属性 - 总资产24h变化率
-  const totalValueChange24h = computed(() => {
-    const changes = priceChanges.value
-    if (Object.keys(changes).length === 0) return 0
-
-    let totalValue = 0
-    let weightedChange = 0
-
-    holdings.value.forEach(holding => {
-      if (holding.symbol === 'USDT') {
-        totalValue += holding.amount
-      } else {
-        const price = prices.value[holding.symbol] || 0
-        const marketValue = holding.amount * price
-        totalValue += marketValue
-        const change24h = changes[holding.symbol] || 0
-        weightedChange += marketValue * change24h
-      }
-    })
-
-    return totalValue > 0 ? weightedChange / totalValue : 0
+      .reduce((sum, item) => sum + item.cost, 0)
+    return nonUSDTCost > 0 ? (unrealizedProfitLoss.value / nonUSDTCost) * 100 : 0
   })
 
   // Actions
-  async function fetchPrices() {
+  // 获取仪表盘聚合数据（价格+持仓+统计）
+  async function fetchDashboard() {
+    if (!userStore.isLoggedIn) {
+      dashboardData.value = null
+      trades.value = []
+      return { success: false, error: '请先登录' }
+    }
+
+    isLoading.value = true
+    error.value = null
+
     try {
-      const response = await portfolioApi.getAllPrices()
-      prices.value = response.data.prices || {}
-      priceChanges.value = response.data.price_changes || {}
+      const [dashboardRes, tradesRes] = await Promise.all([
+        portfolioApi.getDashboard(),
+        portfolioApi.getTrades()
+      ])
+
+      dashboardData.value = dashboardRes.data
+      trades.value = tradesRes.data.trades || []
+
       return {
         success: true,
-        prices: response.data.prices || {},
-        priceChanges: response.data.price_changes || {},
-        updatedAt: response.data.updated_at
+        updatedAt: dashboardRes.data.updated_at
       }
     } catch (err) {
-      console.error('获取价格失败:', err)
-      return { success: false, error: err.response?.data?.error || '获取价格失败' }
+      error.value = err.response?.data?.error || '获取数据失败'
+      console.error('获取仪表盘数据失败:', err)
+      return { success: false, error: error.value }
+    } finally {
+      isLoading.value = false
     }
   }
 
@@ -113,8 +74,13 @@ export const usePortfolioStore = defineStore('portfolio', () => {
   async function fetchAssetPrice(symbol) {
     try {
       const response = await portfolioApi.getAssetPrice(symbol)
-      // 更新 prices 对象
-      prices.value = { ...prices.value, [symbol]: response.data.price }
+      // 更新 dashboardData 中的价格
+      if (dashboardData.value) {
+        dashboardData.value.prices = {
+          ...dashboardData.value.prices,
+          [symbol]: response.data.price
+        }
+      }
       return {
         success: true,
         price: response.data.price,
@@ -123,39 +89,6 @@ export const usePortfolioStore = defineStore('portfolio', () => {
     } catch (err) {
       console.error(`获取${symbol}价格失败:`, err)
       return { success: false, error: err.response?.data?.error || '获取价格失败' }
-    }
-  }
-
-  async function fetchPortfolio() {
-    if (!userStore.isLoggedIn) {
-      holdings.value = []
-      investments.value = []
-      trades.value = []
-      return
-    }
-
-    isLoading.value = true
-    error.value = null
-
-    try {
-      // 并行获取数据
-      const [portfolioRes, investmentsRes, tradesRes] = await Promise.all([
-        portfolioApi.getPortfolio(),
-        portfolioApi.getInvestments(),
-        portfolioApi.getTrades()
-      ])
-
-      holdings.value = portfolioRes.data.portfolio || []
-      investments.value = investmentsRes.data.investments || []
-      trades.value = tradesRes.data.trades || []
-
-      // 获取最新价格
-      await fetchPrices()
-    } catch (err) {
-      error.value = err.response?.data?.error || '获取资产数据失败'
-      console.error('获取资产组合失败:', err)
-    } finally {
-      isLoading.value = false
     }
   }
 
@@ -169,7 +102,7 @@ export const usePortfolioStore = defineStore('portfolio', () => {
 
     try {
       const response = await portfolioApi.createTrade(trade)
-      await fetchPortfolio()
+      await fetchDashboard()
       return { success: true, data: response.data }
     } catch (err) {
       error.value = err.response?.data?.error || '交易失败'
@@ -186,7 +119,7 @@ export const usePortfolioStore = defineStore('portfolio', () => {
 
     try {
       await portfolioApi.deleteTrade(id)
-      await fetchPortfolio()
+      await fetchDashboard()
       return { success: true }
     } catch (err) {
       return { success: false, error: err.response?.data?.error || '删除失败' }
@@ -203,7 +136,7 @@ export const usePortfolioStore = defineStore('portfolio', () => {
 
     try {
       await portfolioApi.clearTrades()
-      await fetchPortfolio()
+      await fetchDashboard()
       return { success: true }
     } catch (err) {
       error.value = err.response?.data?.error || '清空交易记录失败'
@@ -215,25 +148,24 @@ export const usePortfolioStore = defineStore('portfolio', () => {
 
   return {
     // 状态
-    holdings,
-    investments,
+    dashboardData,
     trades,
-    prices,
-    priceChanges,
     isLoading,
     error,
     // 计算属性
+    prices,
+    priceChanges,
     portfolio,
     totalValue,
     usdtBalance,
     unrealizedProfitLoss,
+    unrealizedProfitLossRate,
     realizedProfitLoss,
     totalProfitLoss,
     totalValueChange24h,
     // Actions
-    fetchPrices,
+    fetchDashboard,
     fetchAssetPrice,
-    fetchPortfolio,
     createTrade,
     deleteTrade,
     clearAllTrades
