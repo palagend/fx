@@ -597,7 +597,7 @@ func GetDashboard(c *gin.Context) {
 	}
 
 	var portfolio []PortfolioItem
-	var totalValue, usdtBalance, unrealizedPL, totalCost float64
+	var totalValue, totalAssetsValue, usdtBalance, unrealizedPL, totalCost float64
 	var totalRealizedPL float64
 	var weightedChange float64
 
@@ -609,7 +609,10 @@ func GetDashboard(c *gin.Context) {
 		}
 
 		marketValue := h.Amount * price
-		totalValue += marketValue
+		totalAssetsValue += marketValue
+		if !isUSDT {
+			totalValue += marketValue
+		}
 
 		avgCost := 0.0
 		cost := 0.0
@@ -667,7 +670,8 @@ func GetDashboard(c *gin.Context) {
 		"price_changes":          priceChanges,
 		"updated_at":             updatedAt,
 		"portfolio":              portfolio,
-		"total_value":            totalValue,
+		"total_value":            totalValue,       // 加密资产总价值（不含 USDT）
+		"total_assets_value":     totalAssetsValue, // 总资产价值（含 USDT）
 		"usdt_balance":           usdtBalance,
 		"unrealized_pl":          unrealizedPL,
 		"unrealized_pl_rate":     unrealizedPLRate,

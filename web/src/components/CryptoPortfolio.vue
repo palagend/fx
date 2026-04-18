@@ -18,7 +18,7 @@
           <template v-else>
             <section class="overview">
               <div class="overview-card">
-                <h3><Icon icon="mdi:wallet" /> 总资产价值</h3>
+                <h3><Icon icon="mdi:wallet" /> 加密资产价值</h3>
                 <div class="value">${{ formatNumber(totalValue) }}</div>
                 <div class="change" :class="displayTotalValueChange.class">
                   {{ displayTotalValueChange.sign }}{{ displayTotalValueChange.value }}% (24h)
@@ -75,7 +75,7 @@
                   <div class="pie-chart-wrapper">
                     <div class="pie-chart" :style="pieChartStyle"></div>
                     <div class="pie-center">
-                      <span>${{ formatNumber(totalValue) }}</span>
+                      <span>${{ formatNumber(totalAssetsValue) }}</span>
                       <span>总资产</span>
                     </div>
                   </div>
@@ -428,7 +428,8 @@ const isSubmitting = ref({
 // 从store获取数据（后端已计算好）
 const portfolio = computed(() => portfolioStore.portfolio)
 const trades = computed(() => portfolioStore.trades)
-const totalValue = computed(() => portfolioStore.totalValue)
+const totalValue = computed(() => portfolioStore.totalValue) // 加密资产价值（不含 USDT）
+const totalAssetsValue = computed(() => portfolioStore.totalAssetsValue) // 总资产价值（含 USDT）
 const usdtBalance = computed(() => portfolioStore.usdtBalance)
 const unrealizedProfitLoss = computed(() => portfolioStore.unrealizedProfitLoss)
 const unrealizedProfitLossRate = computed(() => portfolioStore.unrealizedProfitLossRate)
@@ -876,7 +877,8 @@ const assetAllocation = computed(() => {
   const allHoldings = portfolio.value
   if (allHoldings.length === 0) return []
 
-  const total = totalValue.value
+  // 使用总资产价值（含 USDT）计算分布
+  const total = totalAssetsValue.value
   if (total <= 0) return []
 
   return allHoldings

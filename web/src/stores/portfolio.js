@@ -20,7 +20,8 @@ export const usePortfolioStore = defineStore('portfolio', () => {
   const portfolio = computed(() => dashboardData.value?.portfolio || [])
 
   // 计算属性 - 统计数据（后端已计算好）
-  const totalValue = computed(() => dashboardData.value?.total_value || 0)
+  const totalValue = computed(() => dashboardData.value?.total_value || 0) // 加密资产总价值（不含 USDT）
+  const totalAssetsValue = computed(() => dashboardData.value?.total_assets_value || 0) // 总资产价值（含 USDT）
   const usdtBalance = computed(() => dashboardData.value?.usdt_balance || 0)
   const unrealizedProfitLoss = computed(() => dashboardData.value?.unrealized_pl || 0)
   const realizedProfitLoss = computed(() => dashboardData.value?.realized_pl || 0)
@@ -157,6 +158,7 @@ export const usePortfolioStore = defineStore('portfolio', () => {
     priceChanges,
     portfolio,
     totalValue,
+    totalAssetsValue,
     usdtBalance,
     unrealizedProfitLoss,
     unrealizedProfitLossRate,
