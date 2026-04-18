@@ -178,7 +178,7 @@
                     <span class="preview-value positive">+${{ formatNumber(newTrade.amount * newTrade.price) }}</span>
                   </div>
                 </div>
-                <button class="btn-add" @click="addTrade" :disabled="!isFormValid || portfolioStore.isLoading">
+                <button class="btn-add" @click="addTrade" :disabled="!isFormValid || portfolioStore.isLoading || isSubmitting.trade">
                   <Icon icon="mdi:plus" />
                   {{ newTrade.type === 'buy' ? '买入' : '卖出' }}
                 </button>
@@ -234,7 +234,7 @@
                       <td class="asset-amount">{{ formatAmount(crypto.amount) }}</td>
                       <td class="asset-price">${{ formatNumber(crypto.avg_cost) }}</td>
                       <td class="asset-price">${{ formatNumber(crypto.currentPrice) }}</td>
-                      <td class="asset-value">${{ formatNumber(crypto.value) }}</td>
+                      <td class="asset-value">${{ formatNumber(crypto.marketValue) }}</td>
                       <td class="asset-profit" :class="{ positive: crypto.profitLoss >= 0, negative: crypto.profitLoss < 0 }">
                         <div class="profit-value">
                           {{ crypto.profitLoss >= 0 ? '+' : '-' }}${{ formatNumber(Math.abs(crypto.profitLoss)) }}
@@ -282,7 +282,7 @@
                       <option value="recharge">充值</option>
                     </select>
                   </div>
-                  <button class="btn-clear" @click="clearTrades" v-if="filteredTrades.length > 0 && !protectHistory">
+                  <button class="btn-clear" @click="clearTrades" v-if="filteredTrades.length > 0 && !protectHistory" :disabled="isSubmitting.clear">
                     <Icon icon="mdi:delete-sweep" /> 清空历史
                   </button>
                 </div>
@@ -326,7 +326,7 @@
                         <span v-else>-</span>
                       </td>
                       <td>
-                        <button class="btn-delete" @click="deleteTrade(trade.id)" :disabled="protectHistory" title="删除">
+                        <button class="btn-delete" @click="deleteTrade(trade.id)" :disabled="protectHistory || isSubmitting.delete" title="删除">
                           <Icon icon="mdi:trash-can" />
                         </button>
                       </td>
@@ -370,7 +370,7 @@
         </div>
         <div class="modal-footer">
           <button class="btn-cancel" @click="showRechargeModal = false">取消</button>
-          <button class="btn-confirm" @click="rechargeUSDT" :disabled="!rechargeAmount || rechargeAmount <= 0">
+          <button class="btn-confirm" @click="rechargeUSDT" :disabled="!rechargeAmount || rechargeAmount <= 0 || isSubmitting.recharge">
             确认充值
           </button>
         </div>
@@ -418,6 +418,14 @@ const showRechargeModal = ref(false)
 const rechargeAmount = ref(null)
 const protectHistory = ref(false)
 let refreshTimer = null
+
+// 重复提交保护状态
+const isSubmitting = ref({
+  trade: false,
+  recharge: false,
+  delete: false,
+  clear: false
+})
 
 // 从store获取数据
 const portfolio = computed(() => portfolioStore.portfolio)
@@ -559,6 +567,8 @@ const calculateNewAvgCost = () => {
 }
 
 const addTrade = async () => {
+  if (isSubmitting.value.trade) return
+
   if (!newTrade.value.symbol) {
     errorMessage.value = '请选择加密货币'
     setTimeout(() => errorMessage.value = '', 3000)
@@ -577,54 +587,70 @@ const addTrade = async () => {
     return
   }
 
-  const result = await portfolioStore.createTrade({
-    symbol: newTrade.value.symbol,
-    type: newTrade.value.type,
-    amount: newTrade.value.amount,
-    price: newTrade.value.price
-  })
-  
-  if (!result.success) {
-    errorMessage.value = result.error
-    setTimeout(() => errorMessage.value = '', 3000)
-    return
-  }
-  
-  refreshPrices()
+  isSubmitting.value.trade = true
 
-  newTrade.value = {
-    symbol: '',
-    type: 'buy',
-    amount: null,
-    price: null
+  try {
+    const result = await portfolioStore.createTrade({
+      symbol: newTrade.value.symbol,
+      type: newTrade.value.type,
+      amount: newTrade.value.amount,
+      price: newTrade.value.price
+    })
+
+    if (!result.success) {
+      errorMessage.value = result.error
+      setTimeout(() => errorMessage.value = '', 3000)
+      return
+    }
+
+    refreshPrices()
+
+    newTrade.value = {
+      symbol: '',
+      type: 'buy',
+      amount: null,
+      price: null
+    }
+  } finally {
+    isSubmitting.value.trade = false
   }
 }
 
 const rechargeUSDT = async () => {
+  if (isSubmitting.value.recharge) return
+
   if (!rechargeAmount.value || rechargeAmount.value <= 0) {
     errorMessage.value = '请输入有效的充值金额'
     setTimeout(() => errorMessage.value = '', 3000)
     return
   }
 
-  const result = await portfolioStore.createTrade({
-    symbol: 'USDT',
-    type: 'recharge',
-    amount: rechargeAmount.value,
-    price: 1
-  })
-  
-  if (!result.success) {
-    errorMessage.value = result.error
-    setTimeout(() => errorMessage.value = '', 3000)
-    return
-  }
+  isSubmitting.value.recharge = true
 
-  rechargeAmount.value = null
-  showRechargeModal.value = false
+  try {
+    const result = await portfolioStore.createTrade({
+      symbol: 'USDT',
+      type: 'recharge',
+      amount: rechargeAmount.value,
+      price: 1
+    })
+
+    if (!result.success) {
+      errorMessage.value = result.error
+      setTimeout(() => errorMessage.value = '', 3000)
+      return
+    }
+
+    rechargeAmount.value = null
+    showRechargeModal.value = false
+  } finally {
+    isSubmitting.value.recharge = false
+  }
 }
 
 const deleteTrade = async (id) => {
+  if (isSubmitting.value.delete) return
+
   if (protectHistory.value) {
     errorMessage.value = '保护开关已开启，禁止删除交易历史'
     setTimeout(() => errorMessage.value = '', 3000)
@@ -633,26 +659,42 @@ const deleteTrade = async (id) => {
   if (!confirm('确认删除该交易？该操作将同步更新资产详情中的持仓量和成本价。')) {
     return
   }
-  
-  const result = await portfolioStore.deleteTrade(id)
-  if (!result.success) {
-    errorMessage.value = result.error
-    setTimeout(() => errorMessage.value = '', 3000)
+
+  isSubmitting.value.delete = true
+
+  try {
+    const result = await portfolioStore.deleteTrade(id)
+    if (!result.success) {
+      errorMessage.value = result.error
+      setTimeout(() => errorMessage.value = '', 3000)
+    }
+  } finally {
+    isSubmitting.value.delete = false
   }
 }
 
 const clearTrades = async () => {
+  if (isSubmitting.value.clear) return
+
   if (protectHistory.value) {
     errorMessage.value = '保护开关已开启，禁止删除交易历史'
     setTimeout(() => errorMessage.value = '', 3000)
     return
   }
-  if (confirm('确认清空所有交易历史？此操作将重置所有数据。')) {
+  if (!confirm('确认清空所有交易历史？此操作将重置所有数据。')) {
+    return
+  }
+
+  isSubmitting.value.clear = true
+
+  try {
     const result = await portfolioStore.clearAllTrades()
     if (!result.success) {
       errorMessage.value = result.error
       setTimeout(() => errorMessage.value = '', 3000)
     }
+  } finally {
+    isSubmitting.value.clear = false
   }
 }
 
@@ -821,7 +863,7 @@ const assetAllocation = computed(() => {
   if (total === 0) return []
 
   const allocation = allHoldings.map((crypto, index) => {
-    const value = crypto.value || 0
+    const value = crypto.marketValue || 0
     const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : '0.0'
     const color = ASSET_CONFIG.COLORS[crypto.symbol] || CHART_COLORS[index % CHART_COLORS.length]
 

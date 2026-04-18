@@ -20,7 +20,7 @@ export const usePortfolioStore = defineStore('portfolio', () => {
       // USDT价格固定为1，其他资产从prices获取
       const currentPrice = holding.symbol === 'USDT' ? 1 : (prices.value[holding.symbol] || -1)
       const marketValue = holding.amount * currentPrice
-      // USDT的成本固定为1，其他资产使用avg_cost
+      // USDT的成本固定为1，其他资产使用avgCost
       const avgCost = holding.symbol === 'USDT' ? 1 : (holding.avg_cost || -1)
       const cost = holding.amount * avgCost
       const profitLoss = marketValue - cost
@@ -46,7 +46,7 @@ export const usePortfolioStore = defineStore('portfolio', () => {
   // 计算属性 - USDT余额
   const usdtBalance = computed(() => {
     const usdtHolding = holdings.value.find(h => h.symbol === 'USDT')
-    return usdtHolding ? usdtHolding.amount : -1
+    return usdtHolding ? usdtHolding.amount : 0
   })
 
   // 计算属性 - 浮动盈亏（未实现盈亏）

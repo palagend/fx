@@ -5,20 +5,20 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/golang-jwt/jwt/v5"
 	"gitee.com/palagend/fx/config"
 	"gitee.com/palagend/fx/models"
+	"github.com/golang-jwt/jwt/v5"
 )
 
 var (
-	jwtSecret        = []byte("your-secret-key-change-in-production")
-	accessTokenTTL   = 15 * time.Minute
-	refreshTokenTTL  = 7 * 24 * time.Hour
+	jwtSecret       = []byte("fd423952-3fac-4b62-9460-f024c44e0ea9")
+	accessTokenTTL  = 10 * time.Minute
+	refreshTokenTTL = 7 * 24 * time.Hour
 )
 
 type TokenClaims struct {
-	UserID   uint   `json:"user_id"`
-	Username string `json:"username"`
+	UserID    uint   `json:"user_id"`
+	Username  string `json:"username"`
 	TokenType string `json:"token_type"`
 	jwt.RegisteredClaims
 }
