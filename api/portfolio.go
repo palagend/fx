@@ -561,9 +561,10 @@ func GetDashboard(c *gin.Context) {
 		if err := json.NewDecoder(resp.Body).Decode(&result); err == nil {
 			for _, item := range result.Data {
 				price, _ := strconv.ParseFloat(item.PriceUsd, 64)
-				change24h, _ := strconv.ParseFloat(item.ChangePercent24Hr, 64)
+				// CoinCap 返回的是百分比值（如 1.2 表示 1.2%），转换为小数（0.012）
+				change24hPercent, _ := strconv.ParseFloat(item.ChangePercent24Hr, 64)
 				prices[item.Symbol] = price
-				priceChanges[item.Symbol] = change24h
+				priceChanges[item.Symbol] = change24hPercent / 100
 			}
 			updatedAt = result.Timestamp
 		}
@@ -655,9 +656,10 @@ func GetDashboard(c *gin.Context) {
 		unrealizedPLRate = (unrealizedPL / totalCost) * 100
 	}
 
+	// 计算总资产 24h 涨跌幅（百分比形式，如 1.2 表示 1.2%）
 	totalValueChange24h := 0.0
 	if totalValue > 0 {
-		totalValueChange24h = weightedChange / totalValue
+		totalValueChange24h = (weightedChange / totalValue) * 100
 	}
 
 	c.JSON(http.StatusOK, gin.H{
