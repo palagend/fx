@@ -692,6 +692,11 @@ func calculatePortfolioStats(holdings []models.Holding, investments []models.Inv
 			continue
 		}
 
+		// 跳过持仓为0的加密资产
+		if h.Amount == 0 {
+			continue
+		}
+
 		totalValue += marketValue
 
 		inv := invMap[h.Symbol]
