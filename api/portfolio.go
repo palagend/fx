@@ -8,8 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"log"
-
 	"gitee.com/palagend/fx/config"
 	"gitee.com/palagend/fx/models"
 	"github.com/gin-gonic/gin"
@@ -25,7 +23,6 @@ func getOrCreateHolding(tx *gorm.DB, userID uint, symbol string) (*models.Holdin
 	if err != nil {
 		holding = models.Holding{UserID: userID, Symbol: symbol, Amount: 0}
 		err = tx.Create(&holding).Error
-		log.Printf("创建持仓失败: %v", err)
 		return &holding, err
 	}
 	return &holding, nil
@@ -51,11 +48,58 @@ func updateHolding(tx *gorm.DB, holding *models.Holding, delta float64) error {
 
 // ========== 请求/响应结构 ==========
 
+// 支持的加密货币列表（不含USDT）
+var supportedCryptos = map[string]bool{
+	"BTC":  true,
+	"ETH":  true,
+	"BNB":  true,
+	"XRP":  true,
+	"ADA":  true,
+	"SOL":  true,
+	"DOGE": true,
+	"TRX":  true,
+	"AVAX": true,
+}
+
+// BusinessError 业务错误类型
+type BusinessError struct {
+	Message string
+}
+
+func (e *BusinessError) Error() string {
+	return e.Message
+}
+
 type CreateTradeRequest struct {
 	Symbol string  `json:"symbol" binding:"required"`
 	Type   string  `json:"type" binding:"required,oneof=buy sell recharge"`
-	Amount float64 `json:"amount" binding:"required,gt=0"`
-	Price  float64 `json:"price" binding:"required,gt=0"`
+	Amount float64 `json:"amount" binding:"required,gt=0,lte=1000000000"`
+	Price  float64 `json:"price" binding:"required,gt=0,lte=1000000000"`
+}
+
+// validateTradeRequest 对交易请求进行业务校验
+func validateTradeRequest(req *CreateTradeRequest) error {
+	switch req.Type {
+	case "recharge":
+		// 充值必须是USDT
+		if req.Symbol != "USDT" {
+			return fmt.Errorf("充值只支持USDT")
+		}
+		// 充值时价格和数量应该一致（1:1）
+		if req.Price != 1 {
+			return fmt.Errorf("USDT充值价格必须为1")
+		}
+	case "buy", "sell":
+		// 买卖不能是USDT
+		if req.Symbol == "USDT" {
+			return fmt.Errorf("不能直接买卖USDT，请使用充值功能")
+		}
+		// 检查是否是支持的加密货币
+		if !supportedCryptos[req.Symbol] {
+			return fmt.Errorf("不支持的加密货币: %s", req.Symbol)
+		}
+	}
+	return nil
 }
 
 type TradeResponse struct {
@@ -84,6 +128,12 @@ func CreateTrade(c *gin.Context) {
 		return
 	}
 
+	// 业务层参数校验
+	if err := validateTradeRequest(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
 	db := config.GetDB()
 	uid := userID.(uint)
 	total := req.Amount * req.Price
@@ -107,7 +157,12 @@ func CreateTrade(c *gin.Context) {
 
 	if err != nil {
 		tx.Rollback()
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		// 区分业务错误和系统错误
+		if _, ok := err.(*BusinessError); ok {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		}
 		return
 	}
 
@@ -148,15 +203,23 @@ func handleRecharge(tx *gorm.DB, uid uint, amount float64) error {
 	if err != nil {
 		return fmt.Errorf("创建USDT持仓失败")
 	}
-	return updateHolding(tx, usdtHolding, amount)
+
+	if err := updateHolding(tx, usdtHolding, amount); err != nil {
+		return fmt.Errorf("更新USDT持仓失败")
+	}
+	return nil
 }
 
 // handleBuy 处理买入
 func handleBuy(tx *gorm.DB, uid uint, symbol string, amount, total float64) error {
 	// 检查USDT余额
 	usdtHolding, err := getOrCreateHolding(tx, uid, "USDT")
-	if err != nil || usdtHolding.Amount < total {
-		return fmt.Errorf("USDT余额不足")
+	if err != nil {
+		return fmt.Errorf("获取USDT持仓失败")
+	}
+
+	if usdtHolding.Amount < total {
+		return &BusinessError{Message: "USDT余额不足"}
 	}
 
 	// 减少USDT
@@ -169,6 +232,7 @@ func handleBuy(tx *gorm.DB, uid uint, symbol string, amount, total float64) erro
 	if err != nil {
 		return fmt.Errorf("创建持仓失败")
 	}
+
 	if err := updateHolding(tx, cryptoHolding, amount); err != nil {
 		return fmt.Errorf("更新持仓失败")
 	}
@@ -179,15 +243,22 @@ func handleBuy(tx *gorm.DB, uid uint, symbol string, amount, total float64) erro
 		return fmt.Errorf("创建投资记录失败")
 	}
 	inv.TotalIn += total
-	return tx.Save(inv).Error
+	if err := tx.Save(inv).Error; err != nil {
+		return fmt.Errorf("保存投资记录失败")
+	}
+	return nil
 }
 
 // handleSell 处理卖出
 func handleSell(tx *gorm.DB, uid uint, symbol string, amount, total float64) error {
 	// 检查持仓
 	cryptoHolding, err := getOrCreateHolding(tx, uid, symbol)
-	if err != nil || cryptoHolding.Amount < amount {
-		return fmt.Errorf("持仓不足")
+	if err != nil {
+		return fmt.Errorf("获取持仓失败")
+	}
+
+	if cryptoHolding.Amount < amount {
+		return &BusinessError{Message: "持仓不足"}
 	}
 
 	// 减少加密资产
@@ -200,14 +271,21 @@ func handleSell(tx *gorm.DB, uid uint, symbol string, amount, total float64) err
 	if err != nil {
 		return fmt.Errorf("获取USDT持仓失败")
 	}
+
 	if err := updateHolding(tx, usdtHolding, total); err != nil {
 		return fmt.Errorf("更新USDT持仓失败")
 	}
 
 	// 记录USDT退出
-	inv, _ := getOrCreateInvestment(tx, uid, symbol)
+	inv, err := getOrCreateInvestment(tx, uid, symbol)
+	if err != nil {
+		return fmt.Errorf("获取投资记录失败")
+	}
 	inv.TotalOut += total
-	return tx.Save(inv).Error
+	if err := tx.Save(inv).Error; err != nil {
+		return fmt.Errorf("保存投资记录失败")
+	}
+	return nil
 }
 
 // GetTrades 获取交易记录
@@ -407,6 +485,18 @@ func ClearTrades(c *gin.Context) {
 func GetAssetPrice(c *gin.Context) {
 	symbol := c.Param("symbol")
 
+	// 校验symbol参数
+	if symbol == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "币种代码不能为空"})
+		return
+	}
+
+	// 检查是否是USDT或支持的加密货币
+	if symbol != "USDT" && !supportedCryptos[symbol] {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "不支持的加密货币"})
+		return
+	}
+
 	if symbol == "USDT" {
 		c.JSON(http.StatusOK, gin.H{"symbol": symbol, "price": 1.0})
 		return
@@ -495,18 +585,18 @@ func GetDashboard(c *gin.Context) {
 	stats := calculatePortfolioStats(holdings, investments, prices, priceChanges, totalRecharge)
 
 	c.JSON(http.StatusOK, gin.H{
-		"prices":                 prices,
-		"price_changes":          priceChanges,
-		"updated_at":             updatedAt,
-		"portfolio":              stats.portfolio,
-		"total_value":            stats.totalValue,
-		"total_assets_value":     stats.totalAssetsValue,
-		"usdt_balance":           stats.usdtBalance,
-		"unrealized_pl":          stats.totalUnrealizedPL,
-		"unrealized_pl_rate":     stats.totalUnrealizedPLRate,
-		"realized_pl":            stats.totalRealizedPL,
-		"total_pl":               stats.totalUnrealizedPL + stats.totalRealizedPL,
-		"total_value_change_24h": stats.totalValueChange24h,
+		"prices":                      prices,
+		"price_changes":               priceChanges,
+		"updated_at":                  updatedAt,
+		"portfolio":                   stats.portfolio,
+		"crypto_value":                stats.totalValue,                                // 加密资产市值（不含USDT）
+		"total_assets_value":          stats.totalAssetsValue,                          // 总资产价值（加密资产+USDT）
+		"usdt_balance":                stats.usdtBalance,                               // USDT余额
+		"unrealized_profit_loss":      stats.totalUnrealizedPL,                         // 浮动盈亏（未实现）
+		"unrealized_profit_loss_rate": stats.totalUnrealizedPLRate,                     // 浮动盈亏率
+		"realized_profit_loss":        stats.totalRealizedPL,                           // 实现盈亏（已卖出部分的盈亏）
+		"total_profit_loss":           stats.totalUnrealizedPL + stats.totalRealizedPL, // 总盈亏
+		"value_change_24h":            stats.totalValueChange24h,                       // 24小时价值变化率
 	})
 }
 
@@ -608,7 +698,10 @@ func calculatePortfolioStats(holdings []models.Holding, investments []models.Inv
 		avgCost := calcAvgCost(inv, &h)
 		cost := inv.TotalIn - inv.TotalOut
 		profitLoss := marketValue - cost
-		plRate := (profitLoss / cost) * 100
+		plRate := 0.0
+		if cost != 0 {
+			plRate = (profitLoss / cost) * 100
+		}
 
 		totalUnrealizedPL += profitLoss
 		totalCost += cost
@@ -627,10 +720,14 @@ func calculatePortfolioStats(holdings []models.Holding, investments []models.Inv
 	}
 
 	totalUnrealizedPLRate := 0.0
-	totalUnrealizedPLRate = (totalUnrealizedPL / totalCost) * 100
+	if totalCost != 0 {
+		totalUnrealizedPLRate = (totalUnrealizedPL / totalCost) * 100
+	}
 
 	totalValueChange24h := 0.0
-	totalValueChange24h = (weightedChange / totalValue) * 100
+	if totalValue != 0 {
+		totalValueChange24h = (weightedChange / totalValue) * 100
+	}
 
 	// 实现盈亏 = USDT余额 - 充值总额
 	// 正数表示盈利（余额比充值多，说明卖出赚了），负数表示亏损
@@ -650,6 +747,9 @@ func calculatePortfolioStats(holdings []models.Holding, investments []models.Inv
 
 // calcAvgCost 计算平均成本 = USDT净投入 / 持仓量
 func calcAvgCost(inv *models.Investment, holding *models.Holding) float64 {
+	if holding.Amount == 0 {
+		return 0
+	}
 	netInvestment := inv.TotalIn - inv.TotalOut
 	return netInvestment / holding.Amount
 }

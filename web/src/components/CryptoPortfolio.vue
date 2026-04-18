@@ -19,7 +19,7 @@
             <section class="overview">
               <div class="overview-card">
                 <h3><Icon icon="mdi:wallet" /> 加密资产价值</h3>
-                <div class="value">${{ formatNumber(totalValue) }}</div>
+                <div class="value">${{ formatNumber(cryptoValue) }}</div>
                 <div class="change" :class="displayTotalValueChange.class">
                   {{ displayTotalValueChange.sign }}{{ displayTotalValueChange.value }}% (24h)
                 </div>
@@ -428,13 +428,13 @@ const isSubmitting = ref({
 // 从store获取数据（后端已计算好）
 const portfolio = computed(() => portfolioStore.portfolio)
 const trades = computed(() => portfolioStore.trades)
-const totalValue = computed(() => portfolioStore.totalValue) // 加密资产价值（不含 USDT）
+const cryptoValue = computed(() => portfolioStore.cryptoValue) // 加密资产市值（不含 USDT）
 const totalAssetsValue = computed(() => portfolioStore.totalAssetsValue) // 总资产价值（含 USDT）
 const usdtBalance = computed(() => portfolioStore.usdtBalance)
 const unrealizedProfitLoss = computed(() => portfolioStore.unrealizedProfitLoss)
 const unrealizedProfitLossRate = computed(() => portfolioStore.unrealizedProfitLossRate)
 const realizedProfitLoss = computed(() => portfolioStore.realizedProfitLoss)
-const totalValueChange24h = computed(() => portfolioStore.totalValueChange24h)
+const valueChange24h = computed(() => portfolioStore.valueChange24h) // 24小时价值变化率
 
 // 格式化的显示值（避免模板中重复计算）
 const displayUnrealizedPL = computed(() => {
@@ -457,7 +457,7 @@ const displayRealizedPL = computed(() => {
 })
 
 const displayTotalValueChange = computed(() => {
-  const val = totalValueChange24h.value
+  const val = valueChange24h.value
   return {
     sign: val >= 0 ? '+' : '-',
     value: Math.abs(val).toFixed(2),

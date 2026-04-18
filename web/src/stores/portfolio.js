@@ -20,16 +20,21 @@ export const usePortfolioStore = defineStore('portfolio', () => {
   const portfolio = computed(() => dashboardData.value?.portfolio || [])
 
   // 计算属性 - 统计数据（后端已计算好）
-  const totalValue = computed(() => dashboardData.value?.total_value || 0) // 加密资产总价值（不含 USDT）
+  const cryptoValue = computed(() => dashboardData.value?.crypto_value || 0) // 加密资产市值（不含 USDT）
   const totalAssetsValue = computed(() => dashboardData.value?.total_assets_value || 0) // 总资产价值（含 USDT）
-  const usdtBalance = computed(() => dashboardData.value?.usdt_balance || 0)
-  const unrealizedProfitLoss = computed(() => dashboardData.value?.unrealized_pl || 0)
-  const realizedProfitLoss = computed(() => dashboardData.value?.realized_pl || 0)
-  const totalProfitLoss = computed(() => dashboardData.value?.total_pl || 0)
-  const totalValueChange24h = computed(() => dashboardData.value?.total_value_change_24h || 0)
+  const usdtBalance = computed(() => dashboardData.value?.usdt_balance || 0) // USDT余额
+  const unrealizedProfitLoss = computed(() => dashboardData.value?.unrealized_profit_loss || 0) // 浮动盈亏
+  const realizedProfitLoss = computed(() => dashboardData.value?.realized_profit_loss || 0) // 实现盈亏
+  const totalProfitLoss = computed(() => dashboardData.value?.total_profit_loss || 0) // 总盈亏
+  const valueChange24h = computed(() => dashboardData.value?.value_change_24h || 0) // 24小时价值变化率
 
-  // 计算属性 - 浮动盈亏率
+  // 计算属性 - 浮动盈亏率（优先使用后端计算的值）
   const unrealizedProfitLossRate = computed(() => {
+    // 如果后端已计算，直接使用
+    if (dashboardData.value?.unrealized_profit_loss_rate !== undefined) {
+      return dashboardData.value.unrealized_profit_loss_rate
+    }
+    // 否则前端计算
     const portfolioData = portfolio.value
     const nonUSDTCost = portfolioData
       .filter(item => item.symbol !== 'USDT')
@@ -157,14 +162,14 @@ export const usePortfolioStore = defineStore('portfolio', () => {
     prices,
     priceChanges,
     portfolio,
-    totalValue,
+    cryptoValue,
     totalAssetsValue,
     usdtBalance,
     unrealizedProfitLoss,
     unrealizedProfitLossRate,
     realizedProfitLoss,
     totalProfitLoss,
-    totalValueChange24h,
+    valueChange24h,
     // Actions
     fetchDashboard,
     fetchAssetPrice,
