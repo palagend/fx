@@ -138,7 +138,7 @@
                     step="0.00001"
                   >
                   <span class="input-hint" v-if="newTrade.symbol">
-                    当前: ${{ formatNumber(portfolioStore.prices[newTrade.symbol] || 0) }}
+                    当前: ${{ formatNumber(currentMarketPrice) }}
                   </span>
                 </div>
                 <!-- 交易预览 -->
@@ -149,7 +149,7 @@
                   </div>
                   <div class="preview-row" v-if="newTrade.type === 'buy'">
                     <span class="preview-label">最新市价:</span>
-                    <span class="preview-value">${{ formatNumber(portfolioStore.prices[newTrade.symbol] || 0) }}</span>
+                    <span class="preview-value">${{ formatNumber(currentMarketPrice) }}</span>
                   </div>
                   <div class="preview-row" v-if="newTrade.type === 'buy' && getHoldingAmount(newTrade.symbol) > 0">
                     <span class="preview-label">综合成本价:</span>
@@ -402,6 +402,7 @@ const newTrade = ref({
   amount: null,
   price: null
 })
+const currentMarketPrice = ref(0) // 当前选中的币种市价
 const tradeFilter = ref('all')
 const refreshing = ref(false)
 const lastUpdateTime = ref('')
@@ -531,9 +532,16 @@ const toggleProtectHistory = () => {
   protectHistory.value = !protectHistory.value
 }
 
-const onSymbolChange = () => {
-  if (newTrade.value.symbol && portfolioStore.prices[newTrade.value.symbol]) {
-    newTrade.value.price = portfolioStore.prices[newTrade.value.symbol]
+const onSymbolChange = async () => {
+  if (newTrade.value.symbol) {
+    // 使用 GetAssetPrice 接口获取最新价格
+    const result = await portfolioStore.fetchAssetPrice(newTrade.value.symbol)
+    if (result.success) {
+      newTrade.value.price = result.price
+      currentMarketPrice.value = result.price
+    }
+  } else {
+    currentMarketPrice.value = 0
   }
   nextTick(() => {
     if (amountInput.value) {
@@ -742,17 +750,31 @@ const selectAsset = (symbol) => {
   }
 }
 
-const quickSell = (crypto) => {
+const quickSell = async (crypto) => {
   newTrade.value.symbol = crypto.symbol
   newTrade.value.type = 'sell'
   newTrade.value.amount = crypto.amount
-  newTrade.value.price = crypto.currentPrice || (crypto.avg_cost || crypto.price)
+  // 使用 GetAssetPrice 接口获取最新价格
+  const result = await portfolioStore.fetchAssetPrice(crypto.symbol)
+  if (result.success) {
+    newTrade.value.price = result.price
+    currentMarketPrice.value = result.price
+  } else {
+    newTrade.value.price = crypto.currentPrice || (crypto.avg_cost || crypto.price)
+  }
 }
 
-const quickBuy = (crypto) => {
+const quickBuy = async (crypto) => {
   newTrade.value.symbol = crypto.symbol
   newTrade.value.type = 'buy'
-  newTrade.value.price = crypto.currentPrice || (crypto.avg_cost || crypto.price)
+  // 使用 GetAssetPrice 接口获取最新价格
+  const result = await portfolioStore.fetchAssetPrice(crypto.symbol)
+  if (result.success) {
+    newTrade.value.price = result.price
+    currentMarketPrice.value = result.price
+  } else {
+    newTrade.value.price = crypto.currentPrice || (crypto.avg_cost || crypto.price)
+  }
   nextTick(() => {
     if (amountInput.value) {
       amountInput.value.focus()

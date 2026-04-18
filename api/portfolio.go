@@ -59,6 +59,7 @@ var supportedCryptos = map[string]bool{
 	"DOGE": true,
 	"TRX":  true,
 	"AVAX": true,
+	"HYPE": true,
 }
 
 // BusinessError 业务错误类型
@@ -602,7 +603,7 @@ func GetDashboard(c *gin.Context) {
 
 // fetchPrices 获取价格数据
 func fetchPrices() (map[string]float64, map[string]float64, int64) {
-	ids := []string{"bitcoin", "ethereum", "binance-coin", "xrp", "cardano", "solana", "dogecoin", "tron", "avalanche"}
+	ids := []string{"bitcoin", "ethereum", "binance-coin", "xrp", "cardano", "solana", "dogecoin", "tron", "avalanche", "hyperliquid"}
 	idsParam := strings.Join(ids, ",")
 	url := fmt.Sprintf("https://rest.coincap.io/v3/assets?ids=%s", idsParam)
 
