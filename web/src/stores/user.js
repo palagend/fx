@@ -1,8 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import axios from 'axios'
-
-const API_BASE_URL = '/api'
+import apiClient from '../api/axios'
 
 export const useUserStore = defineStore('user', () => {
   const user = ref(null)
@@ -19,7 +17,6 @@ export const useUserStore = defineStore('user', () => {
     refreshToken.value = tokens.refresh_token
     localStorage.setItem('accessToken', tokens.access_token)
     localStorage.setItem('refreshToken', tokens.refresh_token)
-    setupAxiosInterceptors()
   }
 
   const clearTokens = () => {
@@ -30,15 +27,11 @@ export const useUserStore = defineStore('user', () => {
     localStorage.removeItem('refreshToken')
   }
 
-  const setupAxiosInterceptors = () => {
-    axios.defaults.headers.common['Authorization'] = `Bearer ${accessToken.value}`
-  }
-
   const register = async (username, email, password) => {
     isLoading.value = true
     error.value = null
     try {
-      const response = await axios.post(`${API_BASE_URL}/auth/register`, {
+      const response = await apiClient.post('/auth/register', {
         username,
         email,
         password
@@ -58,7 +51,7 @@ export const useUserStore = defineStore('user', () => {
     isLoading.value = true
     error.value = null
     try {
-      const response = await axios.post(`${API_BASE_URL}/auth/login`, {
+      const response = await apiClient.post('/auth/login', {
         username,
         password
       })
@@ -76,37 +69,18 @@ export const useUserStore = defineStore('user', () => {
   const fetchUserInfo = async () => {
     if (!accessToken.value) return
     try {
-      const response = await axios.get(`${API_BASE_URL}/auth/me`)
+      const response = await apiClient.get('/auth/me')
       user.value = response.data.user
     } catch (err) {
-      if (err.response?.status === 401) {
-        await refreshAccessToken()
-      }
-    }
-  }
-
-  const refreshAccessToken = async () => {
-    if (!refreshToken.value) {
-      clearTokens()
-      return false
-    }
-    try {
-      const response = await axios.post(`${API_BASE_URL}/auth/refresh`, {
-        refresh_token: refreshToken.value
-      })
-      setTokens(response.data.tokens)
-      await fetchUserInfo()
-      return true
-    } catch (err) {
-      clearTokens()
-      return false
+      // 401 错误由 axios 拦截器处理
+      console.error('获取用户信息失败:', err)
     }
   }
 
   const logout = async () => {
     if (refreshToken.value) {
       try {
-        await axios.post(`${API_BASE_URL}/auth/logout`, {
+        await apiClient.post('/auth/logout', {
           refresh_token: refreshToken.value
         })
       } catch (err) {
@@ -118,7 +92,7 @@ export const useUserStore = defineStore('user', () => {
 
   const logoutAll = async () => {
     try {
-      await axios.post(`${API_BASE_URL}/auth/logout-all`)
+      await apiClient.post('/auth/logout-all')
       clearTokens()
       return { success: true }
     } catch (err) {
@@ -130,7 +104,7 @@ export const useUserStore = defineStore('user', () => {
     isLoading.value = true
     error.value = null
     try {
-      await axios.post(`${API_BASE_URL}/auth/change-password`, {
+      await apiClient.post('/auth/change-password', {
         old_password: oldPassword,
         new_password: newPassword
       })
@@ -145,7 +119,6 @@ export const useUserStore = defineStore('user', () => {
 
   const init = async () => {
     if (accessToken.value) {
-      setupAxiosInterceptors()
       await fetchUserInfo()
     }
   }
@@ -171,10 +144,11 @@ export const useUserStore = defineStore('user', () => {
     logout,
     logoutAll,
     fetchUserInfo,
-    refreshAccessToken,
     changePassword,
     init,
     openLoginModal,
-    closeLoginModal
+    closeLoginModal,
+    setTokens,
+    clearTokens
   }
 })
