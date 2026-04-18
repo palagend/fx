@@ -11,20 +11,22 @@ export const usePortfolioStore = defineStore('portfolio', () => {
   const investments = ref([])
   const trades = ref([])
   const prices = ref({})
+  const priceChanges = ref({})
   const isLoading = ref(false)
   const error = ref(null)
 
   // 计算属性 - 投资组合（包含实时价格计算）
   const portfolio = computed(() => {
+    const pricesVal = prices.value
     return holdings.value.map(holding => {
       // USDT价格固定为1，其他资产从prices获取
-      const currentPrice = holding.symbol === 'USDT' ? 1 : (prices.value[holding.symbol] || -1)
+      const currentPrice = holding.symbol === 'USDT' ? 1 : (pricesVal[holding.symbol] || 0)
       const marketValue = holding.amount * currentPrice
       // USDT的成本固定为1，其他资产使用avgCost
-      const avgCost = holding.symbol === 'USDT' ? 1 : (holding.avg_cost || -1)
+      const avgCost = holding.symbol === 'USDT' ? 1 : (holding.avg_cost || 0)
       const cost = holding.amount * avgCost
       const profitLoss = marketValue - cost
-      const profitLossRate = (profitLoss / cost) * 100
+      const profitLossRate = cost > 0 ? (profitLoss / cost) * 100 : 0
 
       return {
         ...holding,
@@ -66,11 +68,35 @@ export const usePortfolioStore = defineStore('portfolio', () => {
     return unrealizedProfitLoss.value + realizedProfitLoss.value
   })
 
+  // 计算属性 - 总资产24h变化率
+  const totalValueChange24h = computed(() => {
+    const changes = priceChanges.value
+    if (Object.keys(changes).length === 0) return 0
+
+    let totalValue = 0
+    let weightedChange = 0
+
+    holdings.value.forEach(holding => {
+      if (holding.symbol === 'USDT') {
+        totalValue += holding.amount
+      } else {
+        const price = prices.value[holding.symbol] || 0
+        const marketValue = holding.amount * price
+        totalValue += marketValue
+        const change24h = changes[holding.symbol] || 0
+        weightedChange += marketValue * change24h
+      }
+    })
+
+    return totalValue > 0 ? weightedChange / totalValue : 0
+  })
+
   // Actions
   async function fetchPrices() {
     try {
       const response = await portfolioApi.getAllPrices()
       prices.value = response.data.prices || {}
+      priceChanges.value = response.data.price_changes || {}
       return {
         success: true,
         prices: response.data.prices || {},
@@ -193,6 +219,7 @@ export const usePortfolioStore = defineStore('portfolio', () => {
     investments,
     trades,
     prices,
+    priceChanges,
     isLoading,
     error,
     // 计算属性
@@ -202,6 +229,7 @@ export const usePortfolioStore = defineStore('portfolio', () => {
     unrealizedProfitLoss,
     realizedProfitLoss,
     totalProfitLoss,
+    totalValueChange24h,
     // Actions
     fetchPrices,
     fetchAssetPrice,

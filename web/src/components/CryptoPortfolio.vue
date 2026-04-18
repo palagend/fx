@@ -138,7 +138,7 @@
                     step="0.00001"
                   >
                   <span class="input-hint" v-if="newTrade.symbol">
-                    当前: ${{ formatNumber(prices[newTrade.symbol] || 0) }}
+                    当前: ${{ formatNumber(portfolioStore.prices[newTrade.symbol] || 0) }}
                   </span>
                 </div>
                 <!-- 交易预览 -->
@@ -149,7 +149,7 @@
                   </div>
                   <div class="preview-row" v-if="newTrade.type === 'buy'">
                     <span class="preview-label">最新市价:</span>
-                    <span class="preview-value">${{ formatNumber(prices[newTrade.symbol] || -1) }}</span>
+                    <span class="preview-value">${{ formatNumber(portfolioStore.prices[newTrade.symbol] || 0) }}</span>
                   </div>
                   <div class="preview-row" v-if="newTrade.type === 'buy' && getHoldingAmount(newTrade.symbol) > 0">
                     <span class="preview-label">综合成本价:</span>
@@ -403,8 +403,6 @@ const newTrade = ref({
   price: null
 })
 const tradeFilter = ref('all')
-const prices = ref({})
-const priceChanges24h = ref({})
 const refreshing = ref(false)
 const lastUpdateTime = ref('')
 const errorMessage = ref('')
@@ -435,9 +433,8 @@ const totalValue = computed(() => portfolioStore.totalValue)
 const usdtBalance = computed(() => portfolioStore.usdtBalance)
 const unrealizedProfitLoss = computed(() => portfolioStore.unrealizedProfitLoss)
 const unrealizedProfitLossRate = computed(() => {
-  const totalCost = portfolio.value
-    .filter(item => item.symbol !== 'USDT')
-    .reduce((sum, item) => sum + (item.amount * item.avg_cost), 0)
+  const totalCost = portfolio.value.reduce((sum, item) => 
+    item.symbol !== 'USDT' ? sum + item.cost : sum, 0)
   return totalCost > 0 ? (unrealizedProfitLoss.value / totalCost) * 100 : 0
 })
 const totalValueChange24h = computed(() => portfolioStore.totalValueChange24h)
@@ -509,8 +506,8 @@ const toggleProtectHistory = () => {
 }
 
 const onSymbolChange = () => {
-  if (newTrade.value.symbol && prices.value[newTrade.value.symbol]) {
-    newTrade.value.price = prices.value[newTrade.value.symbol]
+  if (newTrade.value.symbol && portfolioStore.prices[newTrade.value.symbol]) {
+    newTrade.value.price = portfolioStore.prices[newTrade.value.symbol]
   }
   nextTick(() => {
     if (amountInput.value) {
@@ -811,9 +808,6 @@ const refreshPrices = async () => {
     const result = await portfolioStore.fetchPrices()
     
     if (result.success) {
-      // 同步本地价格状态
-      prices.value = result.prices
-      priceChanges24h.value = result.priceChanges || {}
       lastUpdateTime.value = formatDate(result.updatedAt)
     } else {
       errorMessage.value = result.error || '获取价格失败'
@@ -840,64 +834,50 @@ const toggleAutoRefresh = () => {
 }
 
 const filteredPortfolio = computed(() => {
-  const nonUSDT = portfolio.value.filter(c => c.symbol !== 'USDT')
-  if (selectedFilter.value === 'all') {
-    return nonUSDT
-  }
-  return nonUSDT.filter(crypto => crypto.symbol === selectedFilter.value)
+  const filter = selectedFilter.value
+  return portfolio.value.filter(c => 
+    c.symbol !== 'USDT' && (filter === 'all' || c.symbol === filter)
+  )
 })
 
 const filteredTrades = computed(() => {
-  if (tradeFilter.value === 'all') {
-    return trades.value
-  }
-  return trades.value.filter(trade => trade.type === tradeFilter.value)
+  const filter = tradeFilter.value
+  return filter === 'all' ? trades.value : trades.value.filter(t => t.type === filter)
 })
 
 const assetAllocation = computed(() => {
-  // 获取所有持仓（包括USDT）
   const allHoldings = portfolio.value
   if (allHoldings.length === 0) return []
 
   const total = totalValue.value
-  if (total === 0) return []
+  if (total <= 0) return []
 
-  const allocation = allHoldings.map((crypto, index) => {
-    const value = crypto.marketValue || 0
-    const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : '0.0'
-    const color = ASSET_CONFIG.COLORS[crypto.symbol] || CHART_COLORS[index % CHART_COLORS.length]
-
-    return {
+  return allHoldings
+    .map((crypto, index) => ({
       name: crypto.symbol,
-      percentage: parseFloat(percentage),
-      value,
-      color
-    }
-  }).filter(item => item.value > 0).sort((a, b) => b.value - a.value)
-
-  return allocation
+      percentage: parseFloat(((crypto.marketValue || 0) / total * 100).toFixed(1)),
+      value: crypto.marketValue || 0,
+      color: ASSET_CONFIG.COLORS[crypto.symbol] || CHART_COLORS[index % CHART_COLORS.length]
+    }))
+    .filter(item => item.value > 0)
+    .sort((a, b) => b.value - a.value)
 })
 
 const pieChartStyle = computed(() => {
-  if (assetAllocation.value.length === 0) return {}
+  const allocation = assetAllocation.value
+  if (allocation.length === 0) return {}
 
-  let gradient = 'conic-gradient('
-  let startAngle = 0
-
-  assetAllocation.value.forEach((item, index) => {
+  const gradient = allocation.reduce((acc, item, index) => {
+    const startAngle = index === 0 ? 0 : acc.angle
     const endAngle = startAngle + (item.percentage * 3.6)
-    gradient += `${item.color} ${startAngle}deg ${endAngle}deg`
-    if (index < assetAllocation.value.length - 1) {
-      gradient += ', '
+    const separator = index < allocation.length - 1 ? ', ' : ''
+    return {
+      str: acc.str + `${item.color} ${startAngle}deg ${endAngle}deg${separator}`,
+      angle: endAngle
     }
-    startAngle = endAngle
-  })
+  }, { str: 'conic-gradient(', angle: 0 })
 
-  gradient += ')'
-
-  return {
-    background: gradient
-  }
+  return { background: gradient.str + ')' }
 })
 
 onMounted(() => {
