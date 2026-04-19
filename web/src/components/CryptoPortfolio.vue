@@ -261,7 +261,7 @@
                         </div>
                         <div class="preview-item">
                           <span class="label">当前成本价</span>
-                          <span class="value">${{ formatAmount(portfolio.value.find(c => c.symbol === newTrade.symbol)?.avg_cost || 0) }}</span>
+                          <span class="value">${{ formatAmount(portfolio.value?.find(c => c.symbol === newTrade.symbol)?.avg_cost || 0) }}</span>
                         </div>
                         <div class="preview-item">
                           <span class="label">卖出后持仓</span>
@@ -735,7 +735,7 @@ const isFormValid = computed(() => {
 })
 
 const getHoldingAmount = (symbol) => {
-  const asset = portfolio.value.find(c => c.symbol === symbol)
+  const asset = portfolio.value?.find(c => c.symbol === symbol)
   return asset ? asset.amount : 0
 }
 
@@ -758,7 +758,7 @@ const getProfitClass = (crypto) => {
 // 实现盈亏 = USDT退出 - USDT投入（按卖出比例计算）
 const calculateEstimatedRealizedPL = () => {
   if (newTrade.value.type !== 'sell') return 0
-  const existing = portfolio.value.find(c => c.symbol === newTrade.value.symbol)
+  const existing = portfolio.value?.find(c => c.symbol === newTrade.value.symbol)
   if (!existing || existing.amount === 0) return 0
 
   // 本次卖出获得的USDT
@@ -776,7 +776,7 @@ const calculateEstimatedRealizedPL = () => {
 // 卖出: 新成本价 = 当前成本（保持不变，因为按比例回收成本）
 const calculateNewAvgCost = () => {
   if (!newTrade.value.symbol) return 0
-  const existing = portfolio.value.find(c => c.symbol === newTrade.value.symbol)
+  const existing = portfolio.value?.find(c => c.symbol === newTrade.value.symbol)
   const currentAmount = existing ? existing.amount : 0
   const currentCost = existing ? existing.cost : 0
   const tradeAmount = newTrade.value.amount
@@ -1087,9 +1087,9 @@ const toggleAutoRefresh = () => {
 
 const filteredPortfolio = computed(() => {
   const filter = selectedFilter.value
-  return portfolio.value.filter(c => 
+  return portfolio.value?.filter(c =>
     c.symbol !== 'USDT' && (filter === 'all' || c.symbol === filter)
-  )
+  ) || []
 })
 
 const filteredTrades = computed(() => {
@@ -1098,7 +1098,7 @@ const filteredTrades = computed(() => {
 })
 
 const assetAllocation = computed(() => {
-  const allHoldings = portfolio.value
+  const allHoldings = portfolio.value || []
   if (allHoldings.length === 0) return []
 
   // 使用总资产价值（含 USDT）计算分布
