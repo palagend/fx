@@ -821,3 +821,365 @@ func calculatePortfolioStats(holdings []models.Holding, prices, priceChanges map
 		totalValueChange24h:   totalValueChange24h,
 	}
 }
+
+// ========== 数据导出/导入接口 ==========
+
+// ExportTrade 导出交易记录结构
+type ExportTrade struct {
+	Symbol    string  `json:"symbol"`
+	Type      string  `json:"type"`
+	Amount    float64 `json:"amount"`
+	Price     float64 `json:"price"`
+	Total     float64 `json:"total"`
+	CreatedAt string  `json:"created_at"`
+	Notes     string  `json:"notes,omitempty"`
+}
+
+// ExportData 导出数据结构
+type ExportData struct {
+	Version    string        `json:"version"`
+	ExportTime string        `json:"export_time"`
+	AppName    string        `json:"app_name"`
+	Trades     []ExportTrade `json:"trades"`
+}
+
+// ImportPreview 导入预览结果
+type ImportPreview struct {
+	TotalTrades   int            `json:"total_trades"`
+	NewTrades     int            `json:"new_trades"`
+	Conflicts     int            `json:"conflicts"`
+	ConflictItems []ConflictItem `json:"conflict_items,omitempty"`
+}
+
+// ConflictItem 冲突项
+type ConflictItem struct {
+	Trade      ExportTrade `json:"trade"`
+	Reason     string      `json:"reason"`
+	ExistingID uint        `json:"existing_id,omitempty"`
+}
+
+// ExportDataHandler 导出用户数据
+func ExportDataHandler(c *gin.Context) {
+	userID, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "未授权"})
+		return
+	}
+
+	db := config.GetDB()
+	uid := userID.(uint)
+
+	// 获取所有交易记录
+	var trades []models.Trade
+	if err := db.Where("user_id = ?", uid).Order("created_at asc").Find(&trades).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "获取交易记录失败"})
+		return
+	}
+
+	// 转换为导出格式
+	exportTrades := make([]ExportTrade, len(trades))
+	for i, t := range trades {
+		exportTrades[i] = ExportTrade{
+			Symbol:    t.Symbol,
+			Type:      t.Type,
+			Amount:    t.Amount,
+			Price:     t.Price,
+			Total:     t.Total,
+			CreatedAt: t.CreatedAt.Format(time.RFC3339),
+		}
+	}
+
+	data := ExportData{
+		Version:    "1.0",
+		ExportTime: time.Now().UTC().Format(time.RFC3339),
+		AppName:    "fx-portfolio",
+		Trades:     exportTrades,
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data":    data,
+	})
+}
+
+// ImportPreviewHandler 导入预览
+func ImportPreviewHandler(c *gin.Context) {
+	userID, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "未授权"})
+		return
+	}
+
+	var req struct {
+		Data ExportData `json:"data" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的导入数据"})
+		return
+	}
+
+	// 验证版本
+	if req.Data.Version != "1.0" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "不支持的版本: " + req.Data.Version})
+		return
+	}
+
+	db := config.GetDB()
+	uid := userID.(uint)
+
+	// 获取现有交易记录用于冲突检测
+	var existingTrades []models.Trade
+	db.Where("user_id = ?", uid).Find(&existingTrades)
+
+	// 构建现有交易的时间戳集合（用于快速查找）
+	existingMap := make(map[string]bool)
+	for _, t := range existingTrades {
+		key := fmt.Sprintf("%s_%s_%s", t.Symbol, t.Type, t.CreatedAt.Format(time.RFC3339))
+		existingMap[key] = true
+	}
+
+	preview := ImportPreview{
+		TotalTrades: len(req.Data.Trades),
+	}
+
+	// 检查冲突
+	for _, trade := range req.Data.Trades {
+		// 验证交易数据
+		if err := validateImportTrade(&trade); err != nil {
+			preview.Conflicts++
+			preview.ConflictItems = append(preview.ConflictItems, ConflictItem{
+				Trade:  trade,
+				Reason: err.Error(),
+			})
+			continue
+		}
+
+		// 检查是否已存在
+		key := fmt.Sprintf("%s_%s_%s", trade.Symbol, trade.Type, trade.CreatedAt)
+		if existingMap[key] {
+			preview.Conflicts++
+			preview.ConflictItems = append(preview.ConflictItems, ConflictItem{
+				Trade:  trade,
+				Reason: "交易记录已存在",
+			})
+		} else {
+			preview.NewTrades++
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"preview": preview,
+	})
+}
+
+// ImportConfirmHandler 确认导入
+func ImportConfirmHandler(c *gin.Context) {
+	userID, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "未授权"})
+		return
+	}
+
+	var req struct {
+		Data             ExportData `json:"data" binding:"required"`
+		ConflictStrategy string     `json:"conflict_strategy" binding:"required,oneof=skip overwrite"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的请求数据"})
+		return
+	}
+
+	// 验证版本
+	if req.Data.Version != "1.0" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "不支持的版本: " + req.Data.Version})
+		return
+	}
+
+	db := config.GetDB()
+	uid := userID.(uint)
+
+	// 获取现有交易记录
+	var existingTrades []models.Trade
+	db.Where("user_id = ?", uid).Find(&existingTrades)
+	existingMap := make(map[string]uint) // key -> trade ID
+	for _, t := range existingTrades {
+		key := fmt.Sprintf("%s_%s_%s", t.Symbol, t.Type, t.CreatedAt.Format(time.RFC3339))
+		existingMap[key] = t.ID
+	}
+
+	tx := db.Begin()
+	imported := 0
+	skipped := 0
+	overwritten := 0
+
+	for _, trade := range req.Data.Trades {
+		// 验证交易数据
+		if err := validateImportTrade(&trade); err != nil {
+			skipped++
+			continue
+		}
+
+		key := fmt.Sprintf("%s_%s_%s", trade.Symbol, trade.Type, trade.CreatedAt)
+		existingID, exists := existingMap[key]
+
+		if exists {
+			// 处理冲突
+			switch req.ConflictStrategy {
+			case "skip":
+				skipped++
+				continue
+			case "overwrite":
+				// 删除旧记录，插入新记录
+				if err := tx.Delete(&models.Trade{}, existingID).Error; err != nil {
+					tx.Rollback()
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "删除旧记录失败"})
+					return
+				}
+				overwritten++
+			}
+		}
+
+		// 解析时间
+		createdAt, _ := time.Parse(time.RFC3339, trade.CreatedAt)
+		if createdAt.IsZero() {
+			createdAt = time.Now()
+		}
+
+		// 创建新交易记录
+		newTrade := models.Trade{
+			UserID:    uid,
+			Symbol:    trade.Symbol,
+			Type:      trade.Type,
+			Amount:    trade.Amount,
+			Price:     trade.Price,
+			Total:     trade.Total,
+			CreatedAt: createdAt,
+		}
+
+		if err := tx.Create(&newTrade).Error; err != nil {
+			tx.Rollback()
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "创建交易记录失败"})
+			return
+		}
+		imported++
+	}
+
+	// 重新计算所有持仓
+	if err := recalcAllHoldings(tx, uid); err != nil {
+		tx.Rollback()
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "重新计算持仓失败"})
+		return
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "提交导入失败"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success":     true,
+		"imported":    imported,
+		"skipped":     skipped,
+		"overwritten": overwritten,
+	})
+}
+
+// validateImportTrade 验证导入的交易数据
+func validateImportTrade(trade *ExportTrade) error {
+	// 必填字段
+	if trade.Symbol == "" {
+		return fmt.Errorf("币种代码不能为空")
+	}
+	if trade.Type == "" {
+		return fmt.Errorf("交易类型不能为空")
+	}
+
+	// 类型有效性
+	if trade.Type != "buy" && trade.Type != "sell" && trade.Type != "recharge" {
+		return fmt.Errorf("无效的交易类型: %s", trade.Type)
+	}
+
+	// 币种有效性
+	if trade.Symbol != "USDT" && !supportedCryptos[trade.Symbol] {
+		return fmt.Errorf("不支持的币种: %s", trade.Symbol)
+	}
+
+	// 数值有效性
+	if trade.Amount <= 0 {
+		return fmt.Errorf("交易数量必须大于0")
+	}
+	if trade.Price <= 0 {
+		return fmt.Errorf("交易价格必须大于0")
+	}
+
+	// 一致性检查（允许0.01的误差）
+	expectedTotal := trade.Amount * trade.Price
+	if abs(expectedTotal-trade.Total) > 0.01 {
+		return fmt.Errorf("交易金额计算不一致: %.2f != %.2f", expectedTotal, trade.Total)
+	}
+
+	// 类型特定校验
+	if trade.Type == "recharge" && trade.Symbol != "USDT" {
+		return fmt.Errorf("充值必须是USDT")
+	}
+	if trade.Type == "recharge" && trade.Price != 1 {
+		return fmt.Errorf("USDT充值价格必须为1")
+	}
+	if (trade.Type == "buy" || trade.Type == "sell") && trade.Symbol == "USDT" {
+		return fmt.Errorf("不能直接买卖USDT")
+	}
+
+	return nil
+}
+
+// abs 绝对值
+func abs(x float64) float64 {
+	if x < 0 {
+		return -x
+	}
+	return x
+}
+
+// recalcAllHoldings 重新计算所有持仓
+func recalcAllHoldings(tx *gorm.DB, uid uint) error {
+	// 删除现有持仓
+	if err := tx.Where("user_id = ?", uid).Delete(&models.Holding{}).Error; err != nil {
+		return err
+	}
+
+	// 获取所有交易记录
+	var trades []models.Trade
+	if err := tx.Where("user_id = ?", uid).Order("created_at asc").Find(&trades).Error; err != nil {
+		return err
+	}
+
+	// 计算各币种持仓
+	holdings := make(map[string]float64)
+	for _, t := range trades {
+		switch t.Type {
+		case "buy":
+			holdings[t.Symbol] += t.Amount
+			holdings["USDT"] -= t.Total
+		case "sell":
+			holdings[t.Symbol] -= t.Amount
+			holdings["USDT"] += t.Total
+		case "recharge":
+			holdings["USDT"] += t.Amount
+		}
+	}
+
+	// 保存持仓
+	for symbol, amount := range holdings {
+		holding := models.Holding{
+			UserID: uid,
+			Symbol: symbol,
+			Amount: amount,
+		}
+		if err := tx.Create(&holding).Error; err != nil {
+			return err
+		}
+	}
+
+	return nil
+}

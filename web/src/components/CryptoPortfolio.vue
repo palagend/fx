@@ -450,6 +450,12 @@
               <div class="section-header">
                 <h2 class="section-title"><Icon icon="mdi:history" /> 交易历史</h2>
                 <div class="section-actions">
+                  <button class="btn-export" @click="exportData" :disabled="isSubmitting.export">
+                    <Icon icon="mdi:download" /> 导出
+                  </button>
+                  <button class="btn-import" @click="showImportDialog = true">
+                    <Icon icon="mdi:upload" /> 导入
+                  </button>
                   <div class="protect-switch" @click="toggleProtectHistory">
                     <Icon :icon="protectHistory ? 'mdi:shield-check' : 'mdi:shield-off'" />
                     <span class="switch-label">保护</span>
@@ -553,6 +559,130 @@
       </div>
     </div>
 
+    <!-- 导入数据弹窗 -->
+    <div v-if="showImportDialog" class="modal-overlay" @click.self="closeImportDialog">
+      <div class="modal import-modal">
+        <div class="modal-header">
+          <h3><Icon icon="mdi:upload" /> 导入数据</h3>
+          <button class="btn-close" @click="closeImportDialog">
+            <Icon icon="mdi:close" />
+          </button>
+        </div>
+        <div class="modal-body">
+          <!-- 步骤1: 选择文件 -->
+          <div v-if="importStep === 'select'" class="import-step">
+            <div
+              class="drop-zone"
+              :class="{ 'drag-over': isDragging }"
+              @dragover.prevent="isDragging = true"
+              @dragleave.prevent="isDragging = false"
+              @drop.prevent="handleFileDrop"
+              @click="triggerFileInput"
+            >
+              <Icon icon="mdi:cloud-upload" class="drop-icon" />
+              <p>点击或拖拽 JSON 文件到此处</p>
+              <span class="drop-hint">支持 .json 格式，最大 10MB</span>
+              <input
+                ref="fileInput"
+                type="file"
+                accept=".json,application/json"
+                @change="handleFileSelect"
+                style="display: none"
+              >
+            </div>
+          </div>
+
+          <!-- 步骤2: 预览确认 -->
+          <div v-if="importStep === 'preview'" class="import-step">
+            <div class="preview-summary">
+              <div class="preview-item">
+                <span class="preview-label">总记录数</span>
+                <span class="preview-value">{{ importPreview.total_trades }}</span>
+              </div>
+              <div class="preview-item success">
+                <span class="preview-label">新记录</span>
+                <span class="preview-value">{{ importPreview.new_trades }}</span>
+              </div>
+              <div class="preview-item warning" v-if="importPreview.conflicts > 0">
+                <span class="preview-label">冲突</span>
+                <span class="preview-value">{{ importPreview.conflicts }}</span>
+              </div>
+            </div>
+
+            <div v-if="importPreview.conflicts > 0" class="conflict-section">
+              <h4>冲突处理</h4>
+              <div class="conflict-options">
+                <label class="radio-label">
+                  <input type="radio" v-model="conflictStrategy" value="skip">
+                  <span>跳过冲突记录（推荐）</span>
+                </label>
+                <label class="radio-label">
+                  <input type="radio" v-model="conflictStrategy" value="overwrite">
+                  <span>覆盖现有记录</span>
+                </label>
+              </div>
+
+              <div class="conflict-list">
+                <div v-for="(item, index) in importPreview.conflict_items" :key="index" class="conflict-item">
+                  <Icon icon="mdi:alert" class="conflict-icon" />
+                  <div class="conflict-info">
+                    <span class="conflict-symbol">{{ item.trade.symbol }}</span>
+                    <span class="conflict-type">{{ formatTradeType(item.trade.type) }}</span>
+                    <span class="conflict-reason">{{ item.reason }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 步骤3: 导入结果 -->
+          <div v-if="importStep === 'result'" class="import-step">
+            <div class="result-success" v-if="importResult.success">
+              <Icon icon="mdi:check-circle" class="result-icon success" />
+              <h4>导入成功</h4>
+              <div class="result-stats">
+                <div class="result-stat">
+                  <span class="stat-value">{{ importResult.imported }}</span>
+                  <span class="stat-label">成功导入</span>
+                </div>
+                <div class="result-stat" v-if="importResult.skipped > 0">
+                  <span class="stat-value">{{ importResult.skipped }}</span>
+                  <span class="stat-label">已跳过</span>
+                </div>
+                <div class="result-stat" v-if="importResult.overwritten > 0">
+                  <span class="stat-value">{{ importResult.overwritten }}</span>
+                  <span class="stat-label">已覆盖</span>
+                </div>
+              </div>
+            </div>
+            <div class="result-error" v-else>
+              <Icon icon="mdi:close-circle" class="result-icon error" />
+              <h4>导入失败</h4>
+              <p>{{ importError }}</p>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-cancel" @click="closeImportDialog">取消</button>
+          <button
+            v-if="importStep === 'preview'"
+            class="btn-confirm"
+            @click="confirmImport"
+            :disabled="isSubmitting.import"
+          >
+            确认导入
+          </button>
+          <button
+            v-if="importStep === 'result' && importResult.success"
+            class="btn-confirm"
+            @click="closeImportDialog"
+          >
+            完成
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- 错误提示 -->
     <div v-if="errorMessage" class="error-toast">
       <Icon icon="mdi:alert-circle" />
@@ -602,8 +732,31 @@ const isSubmitting = ref({
   trade: false,
   recharge: false,
   delete: false,
-  clear: false
+  clear: false,
+  export: false,
+  import: false
 })
+
+// 导入相关状态
+const showImportDialog = ref(false)
+const importStep = ref('select')
+const isDragging = ref(false)
+const fileInput = ref(null)
+const importData = ref(null)
+const importPreview = ref({
+  total_trades: 0,
+  new_trades: 0,
+  conflicts: 0,
+  conflict_items: []
+})
+const conflictStrategy = ref('skip')
+const importResult = ref({
+  success: false,
+  imported: 0,
+  skipped: 0,
+  overwritten: 0
+})
+const importError = ref('')
 
 // 从store获取数据（后端已计算好）
 const portfolio = computed(() => portfolioStore.portfolio)
@@ -1210,6 +1363,180 @@ onUnmounted(() => {
     clearInterval(refreshTimer)
   }
 })
+
+// ========== 导入/导出方法 ==========
+
+// 导出数据
+const exportData = async () => {
+  if (isSubmitting.value.export) return
+
+  isSubmitting.value.export = true
+  try {
+    const result = await portfolioStore.exportData()
+    if (result.success) {
+      // 生成 JSON 文件并下载
+      const blob = new Blob([JSON.stringify(result.data, null, 2)], {
+        type: 'application/json'
+      })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `portfolio-backup-${formatDate(new Date()).replace(/[/:]/g, '-')}.json`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } else {
+      errorMessage.value = result.error || '导出失败'
+      setTimeout(() => errorMessage.value = '', 3000)
+    }
+  } catch (error) {
+    console.error('Export error:', error)
+    errorMessage.value = '导出失败，请稍后重试'
+    setTimeout(() => errorMessage.value = '', 3000)
+  } finally {
+    isSubmitting.value.export = false
+  }
+}
+
+// 触发文件选择
+const triggerFileInput = () => {
+  fileInput.value?.click()
+}
+
+// 处理文件选择
+const handleFileSelect = (event) => {
+  const file = event.target.files[0]
+  if (file) {
+    processFile(file)
+  }
+}
+
+// 处理文件拖拽
+const handleFileDrop = (event) => {
+  isDragging.value = false
+  const file = event.dataTransfer.files[0]
+  if (file) {
+    processFile(file)
+  }
+}
+
+// 处理文件
+const processFile = (file) => {
+  // 验证文件类型
+  if (!file.name.endsWith('.json') && file.type !== 'application/json') {
+    errorMessage.value = '请选择 JSON 格式的文件'
+    setTimeout(() => errorMessage.value = '', 3000)
+    return
+  }
+
+  // 验证文件大小 (10MB)
+  if (file.size > 10 * 1024 * 1024) {
+    errorMessage.value = '文件大小不能超过 10MB'
+    setTimeout(() => errorMessage.value = '', 3000)
+    return
+  }
+
+  const reader = new FileReader()
+  reader.onload = async (e) => {
+    try {
+      const data = JSON.parse(e.target.result)
+
+      // 验证基本结构
+      if (!data.version || !data.trades || !Array.isArray(data.trades)) {
+        errorMessage.value = '无效的数据文件格式'
+        setTimeout(() => errorMessage.value = '', 3000)
+        return
+      }
+
+      importData.value = data
+
+      // 调用预览接口
+      const result = await portfolioStore.importPreview(data)
+      if (result.success) {
+        importPreview.value = result.preview
+        importStep.value = 'preview'
+      } else {
+        errorMessage.value = result.error || '预览失败'
+        setTimeout(() => errorMessage.value = '', 3000)
+      }
+    } catch (error) {
+      console.error('File parse error:', error)
+      errorMessage.value = '文件解析失败，请检查文件格式'
+      setTimeout(() => errorMessage.value = '', 3000)
+    }
+  }
+  reader.readAsText(file)
+}
+
+// 确认导入
+const confirmImport = async () => {
+  if (isSubmitting.value.import || !importData.value) return
+
+  isSubmitting.value.import = true
+  try {
+    const result = await portfolioStore.importConfirm(importData.value, conflictStrategy.value)
+    if (result.success) {
+      importResult.value = {
+        success: true,
+        imported: result.imported,
+        skipped: result.skipped,
+        overwritten: result.overwritten
+      }
+      importStep.value = 'result'
+      // 刷新数据
+      await portfolioStore.fetchDashboard()
+    } else {
+      importResult.value = { success: false }
+      importError.value = result.error || '导入失败'
+      importStep.value = 'result'
+    }
+  } catch (error) {
+    console.error('Import error:', error)
+    importResult.value = { success: false }
+    importError.value = '导入失败，请稍后重试'
+    importStep.value = 'result'
+  } finally {
+    isSubmitting.value.import = false
+  }
+}
+
+// 关闭导入对话框
+const closeImportDialog = () => {
+  showImportDialog.value = false
+  // 重置状态
+  setTimeout(() => {
+    importStep.value = 'select'
+    importData.value = null
+    importPreview.value = {
+      total_trades: 0,
+      new_trades: 0,
+      conflicts: 0,
+      conflict_items: []
+    }
+    conflictStrategy.value = 'skip'
+    importResult.value = {
+      success: false,
+      imported: 0,
+      skipped: 0,
+      overwritten: 0
+    }
+    importError.value = ''
+    if (fileInput.value) {
+      fileInput.value.value = ''
+    }
+  }, 300)
+}
+
+// 格式化交易类型
+const formatTradeType = (type) => {
+  const typeMap = {
+    'buy': '买入',
+    'sell': '卖出',
+    'recharge': '充值'
+  }
+  return typeMap[type] || type
+}
 
 // 监听登录状态变化
 watch(() => userStore.isLoggedIn, async (isLoggedIn) => {
@@ -3034,6 +3361,339 @@ watch(() => userStore.isLoggedIn, async (isLoggedIn) => {
   .btn-delete {
     width: 28px;
     height: 28px;
+  }
+}
+
+/* ========== 导入对话框样式 ========== */
+.import-modal {
+  max-width: 560px;
+  width: 90%;
+}
+
+.import-step {
+  padding: 20px 0;
+}
+
+/* 拖拽区域 */
+.drop-zone {
+  border: 2px dashed #d1d5db;
+  border-radius: 12px;
+  padding: 48px 32px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  background: #f9fafb;
+}
+
+.dark .drop-zone {
+  border-color: #4b5563;
+  background: #1e1e1e;
+}
+
+.drop-zone:hover,
+.drop-zone.drag-over {
+  border-color: #6366f1;
+  background: #eff6ff;
+}
+
+.dark .drop-zone:hover,
+.dark .drop-zone.drag-over {
+  background: rgba(99, 102, 241, 0.1);
+}
+
+.drop-icon {
+  font-size: 48px;
+  color: #9ca3af;
+  margin-bottom: 16px;
+}
+
+.drop-zone:hover .drop-icon,
+.drop-zone.drag-over .drop-icon {
+  color: #6366f1;
+}
+
+.drop-zone p {
+  font-size: 16px;
+  color: #374151;
+  margin-bottom: 8px;
+}
+
+.dark .drop-zone p {
+  color: #e5e7eb;
+}
+
+.drop-hint {
+  font-size: 13px;
+  color: #9ca3af;
+}
+
+/* 预览摘要 */
+.preview-summary {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.preview-item {
+  flex: 1;
+  background: #f3f4f6;
+  border-radius: 8px;
+  padding: 16px;
+  text-align: center;
+}
+
+.dark .preview-item {
+  background: #2d2d2d;
+}
+
+.preview-item.success {
+  background: #ecfdf5;
+}
+
+.dark .preview-item.success {
+  background: rgba(16, 185, 129, 0.1);
+}
+
+.preview-item.warning {
+  background: #fffbeb;
+}
+
+.dark .preview-item.warning {
+  background: rgba(245, 158, 11, 0.1);
+}
+
+.preview-label {
+  display: block;
+  font-size: 13px;
+  color: #6b7280;
+  margin-bottom: 4px;
+}
+
+.dark .preview-label {
+  color: #9ca3af;
+}
+
+.preview-value {
+  display: block;
+  font-size: 24px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.dark .preview-value {
+  color: #f3f4f6;
+}
+
+.preview-item.success .preview-value {
+  color: #059669;
+}
+
+.preview-item.warning .preview-value {
+  color: #d97706;
+}
+
+/* 冲突区域 */
+.conflict-section {
+  border-top: 1px solid #e5e7eb;
+  padding-top: 20px;
+}
+
+.dark .conflict-section {
+  border-color: #374151;
+}
+
+.conflict-section h4 {
+  font-size: 14px;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 12px;
+}
+
+.dark .conflict-section h4 {
+  color: #e5e7eb;
+}
+
+.conflict-options {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.radio-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  color: #374151;
+}
+
+.dark .radio-label {
+  color: #e5e7eb;
+}
+
+.radio-label input[type="radio"] {
+  width: 16px;
+  height: 16px;
+  accent-color: #6366f1;
+}
+
+/* 冲突列表 */
+.conflict-list {
+  max-height: 200px;
+  overflow-y: auto;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.dark .conflict-list {
+  border-color: #374151;
+}
+
+.conflict-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.dark .conflict-item {
+  border-color: #374151;
+}
+
+.conflict-item:last-child {
+  border-bottom: none;
+}
+
+.conflict-icon {
+  color: #f59e0b;
+  font-size: 18px;
+}
+
+.conflict-info {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.conflict-symbol {
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.dark .conflict-symbol {
+  color: #f3f4f6;
+}
+
+.conflict-type {
+  font-size: 12px;
+  padding: 2px 8px;
+  background: #f3f4f6;
+  border-radius: 4px;
+  color: #6b7280;
+}
+
+.dark .conflict-type {
+  background: #374151;
+  color: #9ca3af;
+}
+
+.conflict-reason {
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+/* 导入结果 */
+.result-success,
+.result-error {
+  text-align: center;
+  padding: 32px;
+}
+
+.result-icon {
+  font-size: 64px;
+  margin-bottom: 16px;
+}
+
+.result-icon.success {
+  color: #10b981;
+}
+
+.result-icon.error {
+  color: #ef4444;
+}
+
+.result-success h4,
+.result-error h4 {
+  font-size: 20px;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+
+.result-success h4 {
+  color: #059669;
+}
+
+.result-error h4 {
+  color: #dc2626;
+}
+
+.result-stats {
+  display: flex;
+  justify-content: center;
+  gap: 32px;
+  margin-top: 24px;
+}
+
+.result-stat {
+  text-align: center;
+}
+
+.stat-value {
+  display: block;
+  font-size: 32px;
+  font-weight: 700;
+  color: #6366f1;
+}
+
+.stat-label {
+  display: block;
+  font-size: 13px;
+  color: #6b7280;
+  margin-top: 4px;
+}
+
+.dark .stat-label {
+  color: #9ca3af;
+}
+
+.result-error p {
+  color: #6b7280;
+  font-size: 14px;
+}
+
+.dark .result-error p {
+  color: #9ca3af;
+}
+
+/* 响应式 */
+@media (max-width: 640px) {
+  .preview-summary {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .result-stats {
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .drop-zone {
+    padding: 32px 20px;
   }
 }
 </style>

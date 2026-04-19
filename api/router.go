@@ -42,6 +42,9 @@ func RegisterRoutes(r *gin.Engine) {
 			portfolioGroup.POST("/trades", CreateTrade)       // 创建交易
 			portfolioGroup.DELETE("/trades/:id", DeleteTrade) // 删除交易
 			portfolioGroup.DELETE("/trades", ClearTrades)     // 清空交易
+			portfolioGroup.GET("/export", ExportDataHandler)  // 导出数据
+			portfolioGroup.POST("/import/preview", ImportPreviewHandler) // 导入预览
+			portfolioGroup.POST("/import/confirm", ImportConfirmHandler) // 确认导入
 		}
 
 		// 价格相关接口（公开访问）

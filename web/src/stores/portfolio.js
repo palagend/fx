@@ -149,6 +149,65 @@ export const usePortfolioStore = defineStore('portfolio', () => {
     }
   }
 
+  // 导出数据
+  async function exportData() {
+    if (!userStore.isLoggedIn) {
+      return { success: false, error: '请先登录' }
+    }
+
+    error.value = null
+
+    try {
+      const response = await portfolioApi.exportData()
+      return { success: true, data: response.data.data }
+    } catch (err) {
+      error.value = err.response?.data?.error || '导出数据失败'
+      return { success: false, error: error.value }
+    }
+  }
+
+  // 导入预览
+  async function importPreview(data) {
+    if (!userStore.isLoggedIn) {
+      return { success: false, error: '请先登录' }
+    }
+
+    error.value = null
+
+    try {
+      const response = await portfolioApi.importPreview(data)
+      return { success: true, preview: response.data.preview }
+    } catch (err) {
+      error.value = err.response?.data?.error || '预览导入数据失败'
+      return { success: false, error: error.value }
+    }
+  }
+
+  // 确认导入
+  async function importConfirm(data, conflictStrategy = 'skip') {
+    if (!userStore.isLoggedIn) {
+      return { success: false, error: '请先登录' }
+    }
+
+    isLoading.value = true
+    error.value = null
+
+    try {
+      const response = await portfolioApi.importConfirm(data, conflictStrategy)
+      return {
+        success: true,
+        imported: response.data.imported,
+        skipped: response.data.skipped,
+        overwritten: response.data.overwritten
+      }
+    } catch (err) {
+      error.value = err.response?.data?.error || '导入数据失败'
+      return { success: false, error: error.value }
+    } finally {
+      isLoading.value = false
+    }
+  }
+
   return {
     // 状态
     dashboardData,
@@ -177,6 +236,9 @@ export const usePortfolioStore = defineStore('portfolio', () => {
     fetchAssetPrice,
     createTrade,
     deleteTrade,
-    clearAllTrades
+    clearAllTrades,
+    exportData,
+    importPreview,
+    importConfirm
   }
 })
