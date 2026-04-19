@@ -277,12 +277,23 @@ func handleSell(tx *gorm.DB, uid uint, symbol string, amount, total float64) err
 		return fmt.Errorf("更新USDT持仓失败")
 	}
 
-	// 记录USDT退出
+	// 记录投资退出（借贷记账法：按卖出比例回收成本）
 	inv, err := getOrCreateInvestment(tx, uid, symbol)
 	if err != nil {
 		return fmt.Errorf("获取投资记录失败")
 	}
-	inv.TotalOut += total
+
+	// 计算卖出比例和回收的成本
+	// 卖出前持仓 = 当前持仓 + 本次卖出数量
+	holdingBeforeSell := cryptoHolding.Amount + amount
+	if holdingBeforeSell > 0 {
+		sellRatio := amount / holdingBeforeSell
+		// 当前累计成本 = TotalIn - TotalOut
+		currentCost := inv.TotalIn - inv.TotalOut
+		costRecovered := currentCost * sellRatio
+		inv.TotalOut += costRecovered
+	}
+
 	if err := tx.Save(inv).Error; err != nil {
 		return fmt.Errorf("保存投资记录失败")
 	}
@@ -592,28 +603,22 @@ func GetDashboard(c *gin.Context) {
 	var trades []models.Trade
 	db.Where("user_id = ?", uid).Order("timestamp asc").Find(&trades)
 
-	// 按币种累计成本和计算实现盈亏
-	assetCost := make(map[string]float64) // 各币种的当前累计成本
+	// 按币种累计成本和持仓，计算实现盈亏
+	assetCost := make(map[string]float64)   // 各币种的当前累计成本
+	assetAmount := make(map[string]float64) // 各币种的当前持仓量
 	for _, t := range trades {
 		switch t.Type {
 		case "buy":
 			assetCost[t.Symbol] += t.Total
+			assetAmount[t.Symbol] += t.Amount
 		case "sell":
-			if assetCost[t.Symbol] > 0 && t.Amount > 0 {
-				// 查找该币种当前持仓（用于计算比例）
-				var currentAmount float64
-				for _, h := range holdings {
-					if h.Symbol == t.Symbol {
-						currentAmount = h.Amount + t.Amount // 加上本次卖出数量（因为是历史记录）
-						break
-					}
-				}
-				if currentAmount > 0 {
-					costRatio := t.Amount / currentAmount
-					costRecovered := assetCost[t.Symbol] * costRatio
-					totalRealizedPL += t.Total - costRecovered // 卖出收入 - 成本回收
-					assetCost[t.Symbol] -= costRecovered
-				}
+			if assetAmount[t.Symbol] > 0 && t.Amount > 0 {
+				// 按卖出比例计算回收的成本（借贷记账法）
+				sellRatio := t.Amount / assetAmount[t.Symbol]
+				costRecovered := assetCost[t.Symbol] * sellRatio
+				totalRealizedPL += t.Total - costRecovered // 卖出收入 - 成本回收
+				assetCost[t.Symbol] -= costRecovered
+				assetAmount[t.Symbol] -= t.Amount
 			}
 		}
 	}
@@ -632,6 +637,7 @@ func GetDashboard(c *gin.Context) {
 		"unrealized_profit_loss":      stats.totalUnrealizedPL,                         // 浮动盈亏（未实现）
 		"unrealized_profit_loss_rate": stats.totalUnrealizedPLRate,                     // 浮动盈亏率
 		"realized_profit_loss":        stats.totalRealizedPL,                           // 实现盈亏（已卖出部分的盈亏）
+		"realized_profit_loss_rate":   stats.totalRealizedPLRate,                       // 实现盈亏率
 		"total_profit_loss":           stats.totalUnrealizedPL + stats.totalRealizedPL, // 总盈亏
 		"value_change_24h":            stats.totalValueChange24h,                       // 24小时价值变化率
 	})
@@ -690,6 +696,7 @@ type PortfolioStats struct {
 	totalUnrealizedPL     float64
 	totalUnrealizedPLRate float64
 	totalRealizedPL       float64
+	totalRealizedPLRate   float64 // 实现盈亏率
 	totalValueChange24h   float64
 }
 
@@ -771,6 +778,19 @@ func calculatePortfolioStats(holdings []models.Holding, investments []models.Inv
 		totalValueChange24h = (weightedChange / totalValue) * 100
 	}
 
+	// 计算实现盈亏率 = 实现盈亏 / 历史总投入成本
+	// 历史总投入成本 = 各币种 TotalIn 之和
+	var totalHistoricalCost float64
+	for _, inv := range investments {
+		if inv.Symbol != "USDT" {
+			totalHistoricalCost += inv.TotalIn
+		}
+	}
+	totalRealizedPLRate := 0.0
+	if totalHistoricalCost != 0 {
+		totalRealizedPLRate = (totalRealizedPL / totalHistoricalCost) * 100
+	}
+
 	// totalRealizedPL 已由调用方计算好（所有卖出收入 - 所有卖出对应的成本）
 
 	return PortfolioStats{
@@ -781,6 +801,7 @@ func calculatePortfolioStats(holdings []models.Holding, investments []models.Inv
 		totalUnrealizedPL:     totalUnrealizedPL,
 		totalUnrealizedPLRate: totalUnrealizedPLRate,
 		totalRealizedPL:       totalRealizedPL,
+		totalRealizedPLRate:   totalRealizedPLRate,
 		totalValueChange24h:   totalValueChange24h,
 	}
 }

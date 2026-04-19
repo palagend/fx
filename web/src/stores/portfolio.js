@@ -42,6 +42,15 @@ export const usePortfolioStore = defineStore('portfolio', () => {
     return nonUSDTCost > 0 ? (unrealizedProfitLoss.value / nonUSDTCost) * 100 : 0
   })
 
+  // 计算属性 - 实现盈亏率（优先使用后端计算的值）
+  const realizedProfitLossRate = computed(() => {
+    // 如果后端已计算，直接使用
+    if (dashboardData.value?.realized_profit_loss_rate !== undefined) {
+      return dashboardData.value.realized_profit_loss_rate
+    }
+    return 0
+  })
+
   // Actions
   // 获取仪表盘聚合数据（价格+持仓+统计）
   async function fetchDashboard() {
@@ -168,6 +177,7 @@ export const usePortfolioStore = defineStore('portfolio', () => {
     unrealizedProfitLoss,
     unrealizedProfitLossRate,
     realizedProfitLoss,
+    realizedProfitLossRate,
     totalProfitLoss,
     valueChange24h,
     // Actions

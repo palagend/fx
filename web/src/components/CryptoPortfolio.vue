@@ -39,7 +39,16 @@
                   {{ displayRealizedPL.sign }}${{ displayRealizedPL.value }}
                 </div>
                 <div class="change" :class="displayRealizedPL.class">
-                  已实现盈亏
+                  {{ displayRealizedPL.rate }}
+                </div>
+              </div>
+              <div class="overview-card">
+                <h3><Icon icon="mdi:sigma" /> 总盈亏</h3>
+                <div class="value" :class="displayTotalPL.class">
+                  {{ displayTotalPL.sign }}${{ displayTotalPL.value }}
+                </div>
+                <div class="change" :class="displayTotalPL.class">
+                  浮动 + 实现
                 </div>
               </div>
               <div class="overview-card usdt-card">
@@ -566,6 +575,8 @@ const usdtBalance = computed(() => portfolioStore.usdtBalance)
 const unrealizedProfitLoss = computed(() => portfolioStore.unrealizedProfitLoss)
 const unrealizedProfitLossRate = computed(() => portfolioStore.unrealizedProfitLossRate)
 const realizedProfitLoss = computed(() => portfolioStore.realizedProfitLoss)
+const realizedProfitLossRate = computed(() => portfolioStore.realizedProfitLossRate)
+const totalProfitLoss = computed(() => portfolioStore.totalProfitLoss)
 const valueChange24h = computed(() => portfolioStore.valueChange24h) // 24小时价值变化率
 
 // 格式化的显示值（避免模板中重复计算）
@@ -581,6 +592,16 @@ const displayUnrealizedPL = computed(() => {
 
 const displayRealizedPL = computed(() => {
   const val = realizedProfitLoss.value
+  return {
+    sign: val >= 0 ? '+' : '-',
+    value: formatAmount(Math.abs(val)),
+    class: val >= 0 ? 'positive' : 'negative',
+    rate: (realizedProfitLossRate.value >= 0 ? '+' : '-') + Math.abs(realizedProfitLossRate.value).toFixed(2) + '%'
+  }
+})
+
+const displayTotalPL = computed(() => {
+  const val = totalProfitLoss.value
   return {
     sign: val >= 0 ? '+' : '-',
     value: formatAmount(Math.abs(val)),
