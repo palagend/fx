@@ -387,7 +387,7 @@ func DeleteTrade(c *gin.Context) {
 // 使用借贷记账法：TotalIn=累计买入投入, TotalOut=累计卖出按比例回收的成本
 func recalcAsset(tx *gorm.DB, uid uint, symbol string) error {
 	var trades []models.Trade
-	if err := tx.Where("user_id = ? AND symbol = ?", uid, symbol).Order("timestamp asc").Find(&trades).Error; err != nil {
+	if err := tx.Where("user_id = ? AND symbol = ?", uid, symbol).Order("created_at asc").Find(&trades).Error; err != nil {
 		return fmt.Errorf("获取交易记录失败")
 	}
 
@@ -601,7 +601,7 @@ func GetDashboard(c *gin.Context) {
 	// 计算实现盈亏 = 所有卖出收入 - 所有卖出对应的成本
 	var totalRealizedPL float64
 	var trades []models.Trade
-	db.Where("user_id = ?", uid).Order("timestamp asc").Find(&trades)
+	db.Where("user_id = ?", uid).Order("created_at asc").Find(&trades)
 
 	// 按币种累计成本和持仓，计算实现盈亏
 	assetCost := make(map[string]float64)   // 各币种的当前累计成本
