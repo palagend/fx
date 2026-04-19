@@ -373,22 +373,31 @@ func DeleteTrade(c *gin.Context) {
 }
 
 // recalcAsset 重新计算资产持仓和投资记录
-// 使用UPSERT优化：避免DELETE+INSERT，直接UPDATE或INSERT
+// 使用借贷记账法：TotalIn=累计买入投入, TotalOut=累计卖出按比例回收的成本
 func recalcAsset(tx *gorm.DB, uid uint, symbol string) error {
 	var trades []models.Trade
-	if err := tx.Where("user_id = ? AND symbol = ?", uid, symbol).Find(&trades).Error; err != nil {
+	if err := tx.Where("user_id = ? AND symbol = ?", uid, symbol).Order("timestamp asc").Find(&trades).Error; err != nil {
 		return fmt.Errorf("获取交易记录失败")
 	}
 
 	var amount, totalIn, totalOut float64
+	var currentCost float64 // 当前累计投入成本
+
 	for _, t := range trades {
 		switch t.Type {
 		case "buy":
 			amount += t.Amount
 			totalIn += t.Total
+			currentCost += t.Total // 买入增加成本
 		case "sell":
+			if amount > 0 {
+				// 按卖出比例计算回收的成本（借贷记账法）
+				sellRatio := t.Amount / amount
+				costRecovered := currentCost * sellRatio
+				totalOut += costRecovered
+				currentCost -= costRecovered
+			}
 			amount -= t.Amount
-			totalOut += t.Total
 		}
 	}
 
