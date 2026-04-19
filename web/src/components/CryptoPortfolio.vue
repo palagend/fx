@@ -260,7 +260,7 @@
                         </div>
                         <div class="preview-item" v-if="newTrade.amount < getHoldingAmount(newTrade.symbol)">
                           <span class="label">卖出后成本价</span>
-                          <span class="value highlight">${{ formatAmount(calculateSellAvgCost()) }}</span>
+                          <span class="value highlight">${{ formatAmount(calculateNewAvgCost()) }}</span>
                         </div>
                         <div class="preview-item" v-if="calculateEstimatedRealizedPL() !== 0">
                           <span class="label">预估盈亏</span>
@@ -735,43 +735,33 @@ const calculateEstimatedRealizedPL = () => {
   return usdtOut - usdtIn
 }
 
-// 计算买入后的新综合成本价（借贷记账法）
-// 新成本价 = (USDT净投入 + 本次投入) / (当前持仓 + 本次买入量)
+// 计算交易后的新综合成本价
+// 买入: 新成本价 = (USDT净投入 + 本次投入) / (当前持仓 + 本次买入量)
+// 卖出: 新成本价 = (USDT净投入 - 本次退出金额) / (当前持仓 - 本次卖出量)
 const calculateNewAvgCost = () => {
-  if (newTrade.value.type !== 'buy' || !newTrade.value.symbol) return 0
+  if (!newTrade.value.symbol) return 0
   const existing = portfolio.value.find(c => c.symbol === newTrade.value.symbol)
   const currentAmount = existing ? existing.amount : 0
   const currentCost = existing ? existing.cost : 0
-  const newAmount = newTrade.value.amount
-  const newTotal = newTrade.value.amount * newTrade.value.price
+  const tradeAmount = newTrade.value.amount
+  const tradeTotal = newTrade.value.amount * newTrade.value.price
 
-  if (currentAmount === 0) return newTrade.value.price
-
-  const totalCost = currentCost + newTotal
-  const totalAmount = currentAmount + newAmount
-  return totalCost / totalAmount
-}
-
-// 计算卖出后的新综合成本价
-// 卖出后成本价 = (当前成本 - 卖出比例对应的成本) / (当前持仓 - 卖出数量)
-const calculateSellAvgCost = () => {
-  if (newTrade.value.type !== 'sell' || !newTrade.value.symbol) return 0
-  const existing = portfolio.value.find(c => c.symbol === newTrade.value.symbol)
-  if (!existing || existing.amount === 0) return 0
-
-  const currentAmount = existing.amount
-  const currentCost = existing.cost
-  const sellAmount = newTrade.value.amount
-
-  // 如果全部卖出，成本价为0
-  if (sellAmount >= currentAmount) return 0
-
-  // 按卖出比例计算剩余成本
-  const remainingAmount = currentAmount - sellAmount
-  const sellRatio = sellAmount / currentAmount
-  const remainingCost = currentCost * (1 - sellRatio)
-
-  return remainingCost / remainingAmount
+  if (newTrade.value.type === 'buy') {
+    // 买入逻辑
+    if (currentAmount === 0) return newTrade.value.price
+    const totalCost = currentCost + tradeTotal
+    const totalAmount = currentAmount + tradeAmount
+    return totalCost / totalAmount
+  } else if (newTrade.value.type === 'sell') {
+    // 卖出逻辑
+    if (!existing || currentAmount === 0) return 0
+    // 如果全部卖出，成本价为0
+    if (tradeAmount >= currentAmount) return 0
+    const remainingAmount = currentAmount - tradeAmount
+    const remainingCost = currentCost - tradeTotal
+    return remainingCost / remainingAmount
+  }
+  return 0
 }
 
 const addTrade = async () => {
