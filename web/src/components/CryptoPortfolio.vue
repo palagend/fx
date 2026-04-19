@@ -67,37 +67,60 @@
                   <span v-if="lastUpdateTime" class="update-time">
                     更新于: {{ lastUpdateTime }}
                   </span>
-                  <button 
-                    class="btn-refresh" 
-                    @click="refreshPrices" 
+                  <button
+                    class="btn-refresh"
+                    @click="refreshPrices"
                     :disabled="refreshing"
                     :class="{ 'refreshing': refreshing }"
                   >
                     <Icon :icon="refreshing ? 'mdi:loading' : 'mdi:refresh'" />
-                    {{ refreshing ? '刷新中...' : '刷新价格' }}
+                    {{ refreshing ? '刷新中...' : '刷新数据' }}
                   </button>
                 </div>
               </div>
 
-              <div class="chart-container">
+              <!-- 加载状态 -->
+              <div v-if="refreshing && portfolioAllocation.length === 0" class="chart-loading">
+                <div class="loading-spinner">
+                  <Icon icon="mdi:loading" class="spin-icon" />
+                </div>
+                <span>正在加载资产数据...</span>
+              </div>
+
+              <!-- 空状态 -->
+              <div v-else-if="portfolioAllocation.length === 0" class="chart-empty">
+                <Icon icon="mdi:chart-pie-outline" class="empty-icon" />
+                <p>暂无资产数据</p>
+                <span>开始交易后将显示资产分布</span>
+              </div>
+
+              <!-- 图表内容 -->
+              <div v-else class="chart-container">
                 <div class="chart">
                   <div class="pie-chart-wrapper">
                     <div class="pie-chart" :style="pieChartStyle"></div>
                     <div class="pie-center">
-                      <span>${{ formatAmount(totalAssetsValue) }}</span>
-                      <span>总资产</span>
+                      <span class="total-value">${{ formatAmount(totalNetWorth) }}</span>
+                      <span class="total-label">总资产</span>
                     </div>
                   </div>
                 </div>
 
                 <div class="chart-legend">
                   <div
-                    v-for="(item, index) in assetAllocation"
+                    v-for="(item, index) in portfolioAllocation"
                     :key="index"
                     class="legend-item"
+                    :class="{ 'legend-highlight': hoveredLegend === index }"
+                    @mouseenter="hoveredLegend = index"
+                    @mouseleave="hoveredLegend = null"
                   >
                     <div class="legend-color" :style="{ backgroundColor: item.color }"></div>
-                    <span>{{ item.name }} ({{ item.percentage }}%)</span>
+                    <div class="legend-info">
+                      <span class="legend-name">{{ item.name }}</span>
+                      <span class="legend-value">${{ formatAmount(item.value) }}</span>
+                      <span class="legend-percent">{{ item.percentage }}%</span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -563,6 +586,7 @@ const refreshing = ref(false)
 const lastUpdateTime = ref('')
 const errorMessage = ref('')
 const autoRefresh = ref(false)
+const hoveredLegend = ref(null) // 当前hover的图例索引
 const refreshInterval = ref(60)
 const selectedFilter = ref('all')
 const selectedAsset = ref(null)
@@ -1099,27 +1123,78 @@ const filteredTrades = computed(() => {
   return filter === 'all' ? trades.value : trades.value.filter(t => t.type === filter)
 })
 
-const assetAllocation = computed(() => {
-  const allHoldings = portfolio.value || []
-  if (allHoldings.length === 0) return []
+// 总资产净值 = 加密资产市值 + USDT余额
+const totalNetWorth = computed(() => cryptoValue.value + usdtBalance.value)
 
-  // 使用总资产价值（含 USDT）计算分布
-  const total = totalAssetsValue.value
+// 投资组合分布（包含加密资产和USDT）
+const portfolioAllocation = computed(() => {
+  const allHoldings = portfolio.value || []
+  if (allHoldings.length === 0 && usdtBalance.value <= 0) return []
+
+  const total = totalNetWorth.value
   if (total <= 0) return []
 
-  return allHoldings
-    .map((crypto, index) => ({
-      name: crypto.symbol,
-      percentage: parseFloat(((crypto.market_value || 0) / total * 100).toFixed(1)),
-      value: crypto.market_value || 0,
-      color: ASSET_CONFIG.COLORS[crypto.symbol] || CHART_COLORS[index % CHART_COLORS.length]
-    }))
-    .filter(item => item.value > 0)
-    .sort((a, b) => b.value - a.value)
+  // 构建资产分布列表
+  const allocation = []
+  let colorIndex = 0
+
+  // 添加加密资产（从portfolio中获取）
+  allHoldings.forEach((crypto) => {
+    const marketValue = crypto.market_value || 0
+    if (marketValue > 0) {
+      allocation.push({
+        name: crypto.symbol,
+        rawPercentage: marketValue / total * 100,
+        value: marketValue,
+        color: ASSET_CONFIG.COLORS[crypto.symbol] || CHART_COLORS[colorIndex % CHART_COLORS.length]
+      })
+      colorIndex++
+    }
+  })
+
+  // 添加USDT余额
+  if (usdtBalance.value > 0) {
+    allocation.push({
+      name: 'USDT',
+      rawPercentage: usdtBalance.value / total * 100,
+      value: usdtBalance.value,
+      color: ASSET_CONFIG.COLORS['USDT'] || CHART_COLORS[colorIndex % CHART_COLORS.length]
+    })
+  }
+
+  // 按价值降序排列
+  allocation.sort((a, b) => b.value - a.value)
+
+  // 使用最大余数法确保百分比总和为100%
+  const totalRawPercentage = allocation.reduce((sum, item) => sum + item.rawPercentage, 0)
+  let remainingPercentage = 100
+
+  // 先向下取整并计算余数
+  const itemsWithRemainder = allocation.map(item => {
+    const floorPercentage = Math.floor(item.rawPercentage)
+    const remainder = item.rawPercentage - floorPercentage
+    remainingPercentage -= floorPercentage
+    return { ...item, floorPercentage, remainder }
+  })
+
+  // 按余数从大到小排序，给余数大的项+1
+  itemsWithRemainder.sort((a, b) => b.remainder - a.remainder)
+
+  const finalAllocation = itemsWithRemainder.map((item, index) => ({
+    name: item.name,
+    value: item.value,
+    color: item.color,
+    // 前 remainingPercentage 个项加1，确保总和为100
+    percentage: item.floorPercentage + (index < remainingPercentage ? 1 : 0)
+  }))
+
+  // 恢复原始排序（按价值降序）
+  return finalAllocation.sort((a, b) => b.value - a.value)
 })
 
+// 饼图样式（基于投资组合分布）
 const pieChartStyle = computed(() => {
-  const allocation = assetAllocation.value
+  const allocation = portfolioAllocation.value
   if (allocation.length === 0) return {}
 
   const gradient = allocation.reduce((acc, item, index) => {
@@ -1414,21 +1489,100 @@ watch(() => userStore.isLoggedIn, async (isLoggedIn) => {
   to { transform: rotate(360deg); }
 }
 
+/* 加载状态 */
+.chart-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  color: #6b7280;
+  gap: 16px;
+}
+
+.dark .chart-loading {
+  color: #9ca3af;
+}
+
+.loading-spinner {
+  font-size: 48px;
+  color: #6366f1;
+}
+
+.spin-icon {
+  animation: spin 1s linear infinite;
+}
+
+/* 空状态 */
+.chart-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  text-align: center;
+}
+
+.empty-icon {
+  font-size: 64px;
+  color: #d1d5db;
+  margin-bottom: 16px;
+}
+
+.dark .empty-icon {
+  color: #4b5563;
+}
+
+.chart-empty p {
+  font-size: 18px;
+  font-weight: 600;
+  color: #374151;
+  margin: 0 0 8px 0;
+}
+
+.dark .chart-empty p {
+  color: #e5e7eb;
+}
+
+.chart-empty span {
+  font-size: 14px;
+  color: #9ca3af;
+}
+
+.dark .chart-empty span {
+  color: #6b7280;
+}
+
+/* 图表容器 */
 .chart-container {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 40px;
-  flex-wrap: wrap;
+}
+
+@media (max-width: 768px) {
+  .chart-container {
+    flex-direction: column;
+    align-items: center;
+    gap: 24px;
+  }
 }
 
 .chart {
-  flex: 0 0 300px;
+  flex: 0 0 auto;
 }
 
 .pie-chart-wrapper {
   position: relative;
-  width: 250px;
-  height: 250px;
+  width: 220px;
+  height: 220px;
+}
+
+@media (max-width: 480px) {
+  .pie-chart-wrapper {
+    width: 180px;
+    height: 180px;
+  }
 }
 
 .pie-chart {
@@ -1446,8 +1600,8 @@ watch(() => userStore.isLoggedIn, async (isLoggedIn) => {
   text-align: center;
   background: white;
   border-radius: 50%;
-  width: 140px;
-  height: 140px;
+  width: 120px;
+  height: 120px;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -1455,44 +1609,79 @@ watch(() => userStore.isLoggedIn, async (isLoggedIn) => {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
+@media (max-width: 480px) {
+  .pie-center {
+    width: 100px;
+    height: 100px;
+  }
+}
+
 .dark .pie-center {
   background: #1e1e1e;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
-.pie-center span:first-child {
-  font-size: 20px;
+.pie-center .total-value {
+  font-size: 18px;
   font-weight: 700;
   color: #1f2937;
 }
 
-.dark .pie-center span:first-child {
+@media (max-width: 480px) {
+  .pie-center .total-value {
+    font-size: 14px;
+  }
+}
+
+.dark .pie-center .total-value {
   color: #f3f4f6;
 }
 
-.pie-center span:last-child {
+.pie-center .total-label {
   font-size: 12px;
   color: #6b7280;
   margin-top: 4px;
 }
 
-.dark .pie-center span:last-child {
+.dark .pie-center .total-label {
   color: #9ca3af;
 }
 
+/* 图例样式 */
 .chart-legend {
   flex: 1;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 12px;
+  min-width: 200px;
+  max-width: 400px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+@media (max-width: 768px) {
+  .chart-legend {
+    width: 100%;
+    max-width: none;
+  }
 }
 
 .legend-item {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  color: #4b5563;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.legend-item:hover,
+.legend-item.legend-highlight {
+  background-color: #f3f4f6;
+}
+
+.dark .legend-item:hover,
+.dark .legend-item.legend-highlight {
+  background-color: #374151;
 }
 
 .dark .legend-item {
@@ -1500,9 +1689,49 @@ watch(() => userStore.isLoggedIn, async (isLoggedIn) => {
 }
 
 .legend-color {
-  width: 12px;
-  height: 12px;
-  border-radius: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.legend-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+.legend-name {
+  font-weight: 500;
+  color: #1f2937;
+  min-width: 50px;
+}
+
+.dark .legend-name {
+  color: #f3f4f6;
+}
+
+.legend-value {
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.dark .legend-value {
+  color: #9ca3af;
+}
+
+.legend-percent {
+  margin-left: auto;
+  font-weight: 600;
+  color: #6366f1;
+  min-width: 45px;
+  text-align: right;
+}
+
+.dark .legend-percent {
+  color: #818cf8;
 }
 
 .section-header {
