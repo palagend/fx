@@ -389,8 +389,8 @@ func DeleteTrade(c *gin.Context) {
 		return
 	}
 
-	// 执行删除
-	if err := tx.Delete(&trade).Error; err != nil {
+	// 执行物理删除（永久删除，不使用软删除）
+	if err := tx.Unscoped().Delete(&trade).Error; err != nil {
 		tx.Rollback()
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "删除交易记录失败"})
 		return
@@ -501,11 +501,11 @@ func ClearTrades(c *gin.Context) {
 		WHERE t.user_id = ?
 	`
 	if err := db.Exec(sql, uid).Error; err != nil {
-		// 如果批量删除失败，回退到逐个删除
+		// 如果批量删除失败，回退到逐个物理删除
 		tx := db.Begin()
 		models := []interface{}{&models.Trade{}, &models.Holding{}}
 		for _, model := range models {
-			if err := tx.Where("user_id = ?", uid).Delete(model).Error; err != nil {
+			if err := tx.Unscoped().Where("user_id = ?", uid).Delete(model).Error; err != nil {
 				tx.Rollback()
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "清空数据失败"})
 				return
