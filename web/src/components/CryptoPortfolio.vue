@@ -735,9 +735,9 @@ const calculateEstimatedRealizedPL = () => {
   return usdtOut - usdtIn
 }
 
-// 计算交易后的新综合成本价
-// 买入: 新成本价 = (USDT净投入 + 本次投入) / (当前持仓 + 本次买入量)
-// 卖出: 新成本价 = (USDT净投入 - 本次退出金额) / (当前持仓 - 本次卖出量)
+// 计算交易后的新综合成本价（借贷记账法）
+// 买入: 新成本价 = (当前成本 + 本次投入) / (当前持仓 + 本次买入量)
+// 卖出: 新成本价 = 当前成本（保持不变，因为按比例回收成本）
 const calculateNewAvgCost = () => {
   if (!newTrade.value.symbol) return 0
   const existing = portfolio.value.find(c => c.symbol === newTrade.value.symbol)
@@ -753,13 +753,16 @@ const calculateNewAvgCost = () => {
     const totalAmount = currentAmount + tradeAmount
     return totalCost / totalAmount
   } else if (newTrade.value.type === 'sell') {
-    // 卖出逻辑
+    // 卖出逻辑：成本价保持不变（借贷记账法）
     if (!existing || currentAmount === 0) return 0
     // 如果全部卖出，成本价为0
     if (tradeAmount >= currentAmount) return 0
-    const remainingAmount = currentAmount - tradeAmount
-    const remainingCost = currentCost - tradeTotal
-    return remainingCost / remainingAmount
+    // 成本价 = 剩余成本 / 剩余数量 = (currentCost - 按比例回收成本) / (currentAmount - tradeAmount)
+    // 由于 按比例回收成本 = currentCost * (tradeAmount / currentAmount)
+    // 所以 剩余成本 = currentCost * (currentAmount - tradeAmount) / currentAmount
+    // 成本价 = [currentCost * (currentAmount - tradeAmount) / currentAmount] / (currentAmount - tradeAmount)
+    // 成本价 = currentCost / currentAmount = 原成本价
+    return currentCost / currentAmount
   }
   return 0
 }

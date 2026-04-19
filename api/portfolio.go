@@ -587,12 +587,39 @@ func GetDashboard(c *gin.Context) {
 	var investments []models.Investment
 	db.Where("user_id = ?", uid).Find(&investments)
 
-	// 计算充值总额（用于计算实现盈亏）
-	var totalRecharge float64
-	db.Model(&models.Trade{}).Where("user_id = ? AND type = ?", uid, "recharge").Select("COALESCE(SUM(amount), 0)").Scan(&totalRecharge)
+	// 计算实现盈亏 = 所有卖出收入 - 所有卖出对应的成本
+	var totalRealizedPL float64
+	var trades []models.Trade
+	db.Where("user_id = ?", uid).Order("timestamp asc").Find(&trades)
+
+	// 按币种累计成本和计算实现盈亏
+	assetCost := make(map[string]float64) // 各币种的当前累计成本
+	for _, t := range trades {
+		switch t.Type {
+		case "buy":
+			assetCost[t.Symbol] += t.Total
+		case "sell":
+			if assetCost[t.Symbol] > 0 && t.Amount > 0 {
+				// 查找该币种当前持仓（用于计算比例）
+				var currentAmount float64
+				for _, h := range holdings {
+					if h.Symbol == t.Symbol {
+						currentAmount = h.Amount + t.Amount // 加上本次卖出数量（因为是历史记录）
+						break
+					}
+				}
+				if currentAmount > 0 {
+					costRatio := t.Amount / currentAmount
+					costRecovered := assetCost[t.Symbol] * costRatio
+					totalRealizedPL += t.Total - costRecovered // 卖出收入 - 成本回收
+					assetCost[t.Symbol] -= costRecovered
+				}
+			}
+		}
+	}
 
 	// 计算统计数据
-	stats := calculatePortfolioStats(holdings, investments, prices, priceChanges, totalRecharge)
+	stats := calculatePortfolioStats(holdings, investments, prices, priceChanges, totalRealizedPL)
 
 	c.JSON(http.StatusOK, gin.H{
 		"prices":                      prices,
@@ -667,8 +694,8 @@ type PortfolioStats struct {
 }
 
 // calculatePortfolioStats 计算投资组合统计
-// totalRecharge: 充值USDT总额，用于计算实现盈亏 = USDT余额 - 充值总额
-func calculatePortfolioStats(holdings []models.Holding, investments []models.Investment, prices, priceChanges map[string]float64, totalRecharge float64) PortfolioStats {
+// totalRealizedPL: 已实现盈亏（所有卖出收入 - 所有卖出对应的成本）
+func calculatePortfolioStats(holdings []models.Holding, investments []models.Investment, prices, priceChanges map[string]float64, totalRealizedPL float64) PortfolioStats {
 	invMap := make(map[string]*models.Investment, len(investments))
 	for i := range investments {
 		invMap[investments[i].Symbol] = &investments[i]
@@ -744,9 +771,7 @@ func calculatePortfolioStats(holdings []models.Holding, investments []models.Inv
 		totalValueChange24h = (weightedChange / totalValue) * 100
 	}
 
-	// 实现盈亏 = USDT余额 - 充值总额
-	// 正数表示盈利（余额比充值多，说明卖出赚了），负数表示亏损
-	totalRealizedPL := usdtBalance - totalRecharge
+	// totalRealizedPL 已由调用方计算好（所有卖出收入 - 所有卖出对应的成本）
 
 	return PortfolioStats{
 		portfolio:             portfolio,
