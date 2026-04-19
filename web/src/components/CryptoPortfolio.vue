@@ -328,7 +328,7 @@
                       v-for="crypto in filteredPortfolio"
                       :key="crypto.id"
                       class="asset-row"
-                      :class="{ 'selected': selectedAsset === crypto.symbol }"
+                      :class="{ 'selected': selectedAsset === crypto.symbol, 'liquidated': crypto.amount === 0 }"
                       @click="selectAsset(crypto.symbol)"
                     >
                       <td>
@@ -2183,6 +2183,25 @@ watch(() => userStore.isLoggedIn, async (isLoggedIn) => {
 
 .dark .asset-row.selected {
   background-color: #1e3a5f;
+}
+
+/* 已清仓资产样式 */
+.asset-row.liquidated {
+  opacity: 0.7;
+  background-color: #f3f4f6;
+}
+
+.dark .asset-row.liquidated {
+  background-color: #252525;
+}
+
+.asset-row.liquidated:hover {
+  opacity: 0.9;
+  background-color: #e5e7eb;
+}
+
+.dark .asset-row.liquidated:hover {
+  background-color: #2d2d2d;
 }
 
 .asset-info {

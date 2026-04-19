@@ -384,15 +384,10 @@ func recalcAsset(tx *gorm.DB, uid uint, symbol string) error {
 		}
 	}
 
-	// UPSERT Holding: 存在则更新，不存在则插入
-	if amount > 0 {
-		holding := models.Holding{UserID: uid, Symbol: symbol, Amount: amount}
-		if err := tx.Where("user_id = ? AND symbol = ?", uid, symbol).Assign(holding).FirstOrCreate(&holding).Error; err != nil {
-			return fmt.Errorf("更新持仓失败")
-		}
-	} else {
-		// 持仓为0，删除记录
-		tx.Where("user_id = ? AND symbol = ?", uid, symbol).Delete(&models.Holding{})
+	// UPSERT Holding: 存在则更新，不存在则插入（包括持仓为0的情况）
+	holding := models.Holding{UserID: uid, Symbol: symbol, Amount: amount}
+	if err := tx.Where("user_id = ? AND symbol = ?", uid, symbol).Assign(holding).FirstOrCreate(&holding).Error; err != nil {
+		return fmt.Errorf("更新持仓失败")
 	}
 
 	return nil
@@ -407,13 +402,9 @@ func recalcUSDT(tx *gorm.DB, uid uint) error {
 	tx.Model(&models.Trade{}).Where("user_id = ? AND type = ?", uid, "sell").Select("COALESCE(SUM(total), 0)").Scan(&sellTotal)
 
 	balance := recharge - buyTotal + sellTotal
-	if balance > 0 {
-		// UPSERT: 存在则更新，不存在则插入
-		holding := models.Holding{UserID: uid, Symbol: "USDT", Amount: balance}
-		return tx.Where("user_id = ? AND symbol = ?", uid, "USDT").Assign(holding).FirstOrCreate(&holding).Error
-	}
-	// 余额为0，删除记录
-	return tx.Where("user_id = ? AND symbol = ?", uid, "USDT").Delete(&models.Holding{}).Error
+	// UPSERT: 存在则更新，不存在则插入（包括余额为0的情况）
+	holding := models.Holding{UserID: uid, Symbol: "USDT", Amount: balance}
+	return tx.Where("user_id = ? AND symbol = ?", uid, "USDT").Assign(holding).FirstOrCreate(&holding).Error
 }
 
 // ClearTrades 清空所有交易记录
@@ -693,6 +684,14 @@ func calculatePortfolioStats(holdings []models.Holding, prices, priceChanges map
 		}
 	}
 
+	// 先计算所有有交易记录的币种的总实现盈亏（包括已清仓的）
+	for symbol, data := range assetCostData {
+		if symbol != "USDT" {
+			totalRealizedPL += data.realizedPL
+			totalHistoricalCost += data.totalIn
+		}
+	}
+
 	for _, h := range holdings {
 		isUSDT := h.Symbol == "USDT"
 		price := prices[h.Symbol]
@@ -718,19 +717,32 @@ func calculatePortfolioStats(holdings []models.Holding, prices, priceChanges map
 			continue
 		}
 
-		// 跳过持仓为0的加密资产
-		if h.Amount == 0 {
-			continue
-		}
-
-		totalValue += marketValue
-
 		// 从预计算数据获取成本和实现盈亏
 		data := assetCostData[h.Symbol]
 		cost := data.cost
 		realizedPL := data.realizedPL
-		totalHistoricalCost += data.totalIn
-		totalRealizedPL += realizedPL
+
+		// 持仓为0的资产只展示实现盈亏，不参与总市值计算
+		if h.Amount == 0 {
+			// 只添加有实现盈亏的已清仓资产
+			if realizedPL != 0 {
+				portfolio = append(portfolio, PortfolioItem{
+					Symbol:         h.Symbol,
+					Amount:         0,
+					CurrentPrice:   price,
+					AvgCost:        0,
+					MarketValue:    0,
+					Cost:           0,
+					ProfitLoss:     0,
+					PLRate:         0,
+					RealizedPL:     realizedPL,
+					RealizedPLRate: 0,
+				})
+			}
+			continue
+		}
+
+		totalValue += marketValue
 
 		avgCost := 0.0
 		if h.Amount != 0 {
