@@ -15,13 +15,18 @@ import (
 var embeddedWebDist embed.FS
 
 func main() {
-	db := config.InitDB()
+	// 初始化配置
+	cfg := config.InitConfig()
+
+	// 初始化数据库
+	db := config.InitDB(cfg)
 
 	if err := models.AutoMigrate(db); err != nil {
 		panic("数据库迁移失败: " + err.Error())
 	}
 
-	gin.SetMode(gin.ReleaseMode)
+	// 设置 Gin 模式
+	gin.SetMode(cfg.Server.Mode)
 	r := gin.Default()
 
 	webDist, err := fs.Sub(embeddedWebDist, "web/dist")
@@ -36,5 +41,5 @@ func main() {
 		handler.ServeHTTP(c.Writer, c.Request)
 	})
 
-	r.Run(":8080")
+	r.Run(":" + cfg.Server.Port)
 }

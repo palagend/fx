@@ -1,0 +1,31 @@
+# FX Portfolio 配置文件示例
+# 复制此文件为 config.yaml 并根据实际情况修改
+# 或使用环境变量覆盖（推荐用于生产环境）
+
+# 数据库配置
+database:
+  host: "172.23.112.1"
+  port: 3306
+  user: "admin"
+  password: "ctsi@Passw0rd"
+  name: "insight_onchain"
+  charset: "utf8mb4"
+
+# API Keys
+api:
+  coincap_key: "b617d9cf029dbb40f02b058a0e74919176b768cf36fd1ea6fae55a13a1610f41"  # CoinCap API Key，用于获取加密货币价格
+
+# 服务器配置
+server:
+  port: "8080"
+  mode: "release"  # debug 或 release
+
+# JWT 配置
+jwt:
+  secret: "132fd39d-d6ea-468a-9ec8-31f1ccad09b2"
+  expires_in: 24  # 小时
+
+# 日志配置
+log:
+  level: "info"   # debug, info, warn, error
+  format: "text"  # text 或 json

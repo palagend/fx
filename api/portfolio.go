@@ -511,8 +511,12 @@ func GetAssetPrice(c *gin.Context) {
 
 	url := fmt.Sprintf("https://rest.coincap.io/v3/price/bysymbol/%s", symbol)
 	req, _ := http.NewRequest("GET", url, nil)
-	req.Header.Add("Authorization", "Bearer b617d9cf029dbb40f02b058a0e74919176b768cf36fd1ea6fae55a13a1610f41")
 
+	// 从配置获取 API Key
+	cfg := config.GetConfig()
+	if cfg.API.CoinCapKey != "" {
+		req.Header.Add("Authorization", "Bearer "+cfg.API.CoinCapKey)
+	}
 	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
@@ -613,7 +617,12 @@ func fetchPrices() (map[string]float64, map[string]float64, int64) {
 	url := fmt.Sprintf("https://rest.coincap.io/v3/assets?ids=%s", idsParam)
 
 	req, _ := http.NewRequest("GET", url, nil)
-	req.Header.Add("Authorization", "Bearer b617d9cf029dbb40f02b058a0e74919176b768cf36fd1ea6fae55a13a1610f41")
+
+	// 从配置获取 API Key
+	cfg := config.GetConfig()
+	if cfg.API.CoinCapKey != "" {
+		req.Header.Add("Authorization", "Bearer "+cfg.API.CoinCapKey)
+	}
 
 	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Do(req)
