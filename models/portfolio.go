@@ -36,14 +36,4 @@ type Holding struct {
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
 }
 
-// Investment 投资记录 - 记录每个资产的USDT投入和退出
-type Investment struct {
-	ID        uint           `gorm:"primarykey" json:"id"`
-	UserID    uint           `gorm:"index;not null" json:"user_id"`
-	Symbol    string         `gorm:"size:20;not null" json:"symbol"`                // 加密资产符号
-	TotalIn   float64        `gorm:"type:decimal(20,8);default:0" json:"total_in"`  // USDT总投入（买入累计）
-	TotalOut  float64        `gorm:"type:decimal(20,8);default:0" json:"total_out"` // USDT总退出（卖出累计）
-	CreatedAt time.Time      `json:"created_at"`
-	UpdatedAt time.Time      `json:"updated_at"`
-	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
-}
+
