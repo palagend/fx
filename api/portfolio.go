@@ -316,7 +316,8 @@ func GetTrades(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"trades": response})
 }
 
-// DeleteTrade 删除交易记录
+// DeleteTrade 删除交易记录（带安全校验）
+// 限制：只能删除最近24小时内的交易，且删除后不能导致负持仓
 func DeleteTrade(c *gin.Context) {
 	userID, exists := c.Get("userID")
 	if !exists {
@@ -334,27 +335,90 @@ func DeleteTrade(c *gin.Context) {
 		return
 	}
 
+	// 校验1：只能删除24小时内的交易
+	if time.Since(trade.CreatedAt) > 24*time.Hour {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "只能删除24小时内的交易记录"})
+		return
+	}
+
+	// 校验2：模拟删除后的持仓状态
 	tx := db.Begin()
 
-	// 删除交易记录
+	// 获取该用户所有交易（排除要删除的这条）
+	var remainingTrades []models.Trade
+	if err := tx.Where("user_id = ? AND id != ?", uid, tradeID).Order("created_at asc").Find(&remainingTrades).Error; err != nil {
+		tx.Rollback()
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "获取交易记录失败"})
+		return
+	}
+
+	// 计算删除后的持仓状态
+	simulatedHoldings := make(map[string]float64)
+	usdtBalance := 0.0
+
+	for _, t := range remainingTrades {
+		switch t.Type {
+		case "recharge":
+			usdtBalance += t.Amount
+		case "buy":
+			simulatedHoldings[t.Symbol] += t.Amount
+			usdtBalance -= t.Total
+		case "sell":
+			simulatedHoldings[t.Symbol] -= t.Amount
+			usdtBalance += t.Total
+		}
+	}
+
+	// 校验3：删除后不能导致任何资产负持仓
+	for symbol, amount := range simulatedHoldings {
+		if amount < 0 {
+			tx.Rollback()
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": fmt.Sprintf("删除该交易会导致 %s 持仓为负数(%.8f)，无法删除", symbol, amount),
+			})
+			return
+		}
+	}
+
+	// 校验4：删除后不能导致 USDT 余额为负
+	if usdtBalance < 0 {
+		tx.Rollback()
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": fmt.Sprintf("删除该交易会导致 USDT 余额为负数(%.2f)，无法删除", usdtBalance),
+		})
+		return
+	}
+
+	// 执行删除
 	if err := tx.Delete(&trade).Error; err != nil {
 		tx.Rollback()
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "删除交易记录失败"})
 		return
 	}
 
-	// 重新计算持仓和投资记录
+	// 重新计算所有相关持仓
+	affectedSymbols := make(map[string]bool)
+	affectedSymbols["USDT"] = true
 	if trade.Symbol != "USDT" {
-		if err := recalcAsset(tx, uid, trade.Symbol); err != nil {
-			tx.Rollback()
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
+		affectedSymbols[trade.Symbol] = true
+	}
+
+	// 对于卖出交易，还需要检查是否影响了其他资产的买入成本计算
+	// 这里简化处理：重新计算所有持仓
+	for symbol := range simulatedHoldings {
+		if symbol != "USDT" {
+			if err := recalcAsset(tx, uid, symbol); err != nil {
+				tx.Rollback()
+				c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("重新计算 %s 持仓失败: %v", symbol, err)})
+				return
+			}
 		}
 	}
 
+	// 重新计算 USDT 持仓
 	if err := recalcUSDT(tx, uid); err != nil {
 		tx.Rollback()
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "重新计算 USDT 持仓失败"})
 		return
 	}
 
@@ -363,7 +427,17 @@ func DeleteTrade(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "交易记录已删除，持仓已重新计算"})
+	c.JSON(http.StatusOK, gin.H{
+		"message": "交易记录已删除",
+		"deleted_trade": gin.H{
+			"id":         trade.ID,
+			"symbol":     trade.Symbol,
+			"type":       trade.Type,
+			"amount":     trade.Amount,
+			"price":      trade.Price,
+			"created_at": trade.CreatedAt,
+		},
+	})
 }
 
 // recalcAsset 重新计算资产持仓
@@ -422,9 +496,8 @@ func ClearTrades(c *gin.Context) {
 	// 使用原生SQL批量删除，一条SQL删除所有相关表数据
 	// 注意：表名使用复数形式，与GORM默认一致
 	sql := `
-		DELETE t, h, i FROM trades t
+		DELETE t, h FROM trades t
 		LEFT JOIN holdings h ON h.user_id = t.user_id
-		LEFT JOIN investments i ON i.user_id = t.user_id
 		WHERE t.user_id = ?
 	`
 	if err := db.Exec(sql, uid).Error; err != nil {
