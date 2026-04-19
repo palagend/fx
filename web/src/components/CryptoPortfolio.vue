@@ -177,14 +177,26 @@
                     <span class="preview-label">USDT余额变化:</span>
                     <span class="preview-value positive">+${{ formatNumber(newTrade.amount * newTrade.price) }}</span>
                   </div>
+                  <div class="preview-actions">
+                    <button class="btn-add" @click="addTrade" :disabled="!isFormValid || portfolioStore.isLoading || isSubmitting.trade">
+                      <Icon icon="mdi:plus" />
+                      {{ newTrade.type === 'buy' ? '买入' : '卖出' }}
+                    </button>
+                    <button class="btn-clear-form" @click="clearForm">
+                      <Icon icon="mdi:refresh" />
+                    </button>
+                  </div>
                 </div>
-                <button class="btn-add" @click="addTrade" :disabled="!isFormValid || portfolioStore.isLoading || isSubmitting.trade">
-                  <Icon icon="mdi:plus" />
-                  {{ newTrade.type === 'buy' ? '买入' : '卖出' }}
-                </button>
-                <button class="btn-clear-form" @click="clearForm">
-                  <Icon icon="mdi:close" />
-                </button>
+                <!-- 预览隐藏时的按钮 -->
+                <div v-else class="trade-actions">
+                  <button class="btn-add" @click="addTrade" :disabled="!isFormValid || portfolioStore.isLoading || isSubmitting.trade">
+                    <Icon icon="mdi:plus" />
+                    {{ newTrade.type === 'buy' ? '买入' : '卖出' }}
+                  </button>
+                  <button class="btn-clear-form" @click="clearForm">
+                    <Icon icon="mdi:refresh" />
+                  </button>
+                </div>
               </div>
             </section>
 
@@ -298,7 +310,6 @@
                       <th>数量</th>
                       <th>价格</th>
                       <th>总金额</th>
-                      <th>实现盈亏</th>
                       <th>操作</th>
                     </tr>
                   </thead>
@@ -319,12 +330,6 @@
                       <td>{{ formatAmount(trade.amount) }}</td>
                       <td>${{ formatNumber(trade.price) }}</td>
                       <td>${{ formatNumber(trade.total) }}</td>
-                      <td :class="{ positive: trade.realized_pl > 0, negative: trade.realized_pl < 0 }">
-                        <span v-if="trade.realized_pl !== undefined && trade.realized_pl !== 0">
-                          {{ trade.realized_pl > 0 ? '+' : '' }}${{ formatNumber(trade.realized_pl) }}
-                        </span>
-                        <span v-else>-</span>
-                      </td>
                       <td>
                         <button class="btn-delete" @click="deleteTrade(trade.id)" :disabled="protectHistory || isSubmitting.delete" title="删除">
                           <Icon icon="mdi:trash-can" />
@@ -332,7 +337,7 @@
                       </td>
                     </tr>
                     <tr v-if="filteredTrades.length === 0">
-                      <td colspan="8" class="empty-state">
+                      <td colspan="7" class="empty-state">
                         <Icon icon="mdi:inbox" />
                         <p>暂无交易记录</p>
                       </td>
@@ -744,8 +749,12 @@ const clearForm = () => {
 }
 
 const selectAsset = (symbol) => {
-  selectedAsset.value = selectedAsset.value === symbol ? null : symbol
-  if (selectedAsset.value) {
+  // toggle 模式：点击已选中的资产则取消过滤，显示全部
+  if (selectedAsset.value === symbol) {
+    selectedAsset.value = null
+    selectedFilter.value = 'all'
+  } else {
+    selectedAsset.value = symbol
     selectedFilter.value = symbol
   }
 }
@@ -1470,6 +1479,27 @@ watch(() => userStore.isLoggedIn, async (isLoggedIn) => {
 
 .preview-value.negative {
   color: #ef4444;
+}
+
+/* 预览区域内的按钮布局 */
+.preview-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(186, 230, 253, 0.5);
+}
+
+.dark .preview-actions {
+  border-top-color: rgba(51, 65, 85, 0.5);
+}
+
+/* 预览隐藏时的按钮布局 */
+.trade-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
 }
 
 .btn-add {
