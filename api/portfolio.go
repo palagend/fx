@@ -567,14 +567,16 @@ func GetAssetPrice(c *gin.Context) {
 
 // PortfolioItem 投资组合项
 type PortfolioItem struct {
-	Symbol       string  `json:"symbol"`
-	Amount       float64 `json:"amount"`
-	CurrentPrice float64 `json:"current_price"`
-	AvgCost      float64 `json:"avg_cost"`
-	MarketValue  float64 `json:"market_value"`
-	Cost         float64 `json:"cost"`
-	ProfitLoss   float64 `json:"profit_loss"`
-	PLRate       float64 `json:"pl_rate"`
+	Symbol         string  `json:"symbol"`
+	Amount         float64 `json:"amount"`
+	CurrentPrice   float64 `json:"current_price"`
+	AvgCost        float64 `json:"avg_cost"`
+	MarketValue    float64 `json:"market_value"`
+	Cost           float64 `json:"cost"`
+	ProfitLoss     float64 `json:"profit_loss"`
+	PLRate         float64 `json:"pl_rate"`
+	RealizedPL     float64 `json:"realized_pl"`      // 实现盈亏（该币种已卖出部分的盈亏）
+	RealizedPLRate float64 `json:"realized_pl_rate"` // 实现盈亏率
 }
 
 // GetDashboard 获取仪表盘聚合数据
@@ -604,19 +606,24 @@ func GetDashboard(c *gin.Context) {
 	db.Where("user_id = ?", uid).Order("created_at asc").Find(&trades)
 
 	// 按币种累计成本和持仓，计算实现盈亏
-	assetCost := make(map[string]float64)   // 各币种的当前累计成本
-	assetAmount := make(map[string]float64) // 各币种的当前持仓量
+	assetCost := make(map[string]float64)       // 各币种的当前累计成本
+	assetAmount := make(map[string]float64)     // 各币种的当前持仓量
+	assetRealizedPL := make(map[string]float64) // 各币种的实现盈亏
+	assetTotalIn := make(map[string]float64)    // 各币种的总投入（用于计算实现盈亏率）
 	for _, t := range trades {
 		switch t.Type {
 		case "buy":
 			assetCost[t.Symbol] += t.Total
 			assetAmount[t.Symbol] += t.Amount
+			assetTotalIn[t.Symbol] += t.Total
 		case "sell":
 			if assetAmount[t.Symbol] > 0 && t.Amount > 0 {
 				// 按卖出比例计算回收的成本（借贷记账法）
 				sellRatio := t.Amount / assetAmount[t.Symbol]
 				costRecovered := assetCost[t.Symbol] * sellRatio
-				totalRealizedPL += t.Total - costRecovered // 卖出收入 - 成本回收
+				realizedPL := t.Total - costRecovered // 卖出收入 - 成本回收
+				totalRealizedPL += realizedPL
+				assetRealizedPL[t.Symbol] += realizedPL
 				assetCost[t.Symbol] -= costRecovered
 				assetAmount[t.Symbol] -= t.Amount
 			}
@@ -624,7 +631,7 @@ func GetDashboard(c *gin.Context) {
 	}
 
 	// 计算统计数据
-	stats := calculatePortfolioStats(holdings, investments, prices, priceChanges, totalRealizedPL)
+	stats := calculatePortfolioStats(holdings, investments, prices, priceChanges, totalRealizedPL, assetRealizedPL, assetTotalIn)
 
 	c.JSON(http.StatusOK, gin.H{
 		"prices":                      prices,
@@ -702,7 +709,9 @@ type PortfolioStats struct {
 
 // calculatePortfolioStats 计算投资组合统计
 // totalRealizedPL: 已实现盈亏（所有卖出收入 - 所有卖出对应的成本）
-func calculatePortfolioStats(holdings []models.Holding, investments []models.Investment, prices, priceChanges map[string]float64, totalRealizedPL float64) PortfolioStats {
+// assetRealizedPL: 各币种的实现盈亏
+// assetTotalIn: 各币种的总投入
+func calculatePortfolioStats(holdings []models.Holding, investments []models.Investment, prices, priceChanges map[string]float64, totalRealizedPL float64, assetRealizedPL, assetTotalIn map[string]float64) PortfolioStats {
 	invMap := make(map[string]*models.Investment, len(investments))
 	for i := range investments {
 		invMap[investments[i].Symbol] = &investments[i]
@@ -756,15 +765,24 @@ func calculatePortfolioStats(holdings []models.Holding, investments []models.Inv
 		totalCost += cost
 		weightedChange += marketValue * priceChanges[h.Symbol]
 
+		// 计算该币种的实现盈亏和实现盈亏率
+		realizedPL := assetRealizedPL[h.Symbol]
+		realizedPLRate := 0.0
+		if assetTotalIn[h.Symbol] != 0 {
+			realizedPLRate = (realizedPL / assetTotalIn[h.Symbol]) * 100
+		}
+
 		portfolio = append(portfolio, PortfolioItem{
-			Symbol:       h.Symbol,
-			Amount:       h.Amount,
-			CurrentPrice: price,
-			AvgCost:      avgCost,
-			MarketValue:  marketValue,
-			Cost:         cost,
-			ProfitLoss:   profitLoss,
-			PLRate:       plRate,
+			Symbol:         h.Symbol,
+			Amount:         h.Amount,
+			CurrentPrice:   price,
+			AvgCost:        avgCost,
+			MarketValue:    marketValue,
+			Cost:           cost,
+			ProfitLoss:     profitLoss,
+			PLRate:         plRate,
+			RealizedPL:     realizedPL,
+			RealizedPLRate: realizedPLRate,
 		})
 	}
 

@@ -319,6 +319,7 @@
                       <th>当前价</th>
                       <th>总价值</th>
                       <th>浮动盈亏</th>
+                      <th>实现盈亏</th>
                       <th>操作</th>
                     </tr>
                   </thead>
@@ -388,6 +389,20 @@
                           </div>
                         </template>
                       </td>
+                      <td class="asset-realized-profit" :class="{ 'positive': crypto.realized_pl > 0, 'negative': crypto.realized_pl < 0 }" v-if="crypto.symbol !== 'USDT'">
+                        <template v-if="crypto.realized_pl !== 0">
+                          <div class="profit-value">
+                            {{ crypto.realized_pl > 0 ? '+' : '-' }}${{ formatAmount(Math.abs(crypto.realized_pl)) }}
+                          </div>
+                          <div class="profit-rate">
+                            {{ crypto.realized_pl > 0 ? '+' : '-' }}{{ Math.abs(crypto.realized_pl_rate).toFixed(2) }}%
+                          </div>
+                        </template>
+                        <template v-else>
+                          <span class="no-data">-</span>
+                        </template>
+                      </td>
+                      <td v-else>-</td>
                       <td class="action-cell">
                         <button class="btn-action btn-sell" @click.stop="quickSell(crypto)" title="快速卖出">
                           <Icon icon="mdi:shopping-cart-arrow-up" />
@@ -398,7 +413,7 @@
                       </td>
                     </tr>
                     <tr v-if="filteredPortfolio.length === 0">
-                      <td colspan="7" class="empty-state">
+                      <td colspan="8" class="empty-state">
                         <Icon icon="mdi:inbox" />
                         <p>暂无资产数据，请充值USDT后开始交易</p>
                       </td>
