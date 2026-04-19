@@ -19,7 +19,7 @@
             <section class="overview">
               <div class="overview-card">
                 <h3><Icon icon="mdi:wallet" /> 加密资产价值</h3>
-                <div class="value">${{ formatNumber(cryptoValue) }}</div>
+                <div class="value">${{ formatAmount(cryptoValue) }}</div>
                 <div class="change" :class="displayTotalValueChange.class">
                   {{ displayTotalValueChange.sign }}{{ displayTotalValueChange.value }}% (24h)
                 </div>
@@ -44,7 +44,7 @@
               </div>
               <div class="overview-card usdt-card">
                 <h3><Icon icon="mdi:cash-usd" /> USDT余额</h3>
-                <div class="value">${{ formatNumber(usdtBalance) }}</div>
+                <div class="value">${{ formatAmount(usdtBalance) }}</div>
                 <button class="btn-recharge" @click="showRechargeModal = true">
                   <Icon icon="mdi:plus" /> 充值
                 </button>
@@ -75,7 +75,7 @@
                   <div class="pie-chart-wrapper">
                     <div class="pie-chart" :style="pieChartStyle"></div>
                     <div class="pie-center">
-                      <span>${{ formatNumber(totalAssetsValue) }}</span>
+                      <span>${{ formatAmount(totalAssetsValue) }}</span>
                       <span>总资产</span>
                     </div>
                   </div>
@@ -130,7 +130,7 @@
                         <Icon :icon="getAssetIcon(symbol)" :style="{ color: getAssetColor(symbol) }" />
                         <span class="asset-code">{{ symbol }}</span>
                         <span class="asset-price" v-if="portfolioStore.prices[symbol]">
-                          ${{ formatNumber(portfolioStore.prices[symbol]) }}
+                          ${{ formatAmount(portfolioStore.prices[symbol]) }}
                         </span>
                       </button>
                     </div>
@@ -162,7 +162,7 @@
                       <label class="field-label">
                         价格
                         <span class="field-hint" v-if="currentMarketPrice > 0">
-                          市价: ${{ formatNumber(currentMarketPrice) }}
+                          市价: ${{ formatAmount(currentMarketPrice) }}
                         </span>
                       </label>
                       <div class="input-with-controls">
@@ -195,7 +195,7 @@
                       <Icon :icon="newTrade.type === 'buy' ? 'mdi:arrow-down' : 'mdi:arrow-up'" />
                       {{ newTrade.type === 'buy' ? '确认买入' : '确认卖出' }}
                       <span class="submit-total" v-if="newTrade.amount && newTrade.price">
-                        ${{ formatNumber(newTrade.amount * newTrade.price) }}
+                        ${{ formatAmount(newTrade.amount * newTrade.price) }}
                       </span>
                     </button>
                     <button class="btn-reset" @click="clearForm">
@@ -215,7 +215,7 @@
                     <div class="preview-main">
                       <div class="preview-item total">
                         <span class="label">交易总额</span>
-                        <span class="value">${{ formatNumber(newTrade.amount * newTrade.price) }}</span>
+                        <span class="value">${{ formatAmount(newTrade.amount * newTrade.price) }}</span>
                       </div>
                     </div>
 
@@ -229,15 +229,15 @@
                         </div>
                         <div class="preview-item" v-if="getHoldingAmount(newTrade.symbol) > 0">
                           <span class="label">买入后持仓</span>
-                          <span class="value highlight">{{ formatNumber(getHoldingAmount(newTrade.symbol) + newTrade.amount) }}</span>
+                          <span class="value highlight">{{ formatAmount(getHoldingAmount(newTrade.symbol) + newTrade.amount) }}</span>
                         </div>
                         <div class="preview-item" v-if="getHoldingAmount(newTrade.symbol) > 0">
                           <span class="label">新综合成本</span>
-                          <span class="value">${{ formatNumber(calculateNewAvgCost()) }}</span>
+                          <span class="value">${{ formatAmount(calculateNewAvgCost()) }}</span>
                         </div>
                         <div class="preview-item impact">
                           <span class="label">USDT支出</span>
-                          <span class="value negative">-${{ formatNumber(newTrade.amount * newTrade.price) }}</span>
+                          <span class="value negative">-${{ formatAmount(newTrade.amount * newTrade.price) }}</span>
                         </div>
                       </div>
                     </template>
@@ -252,25 +252,25 @@
                         </div>
                         <div class="preview-item">
                           <span class="label">当前成本价</span>
-                          <span class="value">${{ formatNumber(getAvgCost(newTrade.symbol)) }}</span>
+                          <span class="value">${{ formatAmount(portfolio.value.find(c => c.symbol === newTrade.symbol)?.avg_cost || 0) }}</span>
                         </div>
                         <div class="preview-item">
                           <span class="label">卖出后持仓</span>
-                          <span class="value">{{ formatNumber(Math.max(0, getHoldingAmount(newTrade.symbol) - newTrade.amount)) }}</span>
+                          <span class="value">{{ formatAmount(Math.max(0, getHoldingAmount(newTrade.symbol) - newTrade.amount)) }}</span>
                         </div>
                         <div class="preview-item" v-if="newTrade.amount < getHoldingAmount(newTrade.symbol)">
                           <span class="label">卖出后成本价</span>
-                          <span class="value highlight">${{ formatNumber(calculateSellAvgCost()) }}</span>
+                          <span class="value highlight">${{ formatAmount(calculateSellAvgCost()) }}</span>
                         </div>
                         <div class="preview-item" v-if="calculateEstimatedRealizedPL() !== 0">
                           <span class="label">预估盈亏</span>
                           <span :class="['value', calculateEstimatedRealizedPL() >= 0 ? 'positive' : 'negative']">
-                            {{ calculateEstimatedRealizedPL() >= 0 ? '+' : '-' }}${{ formatNumber(Math.abs(calculateEstimatedRealizedPL())) }}
+                            {{ calculateEstimatedRealizedPL() >= 0 ? '+' : '-' }}${{ formatAmount(Math.abs(calculateEstimatedRealizedPL())) }}
                           </span>
                         </div>
                         <div class="preview-item impact">
                           <span class="label">USDT收入</span>
-                          <span class="value positive">+${{ formatNumber(newTrade.amount * newTrade.price) }}</span>
+                          <span class="value positive">+${{ formatAmount(newTrade.amount * newTrade.price) }}</span>
                         </div>
                       </div>
                     </template>
@@ -331,14 +331,28 @@
                         </div>
                       </td>
                       <td class="asset-amount">{{ formatAmount(crypto.amount) }}</td>
-                      <td class="asset-price">${{ formatNumber(crypto.avg_cost) }}</td>
-                      <td class="asset-price">${{ formatNumber(crypto.current_price) }}</td>
-                      <td class="asset-value">${{ formatNumber(crypto.market_value) }}</td>
+                      <td class="asset-price">
+                        <template v-if="crypto.avg_cost > 0">${{ formatAmount(crypto.avg_cost) }}</template>
+                        <template v-else-if="crypto.avg_cost === 0">
+                          <div class="cost-display">
+                            <span class="cost-value">$0</span>
+                            <span class="cost-badge zero">已回本</span>
+                          </div>
+                        </template>
+                        <template v-else>
+                          <div class="cost-display">
+                            <span class="cost-value">${{ formatAmount(crypto.avg_cost) }}</span>
+                            <span class="cost-badge negative">负成本</span>
+                          </div>
+                        </template>
+                      </td>
+                      <td class="asset-price">${{ formatAmount(crypto.current_price) }}</td>
+                      <td class="asset-value">${{ formatAmount(crypto.market_value) }}</td>
                       <td class="asset-profit" :class="getProfitClass(crypto)">
                         <!-- avg_cost > 0: 正常情况 -->
                         <template v-if="crypto.avg_cost > 0">
                           <div class="profit-value">
-                            {{ (crypto.amount * (crypto.current_price - crypto.avg_cost)) >= 0 ? '+' : '-' }}${{ formatNumber(Math.abs(crypto.amount * (crypto.current_price - crypto.avg_cost))) }}
+                            {{ (crypto.amount * (crypto.current_price - crypto.avg_cost)) >= 0 ? '+' : '-' }}${{ formatAmount(Math.abs(crypto.amount * (crypto.current_price - crypto.avg_cost))) }}
                           </div>
                           <div class="profit-rate" v-if="crypto.symbol !== 'USDT'">
                             {{ ((crypto.current_price - crypto.avg_cost) / crypto.avg_cost * 100) >= 0 ? '+' : '-' }}{{ Math.abs((crypto.current_price - crypto.avg_cost) / crypto.avg_cost * 100).toFixed(2) }}%
@@ -348,7 +362,7 @@
                         <!-- avg_cost = 0: 投资全部收回 -->
                         <template v-else-if="crypto.avg_cost === 0">
                           <div class="profit-value positive">
-                            +${{ formatNumber(crypto.amount * crypto.current_price) }}
+                            +${{ formatAmount(crypto.amount * crypto.current_price) }}
                           </div>
                           <div class="profit-rate" v-if="crypto.symbol !== 'USDT'">
                             <span class="status-badge recovered">✓ 已回本</span>
@@ -358,7 +372,7 @@
                         <!-- avg_cost < 0: 投资回报超过100% -->
                         <template v-else>
                           <div class="profit-value positive">
-                            +${{ formatNumber(crypto.amount * crypto.current_price - crypto.cost) }}
+                            +${{ formatAmount(crypto.amount * crypto.current_price - crypto.cost) }}
                           </div>
                           <div class="profit-rate" v-if="crypto.symbol !== 'USDT'">
                             <span class="status-badge super-profit">🚀 超100%回报</span>
@@ -438,8 +452,8 @@
                         </span>
                       </td>
                       <td>{{ formatAmount(trade.amount) }}</td>
-                      <td>${{ formatNumber(trade.price) }}</td>
-                      <td>${{ formatNumber(trade.total) }}</td>
+                      <td>${{ formatAmount(trade.price) }}</td>
+                      <td>${{ formatAmount(trade.total) }}</td>
                       <td>
                         <button class="btn-delete" @click="deleteTrade(trade.id)" :disabled="protectHistory || isSubmitting.delete" title="删除">
                           <Icon icon="mdi:trash-can" />
@@ -502,7 +516,6 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
-import axios from 'axios'
 import { Icon } from '@iconify/vue'
 import { usePortfolioStore } from '../stores/portfolio'
 import { useUserStore } from '../stores/user'
@@ -560,7 +573,7 @@ const displayUnrealizedPL = computed(() => {
   const val = unrealizedProfitLoss.value
   return {
     sign: val >= 0 ? '+' : '-',
-    value: formatNumber(Math.abs(val)),
+    value: formatAmount(Math.abs(val)),
     class: val >= 0 ? 'positive' : 'negative',
     rate: (unrealizedProfitLossRate.value >= 0 ? '+' : '-') + Math.abs(unrealizedProfitLossRate.value).toFixed(2) + '%'
   }
@@ -570,7 +583,7 @@ const displayRealizedPL = computed(() => {
   const val = realizedProfitLoss.value
   return {
     sign: val >= 0 ? '+' : '-',
-    value: formatNumber(Math.abs(val)),
+    value: formatAmount(Math.abs(val)),
     class: val >= 0 ? 'positive' : 'negative'
   }
 })
@@ -631,17 +644,11 @@ const CHART_COLORS = [
   '#fb7185', '#fda4af', '#fca5a5', '#f87171', '#fb923c'
 ]
 
-const TRADE_TYPES = {
-  BUY: 'buy',
-  SELL: 'sell',
-  RECHARGE: 'recharge'
-}
-
 const getTradeTypeText = (type) => {
   const map = {
-    [TRADE_TYPES.BUY]: '买入',
-    [TRADE_TYPES.SELL]: '卖出',
-    [TRADE_TYPES.RECHARGE]: '充值'
+    buy: '买入',
+    sell: '卖出',
+    recharge: '充值'
   }
   return map[type] || type
 }
@@ -694,12 +701,6 @@ const isFormValid = computed(() => {
 const getHoldingAmount = (symbol) => {
   const asset = portfolio.value.find(c => c.symbol === symbol)
   return asset ? asset.amount : 0
-}
-
-// 获取当前平均成本价
-const getAvgCost = (symbol) => {
-  const asset = portfolio.value.find(c => c.symbol === symbol)
-  return asset ? asset.avg_cost : 0
 }
 
 // 根据avg_cost获取盈亏显示的CSS类
@@ -974,16 +975,8 @@ const getAssetIcon = (symbol) => {
   return ASSET_CONFIG.ICONS[symbol] || symbol.charAt(0)
 }
 
-const formatNumber = (num) => {
-  if (!num && num !== 0) return '0.0000'
-  return Math.abs(num).toLocaleString('en-US', {
-    minimumFractionDigits: 4,
-    maximumFractionDigits: 4
-  })
-}
-
 const formatAmount = (amount) => {
-  if (!amount) return '0.0000'
+  if (!amount && amount !== 0) return '0.0000'
   return amount.toLocaleString('en-US', {
     minimumFractionDigits: 4,
     maximumFractionDigits: 4
@@ -1510,51 +1503,10 @@ watch(() => userStore.isLoggedIn, async (isLoggedIn) => {
   align-items: center;
 }
 
-.input-row {
-  display: flex;
-  gap: 12px;
-  align-items: flex-start;
-  flex-wrap: wrap;
-}
-
-.input-row select,
-.input-row input {
-  padding: 10px 14px;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  font-size: 14px;
-  background-color: white;
-  color: #1f2937;
-  transition: all 0.3s ease;
-}
-
-.dark .input-row select,
-.dark .input-row input {
-  background-color: #2d2d2d;
-  border-color: #404040;
-  color: #f3f4f6;
-}
-
-.input-row select:focus,
-.input-row input:focus {
-  outline: none;
-  border-color: #6366f1;
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
-}
-
 .input-group {
   display: flex;
   flex-direction: column;
   gap: 4px;
-}
-
-.input-hint {
-  font-size: 12px;
-  color: #6b7280;
-}
-
-.dark .input-hint {
-  color: #9ca3af;
 }
 
 /* ==================== 交易区域新样式 ==================== */
@@ -2264,35 +2216,58 @@ watch(() => userStore.isLoggedIn, async (isLoggedIn) => {
   opacity: 0.8;
 }
 
-/* 回本状态徽章 */
-.status-badge {
+/* 徽章基础样式 */
+.status-badge,
+.cost-badge {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
   padding: 2px 8px;
   border-radius: 4px;
   font-size: 11px;
   font-weight: 600;
 }
 
-.status-badge.recovered {
+.status-badge {
+  gap: 4px;
+}
+
+/* 回本状态 */
+.status-badge.recovered,
+.cost-badge.zero {
   background: #d1fae5;
   color: #059669;
 }
 
-.dark .status-badge.recovered {
+.dark .status-badge.recovered,
+.dark .cost-badge.zero {
   background: #064e3b;
   color: #34d399;
 }
 
-.status-badge.super-profit {
+/* 超额回报状态 */
+.status-badge.super-profit,
+.cost-badge.negative {
   background: #fef3c7;
   color: #d97706;
 }
 
-.dark .status-badge.super-profit {
+.dark .status-badge.super-profit,
+.dark .cost-badge.negative {
   background: #78350f;
   color: #fbbf24;
+}
+
+/* 成本价展示 */
+.cost-display {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.cost-value {
+  font-size: 14px;
+  font-weight: 500;
 }
 
 .action-cell {
@@ -2300,7 +2275,8 @@ watch(() => userStore.isLoggedIn, async (isLoggedIn) => {
   gap: 8px;
 }
 
-.btn-action {
+.btn-action,
+.btn-delete {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2339,16 +2315,8 @@ watch(() => userStore.isLoggedIn, async (isLoggedIn) => {
 }
 
 .btn-delete {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
   background: transparent;
-  border: none;
   color: #9ca3af;
-  cursor: pointer;
-  transition: all 0.3s ease;
 }
 
 .btn-delete:hover:not(:disabled) {
@@ -2752,16 +2720,6 @@ watch(() => userStore.isLoggedIn, async (isLoggedIn) => {
 @media (max-width: 768px) {
   .overview {
     grid-template-columns: 1fr;
-  }
-
-  .input-row {
-    flex-direction: column;
-  }
-
-  .input-row select,
-  .input-row input,
-  .btn-add {
-    width: 100%;
   }
 
   .section-header {
