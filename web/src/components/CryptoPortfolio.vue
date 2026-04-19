@@ -334,13 +334,36 @@
                       <td class="asset-price">${{ formatNumber(crypto.avg_cost) }}</td>
                       <td class="asset-price">${{ formatNumber(crypto.current_price) }}</td>
                       <td class="asset-value">${{ formatNumber(crypto.market_value) }}</td>
-                      <td class="asset-profit" :class="{ positive: crypto.profit_loss >= 0, negative: crypto.profit_loss < 0 }">
-                        <div class="profit-value">
-                          {{ crypto.profit_loss >= 0 ? '+' : '-' }}${{ formatNumber(Math.abs(crypto.profit_loss)) }}
-                        </div>
-                        <div class="profit-rate" v-if="crypto.symbol !== 'USDT'">
-                          {{ crypto.pl_rate >= 0 ? '+' : '-' }}{{ Math.abs(crypto.pl_rate).toFixed(2) }}%
-                        </div>
+                      <td class="asset-profit" :class="getProfitClass(crypto)">
+                        <!-- avg_cost > 0: 正常情况 -->
+                        <template v-if="crypto.avg_cost > 0">
+                          <div class="profit-value">
+                            {{ (crypto.amount * (crypto.current_price - crypto.avg_cost)) >= 0 ? '+' : '-' }}${{ formatNumber(Math.abs(crypto.amount * (crypto.current_price - crypto.avg_cost))) }}
+                          </div>
+                          <div class="profit-rate" v-if="crypto.symbol !== 'USDT'">
+                            {{ ((crypto.current_price - crypto.avg_cost) / crypto.avg_cost * 100) >= 0 ? '+' : '-' }}{{ Math.abs((crypto.current_price - crypto.avg_cost) / crypto.avg_cost * 100).toFixed(2) }}%
+                          </div>
+                        </template>
+                        
+                        <!-- avg_cost = 0: 投资全部收回 -->
+                        <template v-else-if="crypto.avg_cost === 0">
+                          <div class="profit-value positive">
+                            +${{ formatNumber(crypto.amount * crypto.current_price) }}
+                          </div>
+                          <div class="profit-rate" v-if="crypto.symbol !== 'USDT'">
+                            <span class="status-badge recovered">✓ 已回本</span>
+                          </div>
+                        </template>
+                        
+                        <!-- avg_cost < 0: 投资回报超过100% -->
+                        <template v-else>
+                          <div class="profit-value positive">
+                            +${{ formatNumber(crypto.amount * crypto.current_price - crypto.cost) }}
+                          </div>
+                          <div class="profit-rate" v-if="crypto.symbol !== 'USDT'">
+                            <span class="status-badge super-profit">🚀 超100%回报</span>
+                          </div>
+                        </template>
                       </td>
                       <td class="action-cell">
                         <button class="btn-action btn-sell" @click.stop="quickSell(crypto)" title="快速卖出">
@@ -677,6 +700,21 @@ const getHoldingAmount = (symbol) => {
 const getAvgCost = (symbol) => {
   const asset = portfolio.value.find(c => c.symbol === symbol)
   return asset ? asset.avg_cost : 0
+}
+
+// 根据avg_cost获取盈亏显示的CSS类
+const getProfitClass = (crypto) => {
+  if (crypto.avg_cost > 0) {
+    // 正常情况：根据盈亏判断
+    const profit = crypto.amount * (crypto.current_price - crypto.avg_cost)
+    return { positive: profit >= 0, negative: profit < 0 }
+  } else if (crypto.avg_cost === 0) {
+    // 已回本：总是显示为盈利（绿色）
+    return { positive: true }
+  } else {
+    // 超100%回报：总是显示为盈利（绿色）
+    return { positive: true }
+  }
 }
 
 // 计算卖出时的预估实现盈亏（借贷记账法）
@@ -2224,6 +2262,37 @@ watch(() => userStore.isLoggedIn, async (isLoggedIn) => {
 .profit-rate {
   font-size: 12px;
   opacity: 0.8;
+}
+
+/* 回本状态徽章 */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.status-badge.recovered {
+  background: #d1fae5;
+  color: #059669;
+}
+
+.dark .status-badge.recovered {
+  background: #064e3b;
+  color: #34d399;
+}
+
+.status-badge.super-profit {
+  background: #fef3c7;
+  color: #d97706;
+}
+
+.dark .status-badge.super-profit {
+  background: #78350f;
+  color: #fbbf24;
 }
 
 .action-cell {
