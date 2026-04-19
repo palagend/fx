@@ -94,108 +94,195 @@
               </div>
             </section>
 
-            <section class="add-crypto-section">
-              <div class="section-header">
-                <h3><Icon icon="mdi:swap-horizontal" /> 交易</h3>
-              </div>
-              <div class="input-row">
-                <select v-model="newTrade.symbol" @change="onSymbolChange" ref="symbolSelect">
-                  <option value="">选择加密货币</option>
-                  <option value="BTC">Bitcoin (BTC)</option>
-                  <option value="ETH">Ethereum (ETH)</option>
-                  <option value="BNB">Binance Coin (BNB)</option>
-                  <option value="XRP">Ripple (XRP)</option>
-                  <option value="ADA">Cardano (ADA)</option>
-                  <option value="SOL">Solana (SOL)</option>
-                  <option value="DOGE">Dogecoin (DOGE)</option>
-                  <option value="TRX">Tron (TRX)</option>
-                  <option value="AVAX">Avalanche (AVAX)</option>
-                  <option value="HYPE">Hyperliquid (HYPE)</option>
-                </select>
-                <select v-model="newTrade.type" class="trade-type">
-                  <option value="buy">买入</option>
-                  <option value="sell">卖出</option>
-                </select>
-                <div class="input-group">
-                  <input
-                    type="number"
-                    v-model.number="newTrade.amount"
-                    placeholder="数量"
-                    min="0.00001"
-                    step="0.00001"
-                    ref="amountInput"
-                  >
-                  <span class="input-hint" v-if="newTrade.symbol && newTrade.type === 'sell'">
-                    可卖出: {{ formatAmount(getHoldingAmount(newTrade.symbol)) }}
-                  </span>
-                </div>
-                <div class="input-group">
-                  <input
-                    type="number"
-                    v-model.number="newTrade.price"
-                    placeholder="价格"
-                    min="0.00001"
-                    step="0.00001"
-                  >
-                  <span class="input-hint" v-if="newTrade.symbol">
-                    当前: ${{ formatNumber(currentMarketPrice) }}
-                  </span>
-                </div>
-                <!-- 交易预览 -->
-                <div class="trade-preview" v-if="newTrade.symbol && newTrade.amount && newTrade.price">
-                  <div class="preview-row">
-                    <span class="preview-label">交易总额:</span>
-                    <span class="preview-value">${{ formatNumber(newTrade.amount * newTrade.price) }}</span>
+            <!-- 交易区域 - 左右分栏布局 -->
+            <section class="trading-section">
+              <div class="trading-container">
+                <!-- 左侧：交易表单 -->
+                <div class="trading-form">
+                  <div class="form-header">
+                    <h3><Icon icon="mdi:swap-horizontal" /> 快速交易</h3>
+                    <div class="trade-type-tabs">
+                      <button 
+                        :class="['type-tab', { active: newTrade.type === 'buy' }]" 
+                        @click="newTrade.type = 'buy'"
+                      >
+                        <Icon icon="mdi:arrow-down-circle" /> 买入
+                      </button>
+                      <button 
+                        :class="['type-tab', { active: newTrade.type === 'sell' }]" 
+                        @click="newTrade.type = 'sell'"
+                      >
+                        <Icon icon="mdi:arrow-up-circle" /> 卖出
+                      </button>
+                    </div>
                   </div>
-                  <div class="preview-row" v-if="newTrade.type === 'buy'">
-                    <span class="preview-label">最新市价:</span>
-                    <span class="preview-value">${{ formatNumber(currentMarketPrice) }}</span>
+
+                  <!-- 币种选择网格 -->
+                  <div class="asset-selector">
+                    <label class="field-label">选择资产</label>
+                    <div class="asset-grid">
+                      <button
+                        v-for="symbol in availableSymbols"
+                        :key="symbol"
+                        :class="['asset-btn', { active: newTrade.symbol === symbol }]"
+                        @click="selectSymbol(symbol)"
+                      >
+                        <Icon :icon="getAssetIcon(symbol)" :style="{ color: getAssetColor(symbol) }" />
+                        <span class="asset-code">{{ symbol }}</span>
+                        <span class="asset-price" v-if="portfolioStore.prices[symbol]">
+                          ${{ formatNumber(portfolioStore.prices[symbol]) }}
+                        </span>
+                      </button>
+                    </div>
                   </div>
-                  <div class="preview-row" v-if="newTrade.type === 'buy' && getHoldingAmount(newTrade.symbol) > 0">
-                    <span class="preview-label">综合成本价:</span>
-                    <span class="preview-value">${{ formatNumber(calculateNewAvgCost()) }}</span>
+
+                  <!-- 交易输入区 -->
+                  <div class="trade-inputs" v-if="newTrade.symbol">
+                    <div class="input-field">
+                      <label class="field-label">
+                        数量
+                        <span class="field-hint" v-if="newTrade.type === 'sell'">
+                          可卖: {{ formatAmount(getHoldingAmount(newTrade.symbol)) }}
+                        </span>
+                      </label>
+                      <div class="input-with-controls">
+                        <input
+                          type="number"
+                          v-model.number="newTrade.amount"
+                          placeholder="0.00"
+                          min="0.00001"
+                          step="0.00001"
+                          ref="amountInput"
+                        >
+                        <span class="input-unit">{{ newTrade.symbol }}</span>
+                      </div>
+                    </div>
+
+                    <div class="input-field">
+                      <label class="field-label">
+                        价格
+                        <span class="field-hint" v-if="currentMarketPrice > 0">
+                          市价: ${{ formatNumber(currentMarketPrice) }}
+                        </span>
+                      </label>
+                      <div class="input-with-controls">
+                        <input
+                          type="number"
+                          v-model.number="newTrade.price"
+                          placeholder="0.00"
+                          min="0.00001"
+                          step="0.00001"
+                        >
+                        <button 
+                          class="btn-use-market" 
+                          @click="newTrade.price = currentMarketPrice"
+                          v-if="currentMarketPrice > 0"
+                        >
+                          使用市价
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                  <div class="preview-row" v-if="newTrade.type === 'buy'">
-                    <span class="preview-label">买入后持仓:</span>
-                    <span class="preview-value">{{ formatNumber(getHoldingAmount(newTrade.symbol) + newTrade.amount) }} {{ newTrade.symbol }}</span>
-                  </div>
-                  <div class="preview-row" v-if="newTrade.type === 'sell'">
-                    <span class="preview-label">预估盈亏:</span>
-                    <span class="preview-value" :class="calculateEstimatedRealizedPL() >= 0 ? 'positive' : 'negative'">
-                      {{ calculateEstimatedRealizedPL() >= 0 ? '+' : '-' }}${{ formatNumber(Math.abs(calculateEstimatedRealizedPL())) }}
-                    </span>
-                  </div>
-                  <div class="preview-row" v-if="newTrade.type === 'sell'">
-                    <span class="preview-label">卖出后持仓:</span>
-                    <span class="preview-value">{{ formatNumber(Math.max(0, getHoldingAmount(newTrade.symbol) - newTrade.amount)) }} {{ newTrade.symbol }}</span>
-                  </div>
-                  <div class="preview-row" v-if="newTrade.type === 'buy'">
-                    <span class="preview-label">USDT余额变化:</span>
-                    <span class="preview-value negative">-${{ formatNumber(newTrade.amount * newTrade.price) }}</span>
-                  </div>
-                  <div class="preview-row" v-if="newTrade.type === 'sell'">
-                    <span class="preview-label">USDT余额变化:</span>
-                    <span class="preview-value positive">+${{ formatNumber(newTrade.amount * newTrade.price) }}</span>
-                  </div>
-                  <div class="preview-actions">
-                    <button class="btn-add" @click="addTrade" :disabled="!isFormValid || portfolioStore.isLoading || isSubmitting.trade">
-                      <Icon icon="mdi:plus" />
-                      {{ newTrade.type === 'buy' ? '买入' : '卖出' }}
+
+                  <!-- 交易按钮 -->
+                  <div class="trade-submit" v-if="newTrade.symbol">
+                    <button 
+                      class="btn-submit" 
+                      @click="addTrade" 
+                      :disabled="!isFormValid || portfolioStore.isLoading || isSubmitting.trade"
+                      :class="newTrade.type"
+                    >
+                      <Icon :icon="newTrade.type === 'buy' ? 'mdi:arrow-down' : 'mdi:arrow-up'" />
+                      {{ newTrade.type === 'buy' ? '确认买入' : '确认卖出' }}
+                      <span class="submit-total" v-if="newTrade.amount && newTrade.price">
+                        ${{ formatNumber(newTrade.amount * newTrade.price) }}
+                      </span>
                     </button>
-                    <button class="btn-clear-form" @click="clearForm">
-                      <Icon icon="mdi:refresh" />
+                    <button class="btn-reset" @click="clearForm">
+                      <Icon icon="mdi:close" /> 重置
                     </button>
                   </div>
                 </div>
-                <!-- 预览隐藏时的按钮 -->
-                <div v-else class="trade-actions">
-                  <button class="btn-add" @click="addTrade" :disabled="!isFormValid || portfolioStore.isLoading || isSubmitting.trade">
-                    <Icon icon="mdi:plus" />
-                    {{ newTrade.type === 'buy' ? '买入' : '卖出' }}
-                  </button>
-                  <button class="btn-clear-form" @click="clearForm">
-                    <Icon icon="mdi:refresh" />
-                  </button>
+
+                <!-- 右侧：交易预览 -->
+                <div class="trading-preview" v-if="newTrade.symbol && newTrade.amount && newTrade.price">
+                  <div class="preview-header">
+                    <h4><Icon icon="mdi:eye" /> 交易预览</h4>
+                  </div>
+                  
+                  <div class="preview-content">
+                    <!-- 主要信息 -->
+                    <div class="preview-main">
+                      <div class="preview-item total">
+                        <span class="label">交易总额</span>
+                        <span class="value">${{ formatNumber(newTrade.amount * newTrade.price) }}</span>
+                      </div>
+                    </div>
+
+                    <!-- 买入预览 -->
+                    <template v-if="newTrade.type === 'buy'">
+                      <div class="preview-divider"></div>
+                      <div class="preview-details">
+                        <div class="preview-item" v-if="getHoldingAmount(newTrade.symbol) > 0">
+                          <span class="label">当前持仓</span>
+                          <span class="value">{{ formatAmount(getHoldingAmount(newTrade.symbol)) }}</span>
+                        </div>
+                        <div class="preview-item" v-if="getHoldingAmount(newTrade.symbol) > 0">
+                          <span class="label">买入后持仓</span>
+                          <span class="value highlight">{{ formatNumber(getHoldingAmount(newTrade.symbol) + newTrade.amount) }}</span>
+                        </div>
+                        <div class="preview-item" v-if="getHoldingAmount(newTrade.symbol) > 0">
+                          <span class="label">新综合成本</span>
+                          <span class="value">${{ formatNumber(calculateNewAvgCost()) }}</span>
+                        </div>
+                        <div class="preview-item impact">
+                          <span class="label">USDT支出</span>
+                          <span class="value negative">-${{ formatNumber(newTrade.amount * newTrade.price) }}</span>
+                        </div>
+                      </div>
+                    </template>
+
+                    <!-- 卖出预览 -->
+                    <template v-if="newTrade.type === 'sell'">
+                      <div class="preview-divider"></div>
+                      <div class="preview-details">
+                        <div class="preview-item">
+                          <span class="label">当前持仓</span>
+                          <span class="value">{{ formatAmount(getHoldingAmount(newTrade.symbol)) }}</span>
+                        </div>
+                        <div class="preview-item">
+                          <span class="label">当前成本价</span>
+                          <span class="value">${{ formatNumber(getAvgCost(newTrade.symbol)) }}</span>
+                        </div>
+                        <div class="preview-item">
+                          <span class="label">卖出后持仓</span>
+                          <span class="value">{{ formatNumber(Math.max(0, getHoldingAmount(newTrade.symbol) - newTrade.amount)) }}</span>
+                        </div>
+                        <div class="preview-item" v-if="newTrade.amount < getHoldingAmount(newTrade.symbol)">
+                          <span class="label">卖出后成本价</span>
+                          <span class="value highlight">${{ formatNumber(calculateSellAvgCost()) }}</span>
+                        </div>
+                        <div class="preview-item" v-if="calculateEstimatedRealizedPL() !== 0">
+                          <span class="label">预估盈亏</span>
+                          <span :class="['value', calculateEstimatedRealizedPL() >= 0 ? 'positive' : 'negative']">
+                            {{ calculateEstimatedRealizedPL() >= 0 ? '+' : '-' }}${{ formatNumber(Math.abs(calculateEstimatedRealizedPL())) }}
+                          </span>
+                        </div>
+                        <div class="preview-item impact">
+                          <span class="label">USDT收入</span>
+                          <span class="value positive">+${{ formatNumber(newTrade.amount * newTrade.price) }}</span>
+                        </div>
+                      </div>
+                    </template>
+                  </div>
+                </div>
+
+                <!-- 空状态提示 -->
+                <div class="trading-preview empty" v-else-if="newTrade.symbol">
+                  <div class="preview-placeholder">
+                    <Icon icon="mdi:calculator" />
+                    <p>输入数量和价格查看交易详情</p>
+                  </div>
                 </div>
               </div>
             </section>
@@ -400,6 +487,9 @@ import { useUserStore } from '../stores/user'
 const portfolioStore = usePortfolioStore()
 const userStore = useUserStore()
 
+// 支持的加密货币列表
+const availableSymbols = ['BTC', 'ETH', 'BNB', 'XRP', 'ADA', 'SOL', 'DOGE', 'TRX', 'AVAX', 'HYPE']
+
 // 状态
 const newTrade = ref({
   symbol: '',
@@ -537,6 +627,21 @@ const toggleProtectHistory = () => {
   protectHistory.value = !protectHistory.value
 }
 
+const selectSymbol = async (symbol) => {
+  newTrade.value.symbol = symbol
+  // 使用 GetAssetPrice 接口获取最新价格
+  const result = await portfolioStore.fetchAssetPrice(symbol)
+  if (result.success) {
+    newTrade.value.price = result.price
+    currentMarketPrice.value = result.price
+  }
+  nextTick(() => {
+    if (amountInput.value) {
+      amountInput.value.focus()
+    }
+  })
+}
+
 const onSymbolChange = async () => {
   if (newTrade.value.symbol) {
     // 使用 GetAssetPrice 接口获取最新价格
@@ -566,6 +671,12 @@ const isFormValid = computed(() => {
 const getHoldingAmount = (symbol) => {
   const asset = portfolio.value.find(c => c.symbol === symbol)
   return asset ? asset.amount : 0
+}
+
+// 获取当前平均成本价
+const getAvgCost = (symbol) => {
+  const asset = portfolio.value.find(c => c.symbol === symbol)
+  return asset ? asset.avg_cost : 0
 }
 
 // 计算卖出时的预估实现盈亏（借贷记账法）
@@ -600,6 +711,28 @@ const calculateNewAvgCost = () => {
   const totalCost = currentCost + newTotal
   const totalAmount = currentAmount + newAmount
   return totalCost / totalAmount
+}
+
+// 计算卖出后的新综合成本价
+// 卖出后成本价 = (当前成本 - 卖出比例对应的成本) / (当前持仓 - 卖出数量)
+const calculateSellAvgCost = () => {
+  if (newTrade.value.type !== 'sell' || !newTrade.value.symbol) return 0
+  const existing = portfolio.value.find(c => c.symbol === newTrade.value.symbol)
+  if (!existing || existing.amount === 0) return 0
+
+  const currentAmount = existing.amount
+  const currentCost = existing.cost
+  const sellAmount = newTrade.value.amount
+
+  // 如果全部卖出，成本价为0
+  if (sellAmount >= currentAmount) return 0
+
+  // 按卖出比例计算剩余成本
+  const remainingAmount = currentAmount - sellAmount
+  const sellRatio = sellAmount / currentAmount
+  const remainingCost = currentCost * (1 - sellRatio)
+
+  return remainingCost / remainingAmount
 }
 
 const addTrade = async () => {
@@ -1310,19 +1443,6 @@ watch(() => userStore.isLoggedIn, async (isLoggedIn) => {
   border-radius: 3px;
 }
 
-.add-crypto-section {
-  background-color: white;
-  border-radius: 12px;
-  padding: 24px;
-  margin-bottom: 30px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-}
-
-.dark .add-crypto-section {
-  background-color: #1e1e1e;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-}
-
 .section-header {
   display: flex;
   justify-content: space-between;
@@ -1399,161 +1519,555 @@ watch(() => userStore.isLoggedIn, async (isLoggedIn) => {
   color: #9ca3af;
 }
 
-.trade-type {
-  min-width: 80px;
+/* ==================== 交易区域新样式 ==================== */
+
+/* 交易区域容器 */
+.trading-section {
+  background-color: white;
+  border-radius: 16px;
+  padding: 24px;
+  margin-bottom: 30px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
 }
 
-.estimated-value {
+.dark .trading-section {
+  background-color: #1e1e1e;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+/* 左右分栏布局 */
+.trading-container {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 24px;
+}
+
+@media (max-width: 900px) {
+  .trading-container {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* 左侧表单区域 */
+.trading-form {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 10px 14px;
-  background: #f3f4f6;
-  border-radius: 8px;
-  font-size: 14px;
-  color: #4b5563;
-  min-width: 120px;
+  gap: 20px;
 }
 
-.dark .estimated-value {
-  background: #2d2d2d;
-  color: #d1d5db;
-}
-
-.estimated-pl .positive {
-  color: #10b981;
-}
-
-.estimated-pl .negative {
-  color: #ef4444;
-}
-
-/* 交易预览样式 */
-.trade-preview {
-  grid-column: 1 / -1;
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 12px;
-  padding: 16px;
-  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
-  border-radius: 12px;
-  border: 1px solid #bae6fd;
-  margin-top: 8px;
-}
-
-.dark .trade-preview {
-  background: linear-gradient(135deg, #1e3a5f 0%, #1e293b 100%);
-  border-color: #334155;
-}
-
-.preview-row {
+/* 表单头部 */
+.form-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 12px;
+  flex-wrap: wrap;
+  gap: 16px;
 }
 
-.preview-label {
-  font-size: 13px;
-  color: #6b7280;
+.form-header h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 18px;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0;
+}
+
+.dark .form-header h3 {
+  color: #f3f4f6;
+}
+
+/* 买入/卖出切换标签 */
+.trade-type-tabs {
+  display: flex;
+  gap: 8px;
+  background: #f3f4f6;
+  padding: 4px;
+  border-radius: 10px;
+}
+
+.dark .trade-type-tabs {
+  background: #2d2d2d;
+}
+
+.type-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
   font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  background: transparent;
+  color: #6b7280;
 }
 
-.dark .preview-label {
+.dark .type-tab {
   color: #9ca3af;
 }
 
-.preview-value {
+.type-tab:hover {
+  color: #374151;
+}
+
+.type-tab.active {
+  background: white;
+  color: #1f2937;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.dark .type-tab.active {
+  background: #404040;
+  color: #f3f4f6;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* 字段标签 */
+.field-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+  font-weight: 500;
+  color: #6b7280;
+  margin-bottom: 8px;
+}
+
+.dark .field-label {
+  color: #9ca3af;
+}
+
+.field-hint {
+  font-size: 12px;
+  color: #6366f1;
+  font-weight: 400;
+}
+
+/* 币种选择网格 */
+.asset-selector {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.asset-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: 8px;
+}
+
+.asset-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 12px 8px;
+  background: #f9fafb;
+  border: 2px solid transparent;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  color: #374151;
+}
+
+.dark .asset-btn {
+  background: #2d2d2d;
+  color: #e5e7eb;
+}
+
+.asset-btn:hover {
+  background: #f3f4f6;
+  border-color: #e5e7eb;
+  transform: translateY(-2px);
+}
+
+.dark .asset-btn:hover {
+  background: #404040;
+  border-color: #525252;
+}
+
+.asset-btn.active {
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  border-color: transparent;
+  color: white;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+}
+
+.asset-btn svg {
+  font-size: 24px;
+}
+
+.asset-code {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.asset-price {
+  font-size: 11px;
+  opacity: 0.8;
+}
+
+.asset-btn.active .asset-price {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* 交易输入区 */
+.trade-inputs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.input-field {
+  display: flex;
+  flex-direction: column;
+}
+
+.input-with-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+}
+
+.input-with-controls input {
+  flex: 1;
+  padding: 12px 16px;
+  padding-right: 60px;
+  border: 2px solid #e5e7eb;
+  border-radius: 10px;
+  font-size: 16px;
+  font-weight: 500;
+  background: white;
+  color: #1f2937;
+  transition: all 0.3s ease;
+}
+
+.dark .input-with-controls input {
+  background: #2d2d2d;
+  border-color: #404040;
+  color: #f3f4f6;
+}
+
+.input-with-controls input:focus {
+  outline: none;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
+}
+
+.input-unit {
+  position: absolute;
+  right: 16px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #9ca3af;
+  pointer-events: none;
+}
+
+.btn-use-market {
+  padding: 8px 12px;
+  background: #e0e7ff;
+  border: none;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #6366f1;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+}
+
+.dark .btn-use-market {
+  background: #3730a3;
+  color: #a5b4fc;
+}
+
+.btn-use-market:hover {
+  background: #c7d2fe;
+}
+
+.dark .btn-use-market:hover {
+  background: #4338ca;
+}
+
+/* 交易提交按钮 */
+.trade-submit {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.btn-submit {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px 24px;
+  border: none;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.btn-submit.buy {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.3);
+}
+
+.btn-submit.buy:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
+}
+
+.btn-submit.sell {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: white;
+  box-shadow: 0 4px 14px rgba(239, 68, 68, 0.3);
+}
+
+.btn-submit.sell:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(239, 68, 68, 0.4);
+}
+
+.btn-submit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.submit-total {
+  margin-left: 8px;
+  padding-left: 12px;
+  border-left: 1px solid rgba(255, 255, 255, 0.3);
+  font-size: 14px;
+  opacity: 0.9;
+}
+
+.btn-reset {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 14px 20px;
+  background: #f3f4f6;
+  border: none;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #6b7280;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.dark .btn-reset {
+  background: #2d2d2d;
+  color: #9ca3af;
+}
+
+.btn-reset:hover {
+  background: #e5e7eb;
+  color: #4b5563;
+}
+
+.dark .btn-reset:hover {
+  background: #404040;
+  color: #d1d5db;
+}
+
+/* 右侧预览区域 */
+.trading-preview {
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border-radius: 16px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.dark .trading-preview {
+  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+}
+
+.trading-preview.empty {
+  justify-content: center;
+  align-items: center;
+  min-height: 200px;
+}
+
+.preview-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #64748b;
+  margin-bottom: 4px;
+}
+
+.dark .preview-header {
+  color: #94a3b8;
+}
+
+.preview-header h4 {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.preview-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  color: #94a3b8;
+  text-align: center;
+}
+
+.preview-placeholder svg {
+  font-size: 48px;
+  opacity: 0.5;
+}
+
+.preview-placeholder p {
+  margin: 0;
+  font-size: 14px;
+}
+
+/* 预览内容 */
+.preview-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.preview-main {
+  background: white;
+  border-radius: 12px;
+  padding: 16px;
+  text-align: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.dark .preview-main {
+  background: #1e1e1e;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.preview-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 0;
+}
+
+.preview-item.total {
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 0;
+}
+
+.preview-item.total .label {
+  font-size: 13px;
+  color: #6b7280;
+}
+
+.dark .preview-item.total .label {
+  color: #9ca3af;
+}
+
+.preview-item.total .value {
+  font-size: 28px;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.dark .preview-item.total .value {
+  color: #f3f4f6;
+}
+
+.preview-divider {
+  height: 1px;
+  background: #e2e8f0;
+  margin: 4px 0;
+}
+
+.dark .preview-divider {
+  background: #334155;
+}
+
+.preview-details {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.preview-details .preview-item {
+  padding: 8px 0;
+}
+
+.preview-details .label {
+  font-size: 13px;
+  color: #64748b;
+}
+
+.dark .preview-details .label {
+  color: #94a3b8;
+}
+
+.preview-details .value {
   font-size: 14px;
   font-weight: 600;
   color: #1f2937;
 }
 
-.dark .preview-value {
+.dark .preview-details .value {
   color: #f3f4f6;
 }
 
-.preview-value.positive {
+.preview-details .value.highlight {
+  color: #6366f1;
+}
+
+.preview-details .value.positive {
   color: #10b981;
 }
 
-.preview-value.negative {
+.preview-details .value.negative {
   color: #ef4444;
 }
 
-/* 预览区域内的按钮布局 */
-.preview-actions {
-  grid-column: 1 / -1;
-  display: flex;
-  gap: 12px;
+.preview-item.impact {
   margin-top: 8px;
   padding-top: 12px;
-  border-top: 1px solid rgba(186, 230, 253, 0.5);
+  border-top: 1px dashed #cbd5e1;
 }
 
-.dark .preview-actions {
-  border-top-color: rgba(51, 65, 85, 0.5);
+.dark .preview-item.impact {
+  border-top-color: #475569;
 }
 
-/* 预览隐藏时的按钮布局 */
-.trade-actions {
-  display: flex;
-  gap: 12px;
-  margin-top: 8px;
+.preview-item.impact .label {
+  font-weight: 600;
+  color: #475569;
 }
 
-.btn-add {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 10px 20px;
-  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
-  color: white;
-  border: none;
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.3s ease;
+.dark .preview-item.impact .label {
+  color: #94a3b8;
 }
 
-.btn-add:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
-}
-
-.btn-add:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.btn-clear-form {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  background: #f3f4f6;
-  border: none;
-  border-radius: 8px;
-  color: #6b7280;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.dark .btn-clear-form {
-  background: #2d2d2d;
-  color: #9ca3af;
-}
-
-.btn-clear-form:hover {
-  background: #e5e7eb;
-  color: #4b5563;
-}
-
-.dark .btn-clear-form:hover {
-  background: #404040;
-  color: #d1d5db;
+.preview-item.impact .value {
+  font-size: 16px;
+  font-weight: 700;
 }
 
 .portfolio-section,
