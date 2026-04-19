@@ -704,114 +704,89 @@ func calculatePortfolioStats(holdings []models.Holding, prices, priceChanges map
 	var totalValue, totalAssetsValue, usdtBalance, totalUnrealizedPL, totalCost, weightedChange float64
 	var totalRealizedPL, totalHistoricalCost float64
 
-	// 预计算各币种的成本和实现盈亏
-	assetCostData := make(map[string]struct {
-		cost       float64
-		totalIn    float64
-		totalOut   float64
-		realizedPL float64
+	// 按时间顺序遍历交易，计算各币种的成本和实现盈亏
+	assetData := make(map[string]struct {
+		amount     float64 // 当前持仓量
+		cost       float64 // 当前成本
+		totalIn    float64 // 累计买入金额
+		realizedPL float64 // 实现盈亏
 	})
 
 	for _, t := range trades {
 		if t.Symbol == "USDT" {
 			continue
 		}
-		data := assetCostData[t.Symbol]
-		switch t.Type {
-		case "buy":
-			data.cost += t.Total
-			data.totalIn += t.Total
-		case "sell":
-			// 计算实现盈亏
-			if data.cost > 0 && t.Amount > 0 {
-				// 需要先知道当前持仓才能计算比例，这里简化处理
-				// 实际持仓从 holding 表中获取
-			}
-		}
-		assetCostData[t.Symbol] = data
-	}
 
-	// 重新遍历交易，按时间顺序计算实现盈亏
-	assetAmount := make(map[string]float64)
-	assetCost := make(map[string]float64)
-	for _, t := range trades {
-		if t.Symbol == "USDT" {
-			continue
-		}
+		d := assetData[t.Symbol]
+
 		switch t.Type {
 		case "buy":
-			assetAmount[t.Symbol] += t.Amount
-			assetCost[t.Symbol] += t.Total
+			// 增加持仓和成本
+			d.amount += t.Amount
+			d.cost += t.Total
+			d.totalIn += t.Total
+
 		case "sell":
-			if assetAmount[t.Symbol] > 0 && t.Amount > 0 {
-				sellRatio := t.Amount / assetAmount[t.Symbol]
-				costRecovered := assetCost[t.Symbol] * sellRatio
+			// 按比例回收成本，计算实现盈亏
+			if d.amount > 0 && t.Amount > 0 {
+				sellRatio := t.Amount / d.amount
+				costRecovered := d.cost * sellRatio
 				realizedPL := t.Total - costRecovered
-				data := assetCostData[t.Symbol]
-				data.realizedPL += realizedPL
-				data.totalOut += costRecovered
-				assetCostData[t.Symbol] = data
-				assetCost[t.Symbol] -= costRecovered
-				assetAmount[t.Symbol] -= t.Amount
+
+				d.realizedPL += realizedPL
+				d.cost -= costRecovered
+				d.amount -= t.Amount
 			}
 		}
+
+		assetData[t.Symbol] = d
 	}
 
 	// 先计算所有有交易记录的币种的总实现盈亏（包括已清仓的）
-	for symbol, data := range assetCostData {
+	for symbol, d := range assetData {
 		if symbol != "USDT" {
-			totalRealizedPL += data.realizedPL
-			totalHistoricalCost += data.totalIn
+			totalRealizedPL += d.realizedPL
+			totalHistoricalCost += d.totalIn
 		}
 	}
 
 	for _, h := range holdings {
-		isUSDT := h.Symbol == "USDT"
-		price := prices[h.Symbol]
-		if isUSDT {
-			price = 1
-		}
-
-		marketValue := h.Amount * price
-		totalAssetsValue += marketValue
-
-		if isUSDT {
+		if h.Symbol == "USDT" {
 			usdtBalance = h.Amount
 			portfolio = append(portfolio, PortfolioItem{
 				Symbol:       h.Symbol,
 				Amount:       h.Amount,
-				CurrentPrice: 1,
-				AvgCost:      1,
-				MarketValue:  marketValue,
-				Cost:         h.Amount,
+				CurrentPrice: 1.00,
+				AvgCost:      0,
+				MarketValue:  usdtBalance,
+				Cost:         0,
 				ProfitLoss:   0,
 				PLRate:       0,
 			})
 			continue
 		}
-
+		price := prices[h.Symbol]
+		marketValue := h.Amount * price
+		totalAssetsValue += marketValue
 		// 从预计算数据获取成本和实现盈亏
-		data := assetCostData[h.Symbol]
-		cost := data.cost
-		realizedPL := data.realizedPL
+		d := assetData[h.Symbol]
+		cost := d.cost
+		realizedPL := d.realizedPL
 
 		// 持仓为0的资产只展示实现盈亏，不参与总市值计算
-		if h.Amount == 0 {
-			// 只添加有实现盈亏的已清仓资产
-			if realizedPL != 0 {
-				portfolio = append(portfolio, PortfolioItem{
-					Symbol:         h.Symbol,
-					Amount:         0,
-					CurrentPrice:   price,
-					AvgCost:        0,
-					MarketValue:    0,
-					Cost:           0,
-					ProfitLoss:     0,
-					PLRate:         0,
-					RealizedPL:     realizedPL,
-					RealizedPLRate: 0,
-				})
-			}
+		if h.Amount == 0 && realizedPL != 0 {
+			portfolio = append(portfolio, PortfolioItem{
+				Symbol:         h.Symbol,
+				Amount:         0,
+				CurrentPrice:   price,
+				AvgCost:        0,
+				MarketValue:    0,
+				Cost:           0,
+				ProfitLoss:     0,
+				PLRate:         0,
+				RealizedPL:     realizedPL,
+				RealizedPLRate: 0,
+			})
 			continue
 		}
 
@@ -834,8 +809,8 @@ func calculatePortfolioStats(holdings []models.Holding, prices, priceChanges map
 
 		// 计算实现盈亏率
 		realizedPLRate := 0.0
-		if data.totalIn != 0 {
-			realizedPLRate = (realizedPL / data.totalIn) * 100
+		if d.totalIn != 0 {
+			realizedPLRate = (realizedPL / d.totalIn) * 100
 		}
 
 		portfolio = append(portfolio, PortfolioItem{
