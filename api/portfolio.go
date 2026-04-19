@@ -34,32 +34,6 @@ func updateHolding(tx *gorm.DB, holding *models.Holding, delta float64) error {
 	return tx.Save(holding).Error
 }
 
-// calculateAssetCost 从交易记录计算资产的累计成本和持仓
-// 返回：当前成本、当前持仓、总投入、总退出
-func calculateAssetCost(trades []models.Trade, symbol string) (cost, amount, totalIn, totalOut float64) {
-	for _, t := range trades {
-		if t.Symbol != symbol {
-			continue
-		}
-		switch t.Type {
-		case "buy":
-			cost += t.Total
-			amount += t.Amount
-			totalIn += t.Total
-		case "sell":
-			if amount > 0 && t.Amount > 0 {
-				// 按卖出比例计算回收的成本
-				sellRatio := t.Amount / amount
-				costRecovered := cost * sellRatio
-				cost -= costRecovered
-				amount -= t.Amount
-				totalOut += costRecovered
-			}
-		}
-	}
-	return
-}
-
 // ========== 请求/响应结构 ==========
 
 // 支持的加密货币列表（不含USDT）
@@ -481,8 +455,7 @@ func recalcUSDT(tx *gorm.DB, uid uint) error {
 	return tx.Where("user_id = ? AND symbol = ?", uid, "USDT").Assign(holding).FirstOrCreate(&holding).Error
 }
 
-// ClearTrades 清空所有交易记录
-// 使用批量DELETE优化，减少往返次数
+// ClearTrades 清空所有交易记录（物理删除）
 func ClearTrades(c *gin.Context) {
 	userID, exists := c.Get("userID")
 	if !exists {
@@ -493,28 +466,21 @@ func ClearTrades(c *gin.Context) {
 	db := config.GetDB()
 	uid := userID.(uint)
 
-	// 使用原生SQL批量删除，一条SQL删除所有相关表数据
-	// 注意：表名使用复数形式，与GORM默认一致
-	sql := `
-		DELETE t, h FROM trades t
-		LEFT JOIN holdings h ON h.user_id = t.user_id
-		WHERE t.user_id = ?
-	`
-	if err := db.Exec(sql, uid).Error; err != nil {
-		// 如果批量删除失败，回退到逐个物理删除
-		tx := db.Begin()
-		models := []interface{}{&models.Trade{}, &models.Holding{}}
-		for _, model := range models {
-			if err := tx.Unscoped().Where("user_id = ?", uid).Delete(model).Error; err != nil {
-				tx.Rollback()
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "清空数据失败"})
-				return
-			}
-		}
-		if err := tx.Commit().Error; err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "提交清空操作失败"})
-			return
-		}
+	// 使用事务批量物理删除
+	tx := db.Begin()
+	if err := tx.Unscoped().Where("user_id = ?", uid).Delete(&models.Trade{}).Error; err != nil {
+		tx.Rollback()
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "清空交易记录失败"})
+		return
+	}
+	if err := tx.Unscoped().Where("user_id = ?", uid).Delete(&models.Holding{}).Error; err != nil {
+		tx.Rollback()
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "清空持仓记录失败"})
+		return
+	}
+	if err := tx.Commit().Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "提交清空操作失败"})
+		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "所有数据已清空"})
