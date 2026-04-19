@@ -507,7 +507,7 @@ const formatDate = (dateString) => {
 .dropdown-menu {
   position: absolute;
   top: calc(100% + 8px);
-  right: 0;
+  left: 0;
   min-width: 240px;
   background: var(--card-bg, white);
   border-radius: 12px;

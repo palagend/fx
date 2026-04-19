@@ -1088,7 +1088,9 @@ const toggleAutoRefresh = () => {
 const filteredPortfolio = computed(() => {
   const filter = selectedFilter.value
   return portfolio.value?.filter(c =>
-    c.symbol !== 'USDT' && (filter === 'all' || c.symbol === filter)
+    c.symbol !== 'USDT' &&
+    c.amount > 0 &&
+    (filter === 'all' || c.symbol === filter)
   ) || []
 })
 

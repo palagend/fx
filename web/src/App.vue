@@ -3,11 +3,11 @@
     <nav class="navbar">
       <div class="nav-container">
         <div class="nav-left">
+          <UserProfile />
           <router-link to="/" class="nav-logo">
             <Icon icon="fa7-solid:tools" />
             <span>工具集合</span>
           </router-link>
-          <UserProfile />
         </div>
         <ul class="nav-menu">
           <li class="nav-item">
