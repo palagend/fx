@@ -6,53 +6,39 @@ import { useUserStore } from './user'
 export const usePortfolioStore = defineStore('portfolio', () => {
   const userStore = useUserStore()
 
-  // 状态 - 从dashboard接口获取的原始数据
+  // ========== 状态 ==========
   const dashboardData = ref(null)
   const trades = ref([])
   const isLoading = ref(false)
   const error = ref(null)
 
-  // 计算属性 - 价格数据
+  // ========== 计算属性 - 价格数据 ==========
   const prices = computed(() => dashboardData.value?.prices || {})
   const priceChanges = computed(() => dashboardData.value?.price_changes || {})
 
-  // 计算属性 - 投资组合（后端已计算好）
+  // ========== 计算属性 - 持仓数据 ==========
   const portfolio = computed(() => dashboardData.value?.portfolio || [])
 
-  // 计算属性 - 统计数据（后端已计算好）
-  const cryptoValue = computed(() => dashboardData.value?.crypto_value || 0) // 加密资产市值（不含 USDT）
-  const totalAssetsValue = computed(() => dashboardData.value?.total_assets_value || 0) // 总资产价值（含 USDT）
-  const usdtBalance = computed(() => dashboardData.value?.usdt_balance || 0) // USDT余额
-  const unrealizedProfitLoss = computed(() => dashboardData.value?.unrealized_profit_loss || 0) // 浮动盈亏
-  const realizedProfitLoss = computed(() => dashboardData.value?.realized_profit_loss || 0) // 实现盈亏
-  const totalProfitLoss = computed(() => dashboardData.value?.total_profit_loss || 0) // 总盈亏
-  const valueChange24h = computed(() => dashboardData.value?.value_change_24h || 0) // 24小时价值变化率
+  // ========== 计算属性 - 资产价值 ==========
+  const cryptoAssetsValue = computed(() => dashboardData.value?.crypto_value || 0)
+  const cashBalance = computed(() => dashboardData.value?.usdt_balance || 0)
+  const totalAssetsValue = computed(() => cryptoAssetsValue.value + cashBalance.value)
 
-  // 计算属性 - 浮动盈亏率（优先使用后端计算的值）
-  const unrealizedProfitLossRate = computed(() => {
-    // 如果后端已计算，直接使用
-    if (dashboardData.value?.unrealized_profit_loss_rate !== undefined) {
-      return dashboardData.value.unrealized_profit_loss_rate
-    }
-    // 否则前端计算
-    const portfolioData = portfolio.value
-    const nonUSDTCost = portfolioData
-      .filter(item => item.symbol !== 'USDT')
-      .reduce((sum, item) => sum + item.cost, 0)
-    return nonUSDTCost > 0 ? (unrealizedProfitLoss.value / nonUSDTCost) * 100 : 0
-  })
+  // ========== 计算属性 - 盈亏数据 ==========
+  const unrealizedPL = computed(() => dashboardData.value?.unrealized_profit_loss || 0)
+  const realizedPL = computed(() => dashboardData.value?.realized_profit_loss || 0)
+  const totalPL = computed(() => unrealizedPL.value + realizedPL.value)
 
-  // 计算属性 - 实现盈亏率（优先使用后端计算的值）
-  const realizedProfitLossRate = computed(() => {
-    // 如果后端已计算，直接使用
-    if (dashboardData.value?.realized_profit_loss_rate !== undefined) {
-      return dashboardData.value.realized_profit_loss_rate
-    }
-    return 0
-  })
+  // ========== 计算属性 - 盈亏率（后端已计算好） ==========
+  const unrealizedPLRate = computed(() => dashboardData.value?.unrealized_profit_loss_rate || 0)
+  const realizedPLRate = computed(() => dashboardData.value?.realized_profit_loss_rate || 0)
 
-  // Actions
-  // 获取仪表盘聚合数据（价格+持仓+统计）
+  // ========== 计算属性 - 24小时变化 ==========
+  const cryptoValueChange24h = computed(() => dashboardData.value?.value_change_24h || 0)
+
+  // ========== Actions ==========
+
+  // 获取仪表盘聚合数据
   async function fetchDashboard() {
     if (!userStore.isLoggedIn) {
       dashboardData.value = null
@@ -89,7 +75,6 @@ export const usePortfolioStore = defineStore('portfolio', () => {
   async function fetchAssetPrice(symbol) {
     try {
       const response = await portfolioApi.getAssetPrice(symbol)
-      // 更新 dashboardData 中的价格
       if (dashboardData.value) {
         dashboardData.value.prices = {
           ...dashboardData.value.prices,
@@ -107,6 +92,7 @@ export const usePortfolioStore = defineStore('portfolio', () => {
     }
   }
 
+  // 创建交易
   async function createTrade(trade) {
     if (!userStore.isLoggedIn) {
       return { success: false, error: '请先登录' }
@@ -127,6 +113,7 @@ export const usePortfolioStore = defineStore('portfolio', () => {
     }
   }
 
+  // 删除交易
   async function deleteTrade(id) {
     if (!userStore.isLoggedIn) {
       return { success: false, error: '请先登录' }
@@ -141,6 +128,7 @@ export const usePortfolioStore = defineStore('portfolio', () => {
     }
   }
 
+  // 清空所有交易
   async function clearAllTrades() {
     if (!userStore.isLoggedIn) {
       return { success: false, error: '请先登录' }
@@ -167,19 +155,23 @@ export const usePortfolioStore = defineStore('portfolio', () => {
     trades,
     isLoading,
     error,
-    // 计算属性
+    // 价格
     prices,
     priceChanges,
+    // 持仓组合
     portfolio,
-    cryptoValue,
+    // 资产价值
+    cryptoAssetsValue,
+    cashBalance,
     totalAssetsValue,
-    usdtBalance,
-    unrealizedProfitLoss,
-    unrealizedProfitLossRate,
-    realizedProfitLoss,
-    realizedProfitLossRate,
-    totalProfitLoss,
-    valueChange24h,
+    // 盈亏
+    unrealizedPL,
+    realizedPL,
+    totalPL,
+    unrealizedPLRate,
+    realizedPLRate,
+    // 变化率
+    cryptoValueChange24h,
     // Actions
     fetchDashboard,
     fetchAssetPrice,

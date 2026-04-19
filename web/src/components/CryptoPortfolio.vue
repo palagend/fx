@@ -19,7 +19,7 @@
             <section class="overview">
               <div class="overview-card">
                 <h3><Icon icon="mdi:wallet" /> 加密资产价值</h3>
-                <div class="value">${{ formatAmount(cryptoValue) }}</div>
+                <div class="value">${{ formatAmount(cryptoAssetsValue) }}</div>
                 <div class="change" :class="displayTotalValueChange.class">
                   {{ displayTotalValueChange.sign }}{{ displayTotalValueChange.value }}% (24h)
                 </div>
@@ -53,7 +53,7 @@
               </div>
               <div class="overview-card usdt-card">
                 <h3><Icon icon="mdi:cash-usd" /> USDT余额</h3>
-                <div class="value">${{ formatAmount(usdtBalance) }}</div>
+                <div class="value">${{ formatAmount(cashBalance) }}</div>
                 <button class="btn-recharge" @click="showRechargeModal = true">
                   <Icon icon="mdi:plus" /> 充值
                 </button>
@@ -284,7 +284,7 @@
                         </div>
                         <div class="preview-item">
                           <span class="label">当前成本价</span>
-                          <span class="value">${{ formatAmount(portfolio.value?.find(c => c.symbol === newTrade.symbol)?.avg_cost || 0) }}</span>
+                          <span class="value">${{ formatAmount(portfolio.value.find(c => c.symbol === newTrade.symbol)?.avg_cost || 0) }}</span>
                         </div>
                         <div class="preview-item">
                           <span class="label">卖出后持仓</span>
@@ -348,7 +348,7 @@
                   </thead>
                   <tbody>
                     <tr
-                      v-for="crypto in filteredPortfolio"
+                      v-for="crypto in filteredHoldings"
                       :key="crypto.id"
                       class="asset-row"
                       :class="{ 'selected': selectedAsset === crypto.symbol, 'liquidated': crypto.amount === 0 }"
@@ -435,7 +435,7 @@
                         </button>
                       </td>
                     </tr>
-                    <tr v-if="filteredPortfolio.length === 0">
+                    <tr v-if="filteredHoldings.length === 0">
                       <td colspan="8" class="empty-state">
                         <Icon icon="mdi:inbox" />
                         <p>暂无资产数据，请充值USDT后开始交易</p>
@@ -608,39 +608,38 @@ const isSubmitting = ref({
 // 从store获取数据（后端已计算好）
 const portfolio = computed(() => portfolioStore.portfolio)
 const trades = computed(() => portfolioStore.trades)
-const cryptoValue = computed(() => portfolioStore.cryptoValue) // 加密资产市值（不含 USDT）
-const totalAssetsValue = computed(() => portfolioStore.totalAssetsValue) // 总资产价值（含 USDT）
-const usdtBalance = computed(() => portfolioStore.usdtBalance)
-const unrealizedProfitLoss = computed(() => portfolioStore.unrealizedProfitLoss)
-const unrealizedProfitLossRate = computed(() => portfolioStore.unrealizedProfitLossRate)
-const realizedProfitLoss = computed(() => portfolioStore.realizedProfitLoss)
-const realizedProfitLossRate = computed(() => portfolioStore.realizedProfitLossRate)
-const totalProfitLoss = computed(() => portfolioStore.totalProfitLoss)
-const valueChange24h = computed(() => portfolioStore.valueChange24h) // 24小时价值变化率
+const cryptoAssetsValue = computed(() => portfolioStore.cryptoAssetsValue) // 加密资产市值（不含 USDT）
+const cashBalance = computed(() => portfolioStore.cashBalance) // USDT现金余额
+const unrealizedPL = computed(() => portfolioStore.unrealizedPL) // 浮动盈亏
+const unrealizedPLRate = computed(() => portfolioStore.unrealizedPLRate) // 浮动盈亏率
+const realizedPL = computed(() => portfolioStore.realizedPL) // 实现盈亏
+const realizedPLRate = computed(() => portfolioStore.realizedPLRate) // 实现盈亏率
+const totalPL = computed(() => portfolioStore.totalPL) // 总盈亏
+const cryptoValueChange24h = computed(() => portfolioStore.cryptoValueChange24h) // 24小时价值变化率
 
 // 格式化的显示值（避免模板中重复计算）
 const displayUnrealizedPL = computed(() => {
-  const val = unrealizedProfitLoss.value
+  const val = unrealizedPL.value
   return {
     sign: val >= 0 ? '+' : '-',
     value: formatAmount(Math.abs(val)),
     class: val >= 0 ? 'positive' : 'negative',
-    rate: (unrealizedProfitLossRate.value >= 0 ? '+' : '-') + Math.abs(unrealizedProfitLossRate.value).toFixed(2) + '%'
+    rate: (unrealizedPLRate.value >= 0 ? '+' : '-') + Math.abs(unrealizedPLRate.value).toFixed(2) + '%'
   }
 })
 
 const displayRealizedPL = computed(() => {
-  const val = realizedProfitLoss.value
+  const val = realizedPL.value
   return {
     sign: val >= 0 ? '+' : '-',
     value: formatAmount(Math.abs(val)),
     class: val >= 0 ? 'positive' : 'negative',
-    rate: (realizedProfitLossRate.value >= 0 ? '+' : '-') + Math.abs(realizedProfitLossRate.value).toFixed(2) + '%'
+    rate: (realizedPLRate.value >= 0 ? '+' : '-') + Math.abs(realizedPLRate.value).toFixed(2) + '%'
   }
 })
 
 const displayTotalPL = computed(() => {
-  const val = totalProfitLoss.value
+  const val = totalPL.value
   return {
     sign: val >= 0 ? '+' : '-',
     value: formatAmount(Math.abs(val)),
@@ -649,7 +648,7 @@ const displayTotalPL = computed(() => {
 })
 
 const displayTotalValueChange = computed(() => {
-  const val = valueChange24h.value
+  const val = cryptoValueChange24h.value
   return {
     sign: val >= 0 ? '+' : '-',
     value: Math.abs(val).toFixed(2),
@@ -698,11 +697,6 @@ const ASSET_CONFIG = {
     HYPE: 'Hyperliquid'
   }
 }
-
-const CHART_COLORS = [
-  '#6366f1', '#8b5cf6', '#d946ef', '#ec4899', '#f43f5e',
-  '#fb7185', '#fda4af', '#fca5a5', '#f87171', '#fb923c'
-]
 
 const getTradeTypeText = (type) => {
   const map = {
@@ -1109,9 +1103,9 @@ const toggleAutoRefresh = () => {
   }
 }
 
-const filteredPortfolio = computed(() => {
+const filteredHoldings = computed(() => {
   const filter = selectedFilter.value
-  return portfolio.value?.filter(c =>
+  return portfolio.value.filter(c =>
     c.symbol !== 'USDT' &&
     c.amount > 0 &&
     (filter === 'all' || c.symbol === filter)
@@ -1124,72 +1118,67 @@ const filteredTrades = computed(() => {
 })
 
 // 总资产净值 = 加密资产市值 + USDT余额
-const totalNetWorth = computed(() => cryptoValue.value + usdtBalance.value)
+const totalNetWorth = computed(() => cryptoAssetsValue.value + cashBalance.value)
 
 // 投资组合分布（包含加密资产和USDT）
 const portfolioAllocation = computed(() => {
-  const allHoldings = portfolio.value || []
-  if (allHoldings.length === 0 && usdtBalance.value <= 0) return []
+  const portfolioItems = portfolio.value || []
+  if (portfolioItems.length === 0 && cashBalance.value <= 0) return []
 
   const total = totalNetWorth.value
   if (total <= 0) return []
 
-  // 构建资产分布列表
+  // 构建资产分布列表（先按价值降序排列，确保颜色分配顺序正确）
   const allocation = []
-  let colorIndex = 0
 
   // 添加加密资产（从portfolio中获取）
-  allHoldings.forEach((crypto) => {
-    const marketValue = crypto.market_value || 0
+  portfolioItems.forEach((portfolioItem) => {
+    const marketValue = portfolioItem.market_value
     if (marketValue > 0) {
       allocation.push({
-        name: crypto.symbol,
-        rawPercentage: marketValue / total * 100,
+        name: portfolioItem.symbol,
+        rawPercentage: (marketValue / total) * 100,
         value: marketValue,
-        color: ASSET_CONFIG.COLORS[crypto.symbol] || CHART_COLORS[colorIndex % CHART_COLORS.length]
+        color: ASSET_CONFIG.COLORS[portfolioItem.symbol]
       })
-      colorIndex++
     }
   })
 
-  // 添加USDT余额
-  if (usdtBalance.value > 0) {
-    allocation.push({
-      name: 'USDT',
-      rawPercentage: usdtBalance.value / total * 100,
-      value: usdtBalance.value,
-      color: ASSET_CONFIG.COLORS['USDT'] || CHART_COLORS[colorIndex % CHART_COLORS.length]
-    })
-  }
-
-  // 按价值降序排列
+   // 按价值降序排列（确保饼图扇区和图例顺序一致）
   allocation.sort((a, b) => b.value - a.value)
 
+  // 为没有预定义颜色的资产分配颜色
+  allocation.forEach(alloc => {
+    if (!alloc.color) {
+      alloc.color = '#ffffff'
+    }
+  })
+
   // 使用最大余数法确保百分比总和为100%
-  const totalRawPercentage = allocation.reduce((sum, item) => sum + item.rawPercentage, 0)
   let remainingPercentage = 100
 
   // 先向下取整并计算余数
-  const itemsWithRemainder = allocation.map(item => {
-    const floorPercentage = Math.floor(item.rawPercentage)
-    const remainder = item.rawPercentage - floorPercentage
+  const itemsWithRemainder = allocation.map(alloc => {
+    const floorPercentage = Math.floor(alloc.rawPercentage)
+    const remainder = alloc.rawPercentage - floorPercentage
     remainingPercentage -= floorPercentage
-    return { ...item, floorPercentage, remainder }
+    return { ...alloc, floorPercentage, remainder }
   })
 
   // 按余数从大到小排序，给余数大的项+1
   itemsWithRemainder.sort((a, b) => b.remainder - a.remainder)
 
-  const finalAllocation = itemsWithRemainder.map((item, index) => ({
-    name: item.name,
-    value: item.value,
-    color: item.color,
-    // 前 remainingPercentage 个项加1，确保总和为100
-    percentage: item.floorPercentage + (index < remainingPercentage ? 1 : 0)
-  }))
+  // 调整百分比
+  for (let i = 0; i < itemsWithRemainder.length; i++) {
+    if (i < remainingPercentage) {
+      itemsWithRemainder[i].percentage = itemsWithRemainder[i].floorPercentage + 1
+    } else {
+      itemsWithRemainder[i].percentage = itemsWithRemainder[i].floorPercentage
+    }
+  }
 
-  // 恢复原始排序（按价值降序）
-  return finalAllocation.sort((a, b) => b.value - a.value)
+  // 恢复原始排序（按价值降序），保持颜色与资产对应
+  return itemsWithRemainder.sort((a, b) => b.value - a.value)
 })
 
 // 饼图样式（基于投资组合分布）
