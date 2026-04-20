@@ -1,138 +1,48 @@
 // LocalStorage 版本的用户 API（纯前端模式）
+// 简化版本：前端模式下自动使用本地用户，无需登录
 
-const STORAGE_KEYS = {
-  USER: 'local_user',
-  IS_LOGGED_IN: 'local_is_logged_in'
+const STORAGE_KEY = 'local_user'
+
+// 默认本地用户
+const DEFAULT_USER = {
+  id: 'local_user',
+  username: '本地用户',
+  email: 'local@example.com',
+  created_at: new Date().toISOString()
 }
 
-// 模拟用户数据
-let mockUser = null
-
-// 模拟 API 响应格式
-function mockResponse(data, delay = 300) {
-  return new Promise(resolve => {
-    setTimeout(() => resolve({ data }), delay)
-  })
-}
-
-function mockError(message, delay = 300) {
-  return new Promise((_, reject) => {
-    setTimeout(() => {
-      reject({
-        response: { data: { error: message } }
-      })
-    }, delay)
-  })
+/**
+ * 获取或创建本地用户
+ */
+function getOrCreateUser() {
+  const stored = localStorage.getItem(STORAGE_KEY)
+  if (stored) {
+    return JSON.parse(stored)
+  }
+  // 首次使用，创建默认用户
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_USER))
+  return DEFAULT_USER
 }
 
 export const localUserApi = {
-  // 注册
-  async register(username, email, password) {
-    const existingUser = localStorage.getItem(STORAGE_KEYS.USER)
-    if (existingUser) {
-      const user = JSON.parse(existingUser)
-      if (user.username === username) {
-        return mockError('用户名已存在')
-      }
-    }
-
-    mockUser = {
-      id: Date.now().toString(),
-      username,
-      email,
-      created_at: new Date().toISOString()
-    }
-
-    localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(mockUser))
-    localStorage.setItem(STORAGE_KEYS.IS_LOGGED_IN, 'true')
-
-    return mockResponse({
-      user: mockUser,
-      tokens: {
-        access_token: 'local_mock_token',
-        refresh_token: 'local_mock_refresh_token'
-      }
-    })
+  /**
+   * 获取当前用户（前端模式下始终返回本地用户）
+   */
+  getCurrentUser() {
+    return getOrCreateUser()
   },
 
-  // 登录
-  async login(username, password) {
-    const storedUser = localStorage.getItem(STORAGE_KEYS.USER)
-
-    if (!storedUser) {
-      return mockError('用户不存在，请先注册')
-    }
-
-    const user = JSON.parse(storedUser)
-    if (user.username !== username) {
-      return mockError('用户名或密码错误')
-    }
-
-    mockUser = user
-    localStorage.setItem(STORAGE_KEYS.IS_LOGGED_IN, 'true')
-
-    return mockResponse({
-      user: mockUser,
-      tokens: {
-        access_token: 'local_mock_token',
-        refresh_token: 'local_mock_refresh_token'
-      }
-    })
-  },
-
-  // 获取当前用户
-  async getCurrentUser() {
-    const isLoggedIn = localStorage.getItem(STORAGE_KEYS.IS_LOGGED_IN) === 'true'
-    if (!isLoggedIn) {
-      return mockError('未登录')
-    }
-
-    const storedUser = localStorage.getItem(STORAGE_KEYS.USER)
-    if (storedUser) {
-      mockUser = JSON.parse(storedUser)
-      return mockResponse({ user: mockUser })
-    }
-
-    return mockError('用户不存在')
-  },
-
-  // 登出
-  async logout() {
-    localStorage.setItem(STORAGE_KEYS.IS_LOGGED_IN, 'false')
-    mockUser = null
-    return mockResponse({ success: true })
-  },
-
-  // 登出所有设备
-  async logoutAll() {
-    localStorage.setItem(STORAGE_KEYS.IS_LOGGED_IN, 'false')
-    mockUser = null
-    return mockResponse({ success: true })
-  },
-
-  // 修改密码
-  async changePassword(oldPassword, newPassword) {
-    return mockResponse({ success: true })
-  },
-
-  // 刷新 token
-  async refreshToken(refreshToken) {
-    return mockResponse({
-      tokens: {
-        access_token: 'local_mock_token',
-        refresh_token: 'local_mock_refresh_token'
-      }
-    })
-  },
-
-  // 检查登录状态
+  /**
+   * 检查是否已登录（前端模式下始终返回 true）
+   */
   isLoggedIn() {
-    return localStorage.getItem(STORAGE_KEYS.IS_LOGGED_IN) === 'true'
+    return true
   },
 
-  // 获取本地用户
+  /**
+   * 获取本地用户
+   */
   getUser() {
-    const storedUser = localStorage.getItem(STORAGE_KEYS.USER)
-    return storedUser ? JSON.parse(storedUser) : null
+    return getOrCreateUser()
   }
 }

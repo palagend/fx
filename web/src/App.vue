@@ -3,7 +3,7 @@
     <nav class="navbar">
       <div class="nav-container">
         <div class="nav-left">
-          <UserProfile />
+          <UserProfile v-if="config.isBackend" />
           <router-link to="/" class="nav-logo">
             <Icon icon="fa7-solid:tools" />
             <span>工具集合</span>
@@ -55,6 +55,7 @@
 import { ref, onMounted } from 'vue'
 import { Icon } from '@iconify/vue'
 import UserProfile from './components/UserProfile.vue'
+import { config } from './config'
 
 const isDark = ref(false)
 

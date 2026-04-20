@@ -14,13 +14,18 @@ export const useUserStore = defineStore('user', () => {
   // ========== 计算属性 ==========
   const isLoggedIn = computed(() => {
     if (config.isFrontend) {
-      return userApi.isLoggedIn() && !!user.value
+      // 前端模式下始终已登录
+      return true
     }
     return !!accessToken.value && !!user.value
   })
 
   // ========== 辅助函数 ==========
   const setTokens = (tokens) => {
+    // 前端模式不设置 token
+    if (config.isFrontend) {
+      return
+    }
     accessToken.value = tokens.access_token
     refreshToken.value = tokens.refresh_token
     localStorage.setItem('accessToken', tokens.access_token)
@@ -90,57 +95,16 @@ export const useUserStore = defineStore('user', () => {
     return { success: true }
   }
 
-  // ========== 前端模式 API 调用 ==========
-  const frontendRegister = async (username, email, password) => {
-    const response = await userApi.register(username, email, password)
-    user.value = response.data.user
-    setTokens(response.data.tokens)
-    return { success: true }
-  }
-
-  const frontendLogin = async (username, password) => {
-    const response = await userApi.login(username, password)
-    user.value = response.data.user
-    setTokens(response.data.tokens)
-    return { success: true }
-  }
-
-  const frontendFetchUserInfo = async () => {
-    try {
-      const response = await userApi.getCurrentUser()
-      user.value = response.data.user
-    } catch (err) {
-      // 未登录或 token 过期
-      clearTokens()
-    }
-  }
-
-  const frontendLogout = async () => {
-    await userApi.logout()
-    clearTokens()
-  }
-
-  const frontendLogoutAll = async () => {
-    await userApi.logoutAll()
-    clearTokens()
-    return { success: true }
-  }
-
-  const frontendChangePassword = async (oldPassword, newPassword) => {
-    await userApi.changePassword(oldPassword, newPassword)
-    return { success: true }
-  }
-
   // ========== 统一的 Actions ==========
   const register = async (username, email, password) => {
+    // 前端模式不支持注册
+    if (config.isFrontend) {
+      return { success: false, error: '前端模式不支持注册' }
+    }
     isLoading.value = true
     error.value = null
     try {
-      if (config.isBackend) {
-        return await backendRegister(username, email, password)
-      } else {
-        return await frontendRegister(username, email, password)
-      }
+      return await backendRegister(username, email, password)
     } catch (err) {
       error.value = err.response?.data?.error || '注册失败'
       return { success: false, error: error.value }
@@ -150,14 +114,14 @@ export const useUserStore = defineStore('user', () => {
   }
 
   const login = async (username, password) => {
+    // 前端模式不支持登录
+    if (config.isFrontend) {
+      return { success: false, error: '前端模式不支持登录' }
+    }
     isLoading.value = true
     error.value = null
     try {
-      if (config.isBackend) {
-        return await backendLogin(username, password)
-      } else {
-        return await frontendLogin(username, password)
-      }
+      return await backendLogin(username, password)
     } catch (err) {
       error.value = err.response?.data?.error || '登录失败'
       return { success: false, error: error.value }
@@ -169,40 +133,39 @@ export const useUserStore = defineStore('user', () => {
   const fetchUserInfo = async () => {
     if (config.isBackend) {
       await backendFetchUserInfo()
-    } else {
-      await frontendFetchUserInfo()
     }
+    // 前端模式不需要获取用户信息
   }
 
   const logout = async () => {
-    if (config.isBackend) {
-      await backendLogout()
-    } else {
-      await frontendLogout()
+    // 前端模式不支持登出
+    if (config.isFrontend) {
+      return
     }
+    await backendLogout()
   }
 
   const logoutAll = async () => {
+    // 前端模式不支持登出
+    if (config.isFrontend) {
+      return { success: false, error: '前端模式不支持此操作' }
+    }
     try {
-      if (config.isBackend) {
-        return await backendLogoutAll()
-      } else {
-        return await frontendLogoutAll()
-      }
+      return await backendLogoutAll()
     } catch (err) {
       return { success: false, error: err.response?.data?.error || '登出失败' }
     }
   }
 
   const changePassword = async (oldPassword, newPassword) => {
+    // 前端模式不支持修改密码
+    if (config.isFrontend) {
+      return { success: false, error: '前端模式不支持修改密码' }
+    }
     isLoading.value = true
     error.value = null
     try {
-      if (config.isBackend) {
-        return await backendChangePassword(oldPassword, newPassword)
-      } else {
-        return await frontendChangePassword(oldPassword, newPassword)
-      }
+      return await backendChangePassword(oldPassword, newPassword)
     } catch (err) {
       error.value = err.response?.data?.error || '修改密码失败'
       return { success: false, error: error.value }
@@ -213,23 +176,19 @@ export const useUserStore = defineStore('user', () => {
 
   const init = async () => {
     if (config.isFrontend) {
-      // 前端模式：检查 localStorage 中的登录状态
-      if (userApi.isLoggedIn()) {
-        const localUser = userApi.getUser()
-        if (localUser) {
-          user.value = localUser
-          // 设置模拟 token
-          accessToken.value = 'local_mock_token'
-          refreshToken.value = 'local_mock_refresh_token'
-        }
-      }
+      // 前端模式：自动设置本地用户
+      user.value = userApi.getUser()
     } else if (accessToken.value) {
       // 后端模式：通过 token 获取用户信息
-      await fetchUserInfo()
+      await backendFetchUserInfo()
     }
   }
 
   const openLoginModal = () => {
+    // 前端模式不显示登录弹窗
+    if (config.isFrontend) {
+      return
+    }
     showLoginModal.value = true
   }
 

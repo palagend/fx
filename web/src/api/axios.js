@@ -1,5 +1,6 @@
 import axios from 'axios'
 import { useUserStore } from '../stores/user'
+import { config } from '../config'
 
 const API_BASE_URL = '/api'
 
@@ -30,12 +31,16 @@ function onTokenRefreshed(newToken) {
 
 // 请求拦截器 - 添加 Authorization header
 apiClient.interceptors.request.use(
-  (config) => {
+  (requestConfig) => {
+    // 前端模式不发送 token
+    if (config.isFrontend) {
+      return requestConfig
+    }
     const userStore = useUserStore()
     if (userStore.accessToken) {
-      config.headers.Authorization = `Bearer ${userStore.accessToken}`
+      requestConfig.headers.Authorization = `Bearer ${userStore.accessToken}`
     }
-    return config
+    return requestConfig
   },
   (error) => {
     return Promise.reject(error)
@@ -50,6 +55,11 @@ apiClient.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config
     const userStore = useUserStore()
+
+    // 前端模式不处理 token 刷新
+    if (config.isFrontend) {
+      return Promise.reject(error)
+    }
 
     // 如果不是 401 错误，直接返回错误
     if (error.response?.status !== 401) {
