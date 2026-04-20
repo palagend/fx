@@ -3,13 +3,32 @@
 # 或使用环境变量覆盖（推荐用于生产环境）
 
 # 数据库配置
+# 支持的数据库类型: mysql, postgres, sqlite
 database:
+  type: "mysql"  # 数据库类型: mysql, postgres, sqlite
+
+  # MySQL/PostgreSQL 配置
   host: "172.23.112.1"
   port: 3306
   user: "admin"
   password: "ctsi@Passw0rd"
   name: "insight_onchain"
-  charset: "utf8mb4"
+  charset: "utf8mb4"  # 仅MySQL有效
+  ssl_mode: "disable" # 仅PostgreSQL有效 (disable, require, verify-ca, verify-full)
+
+  # SQLite 配置 (使用SQLite时，host/port/user/password/name无效)
+  # path: "./fx.db"   # SQLite数据库文件路径
+
+  # 连接池配置
+  pool:
+    max_idle_conns: 10        # 最大空闲连接数
+    max_open_conns: 100       # 最大打开连接数
+    conn_max_lifetime: "1h"   # 连接最大生命周期 (如: 1h, 30m)
+    conn_max_idle_time: "30m" # 连接最大空闲时间 (如: 30m, 10m)
+
+  # 日志级别: silent, error, warn, info
+  # 空字符串表示根据环境自动选择 (debug模式=info, release模式=silent)
+  log_level: ""
 
 # API Keys
 api:
@@ -29,3 +48,46 @@ jwt:
 log:
   level: "info"   # debug, info, warn, error
   format: "text"  # text 或 json
+
+# ============================================
+# 不同数据库配置示例
+# ============================================
+
+# --- MySQL 示例 ---
+# database:
+#   type: "mysql"
+#   host: "localhost"
+#   port: 3306
+#   user: "root"
+#   password: "password"
+#   name: "fx_db"
+#   charset: "utf8mb4"
+#   pool:
+#     max_idle_conns: 10
+#     max_open_conns: 100
+#     conn_max_lifetime: "1h"
+#     conn_max_idle_time: "30m"
+
+# --- PostgreSQL 示例 ---
+# database:
+#   type: "postgres"
+#   host: "localhost"
+#   port: 5432
+#   user: "postgres"
+#   password: "password"
+#   name: "fx_db"
+#   ssl_mode: "disable"
+#   pool:
+#     max_idle_conns: 10
+#     max_open_conns: 100
+#     conn_max_lifetime: "1h"
+#     conn_max_idle_time: "30m"
+
+# --- SQLite 示例 ---
+# database:
+#   type: "sqlite"
+#   path: "./fx.db"
+#   pool:
+#     max_idle_conns: 1
+#     max_open_conns: 1
+#     conn_max_lifetime: "1h"
