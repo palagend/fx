@@ -2,6 +2,11 @@
   <div class="crypto-container">
     <div class="container">
       <div class="dashboard">
+        <!-- 运行模式标识 -->
+        <div class="mode-indicator" :class="config.mode">
+          <Icon :icon="config.isBackend ? 'mdi:server' : 'mdi:database-outline'" />
+          <span>{{ config.isBackend ? '后端模式' : '本地模式' }}</span>
+        </div>
         <main class="main-content">
           <!-- 未登录提示 -->
           <section v-if="!userStore.isLoggedIn" class="login-prompt">
@@ -284,7 +289,7 @@
                         </div>
                         <div class="preview-item">
                           <span class="label">当前成本价</span>
-                          <span class="value">${{ formatAmount(portfolio.value.find(c => c.symbol === newTrade.symbol)?.avg_cost || 0) }}</span>
+                          <span class="value">${{ formatAmount(portfolio.value?.find(c => c.symbol === newTrade.symbol)?.avg_cost || 0) }}</span>
                         </div>
                         <div class="preview-item">
                           <span class="label">卖出后持仓</span>
@@ -696,6 +701,7 @@ import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { Icon } from '@iconify/vue'
 import { usePortfolioStore } from '../stores/portfolio'
 import { useUserStore } from '../stores/user'
+import { config } from '../config'
 
 const portfolioStore = usePortfolioStore()
 const userStore = useUserStore()
@@ -1258,7 +1264,7 @@ const toggleAutoRefresh = () => {
 
 const filteredHoldings = computed(() => {
   const filter = selectedFilter.value
-  return portfolio.value.filter(c =>
+  return portfolio.value?.filter(c =>
     c.symbol !== 'USDT' &&
     c.amount > 0 &&
     (filter === 'all' || c.symbol === filter)
@@ -1267,7 +1273,7 @@ const filteredHoldings = computed(() => {
 
 const filteredTrades = computed(() => {
   const filter = tradeFilter.value
-  return filter === 'all' ? trades.value : trades.value.filter(t => t.type === filter)
+  return filter === 'all' ? trades.value : trades.value?.filter(t => t.type === filter)
 })
 
 // 总资产净值 = 加密资产市值 + USDT余额
@@ -1558,6 +1564,33 @@ watch(() => userStore.isLoggedIn, async (isLoggedIn) => {
 
 .dashboard {
   display: block;
+}
+
+/* 运行模式标识 */
+.mode-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+  margin-bottom: 20px;
+  width: fit-content;
+}
+
+.mode-indicator.backend {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.mode-indicator.frontend {
+  background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+  color: white;
+}
+
+.mode-indicator svg {
+  font-size: 16px;
 }
 
 /* 登录提示 */

@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { portfolioApi } from '../api/portfolio'
+import { portfolioApi } from '../api'
 import { useUserStore } from './user'
 
 export const usePortfolioStore = defineStore('portfolio', () => {

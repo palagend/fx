@@ -1,6 +1,6 @@
-import apiClient from './axios'
+import { apiClient } from './axios'
 
-export const portfolioApi = {
+export const backendPortfolioApi = {
   // 获取仪表盘聚合数据（价格+持仓+统计）
   getDashboard() {
     return apiClient.get('/portfolio/dashboard')
