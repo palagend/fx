@@ -2408,10 +2408,12 @@ watch(() => userStore.isLoggedIn, async (isLoggedIn) => {
   align-items: center;
   gap: 8px;
   position: relative;
+  flex-wrap: wrap;
 }
 
 .input-with-controls input {
   flex: 1;
+  min-width: 0;
   padding: 12px 16px;
   padding-right: 60px;
   border: 2px solid #e5e7eb;
@@ -2455,6 +2457,7 @@ watch(() => userStore.isLoggedIn, async (isLoggedIn) => {
   cursor: pointer;
   transition: all 0.3s ease;
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .dark .btn-use-market {
