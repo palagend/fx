@@ -269,7 +269,7 @@
                           <span class="value highlight">{{ formatAmount(getHoldingAmount(newTrade.symbol) + newTrade.amount) }}</span>
                         </div>
                         <div class="preview-item" v-if="getHoldingAmount(newTrade.symbol) > 0">
-                          <span class="label">新综合成本</span>
+                          <span class="label">买入后成本价</span>
                           <span class="value">${{ formatAmount(calculateNewAvgCost()) }}</span>
                         </div>
                         <div class="preview-item impact">
