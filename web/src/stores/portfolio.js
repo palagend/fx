@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { portfolioApi } from '../api'
+import { portfolioApi, config } from '../api'
 import { useUserStore } from './user'
 
 export const usePortfolioStore = defineStore('portfolio', () => {
@@ -40,7 +40,8 @@ export const usePortfolioStore = defineStore('portfolio', () => {
 
   // 获取仪表盘聚合数据
   async function fetchDashboard() {
-    if (!userStore.isLoggedIn) {
+    // 后端模式需要登录，前端模式不需要
+    if (config.isBackend && !userStore.isLoggedIn) {
       dashboardData.value = null
       trades.value = []
       return { success: false, error: '请先登录' }

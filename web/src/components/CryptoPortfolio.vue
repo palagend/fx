@@ -8,8 +8,8 @@
           <span>{{ config.isBackend ? '后端模式' : '本地模式' }}</span>
         </div>
         <main class="main-content">
-          <!-- 未登录提示 -->
-          <section v-if="!userStore.isLoggedIn" class="login-prompt">
+          <!-- 未登录提示（仅后端模式显示） -->
+          <section v-if="config.isBackend && !userStore.isLoggedIn" class="login-prompt">
             <div class="prompt-content">
               <Icon icon="mdi:lock" class="prompt-icon" />
               <h3>请先登录</h3>
