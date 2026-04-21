@@ -93,7 +93,7 @@ export const usePortfolioStore = defineStore('portfolio', () => {
   }
 
   // 创建交易
-  async function createTrade(trade) {
+  async function createTrade(trade, options = {}) {
     if (!userStore.isLoggedIn) {
       return { success: false, error: '请先登录' }
     }
@@ -103,7 +103,10 @@ export const usePortfolioStore = defineStore('portfolio', () => {
 
     try {
       const response = await portfolioApi.createTrade(trade)
-      await fetchDashboard()
+      // 默认自动刷新，可通过 options.refresh = false 禁用
+      if (options.refresh !== false) {
+        await fetchDashboard()
+      }
       return { success: true, data: response.data }
     } catch (err) {
       error.value = err.response?.data?.error || '交易失败'
@@ -114,14 +117,17 @@ export const usePortfolioStore = defineStore('portfolio', () => {
   }
 
   // 删除交易
-  async function deleteTrade(id) {
+  async function deleteTrade(id, options = {}) {
     if (!userStore.isLoggedIn) {
       return { success: false, error: '请先登录' }
     }
 
     try {
       await portfolioApi.deleteTrade(id)
-      await fetchDashboard()
+      // 默认自动刷新，可通过 options.refresh = false 禁用
+      if (options.refresh !== false) {
+        await fetchDashboard()
+      }
       return { success: true }
     } catch (err) {
       return { success: false, error: err.response?.data?.error || '删除失败' }
@@ -129,7 +135,7 @@ export const usePortfolioStore = defineStore('portfolio', () => {
   }
 
   // 清空所有交易
-  async function clearAllTrades() {
+  async function clearAllTrades(options = {}) {
     if (!userStore.isLoggedIn) {
       return { success: false, error: '请先登录' }
     }
@@ -139,7 +145,10 @@ export const usePortfolioStore = defineStore('portfolio', () => {
 
     try {
       await portfolioApi.clearTrades()
-      await fetchDashboard()
+      // 默认自动刷新，可通过 options.refresh = false 禁用
+      if (options.refresh !== false) {
+        await fetchDashboard()
+      }
       return { success: true }
     } catch (err) {
       error.value = err.response?.data?.error || '清空交易记录失败'

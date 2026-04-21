@@ -1031,8 +1031,8 @@ const addTrade = async () => {
       return
     }
 
-    refreshPrices()
-
+    // store 层已经自动刷新数据，这里不需要再调用 refreshPrices()
+    // 只需要重置表单
     newTrade.value = {
       symbol: '',
       type: 'buy',
@@ -1289,13 +1289,48 @@ const refreshPrices = async () => {
 
 const toggleAutoRefresh = () => {
   if (autoRefresh.value) {
-    refreshTimer = setInterval(() => {
-      refreshPrices()
-    }, refreshInterval.value * 60 * 1000)
+    startAutoRefresh()
   } else {
+    stopAutoRefresh()
+  }
+}
+
+// 启动自动刷新
+const startAutoRefresh = () => {
+  // 页面不可见时不启动
+  if (document.hidden) return
+  
+  if (refreshTimer) {
+    clearInterval(refreshTimer)
+  }
+  refreshTimer = setInterval(() => {
+    // 页面可见时才刷新
+    if (!document.hidden) {
+      refreshPrices()
+    }
+  }, refreshInterval.value * 60 * 1000)
+}
+
+// 停止自动刷新
+const stopAutoRefresh = () => {
+  if (refreshTimer) {
+    clearInterval(refreshTimer)
+    refreshTimer = null
+  }
+}
+
+// 页面可见性变化处理
+const handleVisibilityChange = () => {
+  if (document.hidden) {
+    // 页面隐藏时停止自动刷新
     if (refreshTimer) {
       clearInterval(refreshTimer)
       refreshTimer = null
+    }
+  } else {
+    // 页面显示时恢复自动刷新
+    if (autoRefresh.value) {
+      startAutoRefresh()
     }
   }
 }
@@ -1400,12 +1435,16 @@ onMounted(() => {
   if (userStore.isLoggedIn) {
     portfolioStore.fetchDashboard()
   }
+  // 监听页面可见性变化
+  document.addEventListener('visibilitychange', handleVisibilityChange)
 })
 
 onUnmounted(() => {
   if (refreshTimer) {
     clearInterval(refreshTimer)
   }
+  // 移除页面可见性监听
+  document.removeEventListener('visibilitychange', handleVisibilityChange)
 })
 
 // ========== 导入/导出方法 ==========
