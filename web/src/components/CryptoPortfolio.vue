@@ -872,11 +872,18 @@ const toggleProtectHistory = () => {
 
 const selectSymbol = async (symbol) => {
   newTrade.value.symbol = symbol
-  // 使用 GetAssetPrice 接口获取最新价格
-  const result = await portfolioStore.fetchAssetPrice(symbol)
-  if (result.success) {
-    newTrade.value.price = result.price
-    currentMarketPrice.value = result.price
+  // 优先从已有数据中获取价格，避免额外请求
+  const cachedPrice = portfolioStore.prices[symbol]
+  if (cachedPrice) {
+    newTrade.value.price = cachedPrice
+    currentMarketPrice.value = cachedPrice
+  } else {
+    // 只有在没有缓存价格时才请求
+    const result = await portfolioStore.fetchAssetPrice(symbol)
+    if (result.success) {
+      newTrade.value.price = result.price
+      currentMarketPrice.value = result.price
+    }
   }
   nextTick(() => {
     if (amountInput.value) {
@@ -887,11 +894,18 @@ const selectSymbol = async (symbol) => {
 
 const onSymbolChange = async () => {
   if (newTrade.value.symbol) {
-    // 使用 GetAssetPrice 接口获取最新价格
-    const result = await portfolioStore.fetchAssetPrice(newTrade.value.symbol)
-    if (result.success) {
-      newTrade.value.price = result.price
-      currentMarketPrice.value = result.price
+    // 优先从已有数据中获取价格，避免额外请求
+    const cachedPrice = portfolioStore.prices[newTrade.value.symbol]
+    if (cachedPrice) {
+      newTrade.value.price = cachedPrice
+      currentMarketPrice.value = cachedPrice
+    } else {
+      // 只有在没有缓存价格时才请求
+      const result = await portfolioStore.fetchAssetPrice(newTrade.value.symbol)
+      if (result.success) {
+        newTrade.value.price = result.price
+        currentMarketPrice.value = result.price
+      }
     }
   } else {
     currentMarketPrice.value = 0
@@ -1141,26 +1155,50 @@ const quickSell = async (crypto) => {
   newTrade.value.symbol = crypto.symbol
   newTrade.value.type = 'sell'
   newTrade.value.amount = crypto.amount
-  // 使用 GetAssetPrice 接口获取最新价格
-  const result = await portfolioStore.fetchAssetPrice(crypto.symbol)
-  if (result.success) {
-    newTrade.value.price = result.price
-    currentMarketPrice.value = result.price
+  // 优先使用传入的当前价格，避免额外请求
+  if (crypto.currentPrice) {
+    newTrade.value.price = crypto.currentPrice
+    currentMarketPrice.value = crypto.currentPrice
   } else {
-    newTrade.value.price = crypto.currentPrice || (crypto.avg_cost || crypto.price)
+    // 回退到缓存或请求
+    const cachedPrice = portfolioStore.prices[crypto.symbol]
+    if (cachedPrice) {
+      newTrade.value.price = cachedPrice
+      currentMarketPrice.value = cachedPrice
+    } else {
+      const result = await portfolioStore.fetchAssetPrice(crypto.symbol)
+      if (result.success) {
+        newTrade.value.price = result.price
+        currentMarketPrice.value = result.price
+      } else {
+        newTrade.value.price = crypto.avg_cost || crypto.price
+      }
+    }
   }
 }
 
 const quickBuy = async (crypto) => {
   newTrade.value.symbol = crypto.symbol
   newTrade.value.type = 'buy'
-  // 使用 GetAssetPrice 接口获取最新价格
-  const result = await portfolioStore.fetchAssetPrice(crypto.symbol)
-  if (result.success) {
-    newTrade.value.price = result.price
-    currentMarketPrice.value = result.price
+  // 优先使用传入的当前价格，避免额外请求
+  if (crypto.currentPrice) {
+    newTrade.value.price = crypto.currentPrice
+    currentMarketPrice.value = crypto.currentPrice
   } else {
-    newTrade.value.price = crypto.currentPrice || (crypto.avg_cost || crypto.price)
+    // 回退到缓存或请求
+    const cachedPrice = portfolioStore.prices[crypto.symbol]
+    if (cachedPrice) {
+      newTrade.value.price = cachedPrice
+      currentMarketPrice.value = cachedPrice
+    } else {
+      const result = await portfolioStore.fetchAssetPrice(crypto.symbol)
+      if (result.success) {
+        newTrade.value.price = result.price
+        currentMarketPrice.value = result.price
+      } else {
+        newTrade.value.price = crypto.avg_cost || crypto.price
+      }
+    }
   }
   nextTick(() => {
     if (amountInput.value) {
