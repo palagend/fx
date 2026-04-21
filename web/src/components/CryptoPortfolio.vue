@@ -288,10 +288,6 @@
                           <span class="value">{{ formatAmount(getHoldingAmount(newTrade.symbol)) }}</span>
                         </div>
                         <div class="preview-item">
-                          <span class="label">当前成本价</span>
-                          <span class="value">${{ formatAmount(portfolio.value?.find(c => c.symbol === newTrade.symbol)?.avg_cost || 0) }}</span>
-                        </div>
-                        <div class="preview-item">
                           <span class="label">卖出后持仓</span>
                           <span class="value">{{ formatAmount(Math.max(0, getHoldingAmount(newTrade.symbol) - newTrade.amount)) }}</span>
                         </div>
