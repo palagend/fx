@@ -73,6 +73,7 @@ func InitConfig() *Config {
 	setDefaults(v)
 
 	// 读取配置文件（如果存在）
+	// 优先级: 环境变量 > 配置文件 > 默认值
 	if err := v.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
 			log.Println("配置文件未找到，使用环境变量和默认值")
@@ -80,7 +81,7 @@ func InitConfig() *Config {
 			log.Printf("读取配置文件失败: %v", err)
 		}
 	} else {
-		log.Printf("使用配置文件: %s", v.ConfigFileUsed())
+		log.Printf("配置文件已加载: %s (环境变量可覆盖配置值)", v.ConfigFileUsed())
 	}
 
 	// 解析到结构体
