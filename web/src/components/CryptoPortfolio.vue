@@ -24,7 +24,7 @@
             <section class="overview">
               <div class="overview-card">
                 <h3><Icon icon="mdi:wallet" /> 加密资产价值</h3>
-                <div class="value">${{ formatAmount(cryptoAssetsValue) }}</div>
+                <div class="value">{{ formatCompactAmount(cryptoAssetsValue) }}</div>
                 <div class="change" :class="displayTotalValueChange.class">
                   {{ displayTotalValueChange.sign }}{{ displayTotalValueChange.value }}% (24h)
                 </div>
@@ -58,7 +58,7 @@
               </div>
               <div class="overview-card usdt-card">
                 <h3><Icon icon="mdi:cash-usd" /> USDT余额</h3>
-                <div class="value">${{ formatAmount(cashBalance) }}</div>
+                <div class="value">{{ formatCompactAmount(cashBalance) }}</div>
                 <button class="btn-recharge" @click="showRechargeModal = true">
                   <Icon icon="mdi:plus" /> 充值
                 </button>
@@ -103,9 +103,16 @@
               <div v-else class="chart-container">
                 <div class="chart">
                   <div class="pie-chart-wrapper">
-                    <div class="pie-chart" :style="pieChartStyle"></div>
+                    <div class="pie-chart-container">
+                      <Doughnut
+                        v-if="chartData.labels.length > 0"
+                        :data="chartData"
+                        :options="chartOptions"
+                        class="pie-chart-canvas"
+                      />
+                    </div>
                     <div class="pie-center">
-                      <span class="total-value">${{ formatAmount(totalNetWorth) }}</span>
+                      <span class="total-value">{{ formatCompactAmount(totalNetWorth) }}</span>
                       <span class="total-label">总资产</span>
                     </div>
                   </div>
@@ -117,13 +124,13 @@
                     :key="index"
                     class="legend-item"
                     :class="{ 'legend-highlight': hoveredLegend === index }"
-                    @mouseenter="hoveredLegend = index"
-                    @mouseleave="hoveredLegend = null"
+                    @mouseenter="onLegendHover(index)"
+                    @mouseleave="onLegendLeave"
                   >
                     <div class="legend-color" :style="{ backgroundColor: item.color }"></div>
                     <div class="legend-info">
                       <span class="legend-name">{{ item.name }}</span>
-                      <span class="legend-value">${{ formatAmount(item.value) }}</span>
+                      <span class="legend-value">{{ formatCompactAmount(item.value) }}</span>
                       <span class="legend-percent">{{ item.percentage }}%</span>
                     </div>
                   </div>
@@ -698,6 +705,10 @@ import { Icon } from '@iconify/vue'
 import { usePortfolioStore } from '../stores/portfolio'
 import { useUserStore } from '../stores/user'
 import { config } from '../config'
+import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js'
+import { Doughnut } from 'vue-chartjs'
+
+ChartJS.register(ArcElement, Tooltip, Legend)
 
 const portfolioStore = usePortfolioStore()
 const userStore = useUserStore()
@@ -1223,6 +1234,20 @@ const formatAmount = (amount) => {
   })
 }
 
+// 格式化大金额为缩写形式（用于饼图中心显示）
+const formatCompactAmount = (amount) => {
+  if (!amount && amount !== 0) return '$0'
+  const absAmount = Math.abs(amount)
+  if (absAmount >= 1e9) {
+    return '$' + (amount / 1e9).toFixed(2) + 'B'
+  } else if (absAmount >= 1e6) {
+    return '$' + (amount / 1e6).toFixed(2) + 'M'
+  } else if (absAmount >= 1e3) {
+    return '$' + (amount / 1e3).toFixed(2) + 'K'
+  }
+  return '$' + amount.toFixed(2)
+}
+
 // 缓存日期格式化器，避免重复创建
 const dateFormatter = new Intl.DateTimeFormat('zh-CN', {
   year: 'numeric',
@@ -1372,21 +1397,56 @@ const portfolioAllocation = computed(() => {
     }
   })
 
-   // 按价值降序排列（确保饼图扇区和图例顺序一致）
+  // 按价值降序排列（确保饼图扇区和图例顺序一致）
   allocation.sort((a, b) => b.value - a.value)
 
-  // 为没有预定义颜色的资产分配颜色
-  allocation.forEach(alloc => {
+  // 为没有预定义颜色的资产分配颜色（使用 HSL 生成和谐配色）
+  const generateColor = (index, total) => {
+    // 使用黄金角 (~137.5°) 生成均匀分布的色相
+    const goldenAngle = 137.508
+    const hue = (index * goldenAngle) % 360
+    // 饱和度和亮度保持在舒适范围
+    const saturation = 65 + (index % 3) * 10 // 65%-85%
+    const lightness = 50 + (index % 2) * 10  // 50%-60%
+    return `hsl(${hue}, ${saturation}%, ${lightness}%)`
+  }
+
+  allocation.forEach((alloc, index) => {
     if (!alloc.color) {
-      alloc.color = '#ffffff'
+      alloc.color = generateColor(index, allocation.length)
     }
   })
+
+  // 合并低于5%的资产为"其他"
+  const MIN_PERCENTAGE = 5
+  const significantItems = []
+  let otherValue = 0
+  let otherRawPercentage = 0
+
+  allocation.forEach((item) => {
+    if (item.rawPercentage >= MIN_PERCENTAGE) {
+      significantItems.push(item)
+    } else {
+      otherValue += item.value
+      otherRawPercentage += item.rawPercentage
+    }
+  })
+
+  // 如果有"其他"类别，添加到列表
+  if (otherValue > 0) {
+    significantItems.push({
+      name: '其他',
+      rawPercentage: otherRawPercentage,
+      value: otherValue,
+      color: '#9ca3af' // 灰色
+    })
+  }
 
   // 使用最大余数法确保百分比总和为100%
   let remainingPercentage = 100
 
   // 先向下取整并计算余数
-  const itemsWithRemainder = allocation.map(alloc => {
+  const itemsWithRemainder = significantItems.map(alloc => {
     const floorPercentage = Math.floor(alloc.rawPercentage)
     const remainder = alloc.rawPercentage - floorPercentage
     remainingPercentage -= floorPercentage
@@ -1409,23 +1469,81 @@ const portfolioAllocation = computed(() => {
   return itemsWithRemainder.sort((a, b) => b.value - a.value)
 })
 
-// 饼图样式（基于投资组合分布）
-const pieChartStyle = computed(() => {
+// Chart.js 图表数据
+const chartData = computed(() => {
   const allocation = portfolioAllocation.value
-  if (allocation.length === 0) return {}
-
-  const gradient = allocation.reduce((acc, item, index) => {
-    const startAngle = index === 0 ? 0 : acc.angle
-    const endAngle = startAngle + (item.percentage * 3.6)
-    const separator = index < allocation.length - 1 ? ', ' : ''
-    return {
-      str: acc.str + `${item.color} ${startAngle}deg ${endAngle}deg${separator}`,
-      angle: endAngle
-    }
-  }, { str: 'conic-gradient(', angle: 0 })
-
-  return { background: gradient.str + ')' }
+  return {
+    labels: allocation.map(item => item.name),
+    datasets: [{
+      data: allocation.map(item => item.value),
+      backgroundColor: allocation.map(item => item.color),
+      borderWidth: 2,
+      borderColor: '#ffffff',
+      hoverBorderWidth: 3,
+      hoverOffset: 8
+    }]
+  }
 })
+
+// Chart.js 图表配置
+const chartOptions = {
+  responsive: true,
+  maintainAspectRatio: false,
+  cutout: '55%',
+  layout: {
+    padding: 16
+  },
+  plugins: {
+    legend: {
+      display: false
+    },
+    tooltip: {
+      backgroundColor: 'rgba(30, 30, 30, 0.95)',
+      titleColor: '#fff',
+      bodyColor: '#fff',
+      padding: 12,
+      cornerRadius: 8,
+      displayColors: true,
+      boxPadding: 6,
+      titleFont: {
+        size: 14,
+        weight: 'bold'
+      },
+      bodyFont: {
+        size: 13
+      },
+      callbacks: {
+        title: (items) => items[0].label,
+        label: (context) => {
+          const value = context.raw
+          return ` 价值: $${formatAmount(value)}`
+        },
+        afterLabel: (context) => {
+          const value = context.raw
+          const total = context.dataset.data.reduce((a, b) => a + b, 0)
+          const percentage = ((value / total) * 100).toFixed(1)
+          return ` 占比: ${percentage}%`
+        }
+      }
+    }
+  },
+  onHover: (event, elements) => {
+    if (elements && elements.length > 0) {
+      hoveredLegend.value = elements[0].index
+    } else {
+      hoveredLegend.value = null
+    }
+  }
+}
+
+// 图例悬停处理
+const onLegendHover = (index) => {
+  hoveredLegend.value = index
+}
+
+const onLegendLeave = () => {
+  hoveredLegend.value = null
+}
 
 onMounted(() => {
   if (userStore.isLoggedIn) {
@@ -1978,15 +2096,16 @@ watch(() => userStore.isLoggedIn, async (isLoggedIn) => {
 /* 图表容器 */
 .chart-container {
   display: flex;
-  align-items: flex-start;
-  gap: 40px;
+  align-items: center;
+  justify-content: center;
+  gap: 60px;
 }
 
 @media (max-width: 768px) {
   .chart-container {
     flex-direction: column;
     align-items: center;
-    gap: 24px;
+    gap: 32px;
   }
 }
 
@@ -1996,22 +2115,36 @@ watch(() => userStore.isLoggedIn, async (isLoggedIn) => {
 
 .pie-chart-wrapper {
   position: relative;
-  width: 220px;
-  height: 220px;
+  width: 280px;
+  height: 280px;
+  padding: 10px;
+}
+
+@media (max-width: 768px) {
+  .pie-chart-wrapper {
+    width: 240px;
+    height: 240px;
+  }
 }
 
 @media (max-width: 480px) {
   .pie-chart-wrapper {
-    width: 180px;
-    height: 180px;
+    width: 200px;
+    height: 200px;
+    padding: 8px;
   }
 }
 
-.pie-chart {
+.pie-chart-container {
+  position: relative;
   width: 100%;
   height: 100%;
-  border-radius: 50%;
-  transition: all 0.3s ease;
+  z-index: 2;
+}
+
+.pie-chart-canvas {
+  width: 100% !important;
+  height: 100% !important;
 }
 
 .pie-center {
@@ -2029,6 +2162,8 @@ watch(() => userStore.isLoggedIn, async (isLoggedIn) => {
   justify-content: center;
   align-items: center;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  pointer-events: none;
+  z-index: 1;
 }
 
 @media (max-width: 480px) {
@@ -2044,14 +2179,21 @@ watch(() => userStore.isLoggedIn, async (isLoggedIn) => {
 }
 
 .pie-center .total-value {
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 700;
   color: #1f2937;
+  white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+  .pie-center .total-value {
+    font-size: 18px;
+  }
 }
 
 @media (max-width: 480px) {
   .pie-center .total-value {
-    font-size: 14px;
+    font-size: 16px;
   }
 }
 
@@ -2071,26 +2213,29 @@ watch(() => userStore.isLoggedIn, async (isLoggedIn) => {
 
 /* 图例样式 */
 .chart-legend {
-  flex: 1;
-  min-width: 200px;
-  max-width: 400px;
+  flex: 0 0 280px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
+  max-height: 320px;
+  overflow-y: auto;
+  padding-right: 8px;
 }
 
 @media (max-width: 768px) {
   .chart-legend {
+    flex: 0 0 auto;
     width: 100%;
-    max-width: none;
+    max-width: 400px;
+    max-height: 240px;
   }
 }
 
 .legend-item {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 12px;
+  gap: 10px;
+  padding: 8px 12px;
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s ease;
