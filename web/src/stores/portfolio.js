@@ -113,11 +113,7 @@ export const usePortfolioStore = defineStore('portfolio', () => {
   }
 
   // 创建交易
-  async function createTrade(trade, options = {}) {
-    if (!userStore.isLoggedIn) {
-      return { success: false, error: '请先登录' }
-    }
-
+  async function _createTrade(trade) {
     isLoading.value = true
     error.value = null
 
@@ -130,6 +126,15 @@ export const usePortfolioStore = defineStore('portfolio', () => {
     } finally {
       isLoading.value = false
     }
+  }
+
+  // 使用包装器包装 createTrade，支持自动刷新
+  const createTrade = async (trade, options = {}) => {
+    const result = await requireAuth(_createTrade)(trade)
+    if (result.success && options.refresh !== false) {
+      await fetchDashboard()
+    }
+    return result
   }
 
   // 删除交易
