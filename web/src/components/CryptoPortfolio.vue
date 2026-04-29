@@ -726,7 +726,7 @@ const symbolSelect = ref(null)
 const amountInput = ref(null)
 const showRechargeModal = ref(false)
 const rechargeAmount = ref(null)
-const protectHistory = ref(false)
+const protectHistory = ref(true)
 let refreshTimer = null
 
 // 重复提交保护状态

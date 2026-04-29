@@ -599,18 +599,11 @@ export const localPortfolioApi = {
 
     const trade = trades[tradeIndex]
 
-    // 校验1：只能删除24小时内的交易
-    const tradeTime = new Date(trade.created_at)
-    const now = new Date()
-    if (now - tradeTime > 24 * 60 * 60 * 1000) {
-      throw new Error('只能删除24小时内的交易记录')
-    }
-
-    // 校验2：模拟删除后的持仓状态
+    // 保护校验：模拟删除后的持仓状态
     const remainingTrades = trades.filter(t => t.id !== id)
     const simulatedHoldings = recalcAllHoldings(remainingTrades)
 
-    // 校验3：删除后不能导致任何资产负持仓
+    // 保护校验：删除后不能导致任何资产负持仓
     for (const symbol in simulatedHoldings) {
       if (simulatedHoldings[symbol] < 0) {
         throw new Error(`删除该交易会导致 ${symbol} 持仓为负数(${simulatedHoldings[symbol].toFixed(8)})，无法删除`)
