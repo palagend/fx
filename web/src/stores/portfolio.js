@@ -38,6 +38,25 @@ export const usePortfolioStore = defineStore('portfolio', () => {
 
   // ========== Actions ==========
 
+  // 检查登录状态的包装器
+  const requireAuth = (fn) => async (...args) => {
+    if (!userStore.isLoggedIn) {
+      return { success: false, error: '请先登录' }
+    }
+    return fn(...args)
+  }
+
+  // 自动刷新包装器
+  const withAutoRefresh = (fn) => async (...args) => {
+    const result = await fn(...args)
+    // 默认自动刷新，可通过 options.refresh = false 禁用
+    const options = args.find(arg => typeof arg === 'object' && arg !== null) || {}
+    if (result.success && options.refresh !== false) {
+      await fetchDashboard()
+    }
+    return result
+  }
+
   // 获取仪表盘聚合数据
   async function fetchDashboard() {
     // 后端模式需要登录，前端模式不需要
@@ -104,10 +123,6 @@ export const usePortfolioStore = defineStore('portfolio', () => {
 
     try {
       const response = await portfolioApi.createTrade(trade)
-      // 默认自动刷新，可通过 options.refresh = false 禁用
-      if (options.refresh !== false) {
-        await fetchDashboard()
-      }
       return { success: true, data: response.data }
     } catch (err) {
       error.value = err.response?.data?.error || '交易失败'
@@ -118,17 +133,9 @@ export const usePortfolioStore = defineStore('portfolio', () => {
   }
 
   // 删除交易
-  async function deleteTrade(id, options = {}) {
-    if (!userStore.isLoggedIn) {
-      return { success: false, error: '请先登录' }
-    }
-
+  async function _deleteTrade(id) {
     try {
       await portfolioApi.deleteTrade(id)
-      // 默认自动刷新，可通过 options.refresh = false 禁用
-      if (options.refresh !== false) {
-        await fetchDashboard()
-      }
       return { success: true }
     } catch (err) {
       return { success: false, error: err.response?.data?.error || '删除失败' }
@@ -136,20 +143,12 @@ export const usePortfolioStore = defineStore('portfolio', () => {
   }
 
   // 清空所有交易
-  async function clearAllTrades(options = {}) {
-    if (!userStore.isLoggedIn) {
-      return { success: false, error: '请先登录' }
-    }
-
+  async function _clearAllTrades() {
     isLoading.value = true
     error.value = null
 
     try {
       await portfolioApi.clearTrades()
-      // 默认自动刷新，可通过 options.refresh = false 禁用
-      if (options.refresh !== false) {
-        await fetchDashboard()
-      }
       return { success: true }
     } catch (err) {
       error.value = err.response?.data?.error || '清空交易记录失败'
@@ -160,11 +159,7 @@ export const usePortfolioStore = defineStore('portfolio', () => {
   }
 
   // 导出数据
-  async function exportData() {
-    if (!userStore.isLoggedIn) {
-      return { success: false, error: '请先登录' }
-    }
-
+  async function _exportData() {
     error.value = null
 
     try {
@@ -177,11 +172,7 @@ export const usePortfolioStore = defineStore('portfolio', () => {
   }
 
   // 导入预览
-  async function importPreview(data) {
-    if (!userStore.isLoggedIn) {
-      return { success: false, error: '请先登录' }
-    }
-
+  async function _importPreview(data) {
     error.value = null
 
     try {
@@ -194,11 +185,7 @@ export const usePortfolioStore = defineStore('portfolio', () => {
   }
 
   // 确认导入
-  async function importConfirm(data, conflictStrategy = 'skip') {
-    if (!userStore.isLoggedIn) {
-      return { success: false, error: '请先登录' }
-    }
-
+  async function _importConfirm(data, conflictStrategy = 'skip') {
     isLoading.value = true
     error.value = null
 
@@ -217,6 +204,27 @@ export const usePortfolioStore = defineStore('portfolio', () => {
       isLoading.value = false
     }
   }
+
+  // 使用包装器包装需要登录和自动刷新的函数
+  const deleteTrade = async (id, options = {}) => {
+    const result = await requireAuth(_deleteTrade)(id)
+    if (result.success && options.refresh !== false) {
+      await fetchDashboard()
+    }
+    return result
+  }
+
+  const clearAllTrades = async (options = {}) => {
+    const result = await requireAuth(_clearAllTrades)()
+    if (result.success && options.refresh !== false) {
+      await fetchDashboard()
+    }
+    return result
+  }
+
+  const exportData = () => requireAuth(_exportData)()
+  const importPreview = (data) => requireAuth(_importPreview)(data)
+  const importConfirm = (data, conflictStrategy) => requireAuth(_importConfirm)(data, conflictStrategy)
 
   return {
     // 状态

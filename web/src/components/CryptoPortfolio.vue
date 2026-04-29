@@ -707,6 +707,8 @@ import { useUserStore } from '../stores/user'
 import { config } from '../config'
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js'
 import { Doughnut } from 'vue-chartjs'
+import { AVAILABLE_SYMBOLS, getAssetColor, getAssetIcon, getAssetName } from '../config/assets'
+import { formatAmount, formatCompactAmount, formatDateTime, getChangeClass } from '../utils/format'
 
 ChartJS.register(ArcElement, Tooltip, Legend)
 
@@ -714,7 +716,7 @@ const portfolioStore = usePortfolioStore()
 const userStore = useUserStore()
 
 // 支持的加密货币列表
-const availableSymbols = ['BTC', 'ETH', 'BNB', 'XRP', 'ADA', 'SOL', 'DOGE', 'TRX', 'AVAX', 'HYPE']
+const availableSymbols = AVAILABLE_SYMBOLS
 
 // 状态
 const newTrade = ref({
@@ -771,6 +773,9 @@ const importResult = ref({
 })
 const importError = ref('')
 
+// 防抖计时器
+let refreshDebounceTimer = null
+
 // 从store获取数据（后端已计算好）
 const portfolio = computed(() => portfolioStore.portfolio)
 const trades = computed(() => portfolioStore.trades)
@@ -783,86 +788,34 @@ const realizedPLRate = computed(() => portfolioStore.realizedPLRate) // 实现�
 const totalPL = computed(() => portfolioStore.totalPL) // 总盈亏
 const cryptoValueChange24h = computed(() => portfolioStore.cryptoValueChange24h) // 24小时价值变化率
 
-// 格式化的显示值（避免模板中重复计算）
-const displayUnrealizedPL = computed(() => {
-  const val = unrealizedPL.value
-  return {
-    sign: val >= 0 ? '+' : '-',
-    value: formatAmount(Math.abs(val)),
-    class: val >= 0 ? 'positive' : 'negative',
-    rate: (unrealizedPLRate.value >= 0 ? '+' : '-') + Math.abs(unrealizedPLRate.value).toFixed(2) + '%'
-  }
+// 创建显示值的通用函数
+const createPLDisplay = (val, rate = null) => ({
+  sign: val >= 0 ? '+' : '-',
+  value: formatAmount(Math.abs(val)),
+  class: val >= 0 ? 'positive' : 'negative',
+  ...(rate !== null && {
+    rate: (rate >= 0 ? '+' : '-') + Math.abs(rate).toFixed(2) + '%'
+  })
 })
 
-const displayRealizedPL = computed(() => {
-  const val = realizedPL.value
-  return {
-    sign: val >= 0 ? '+' : '-',
-    value: formatAmount(Math.abs(val)),
-    class: val >= 0 ? 'positive' : 'negative',
-    rate: (realizedPLRate.value >= 0 ? '+' : '-') + Math.abs(realizedPLRate.value).toFixed(2) + '%'
-  }
+const createChangeDisplay = (val) => ({
+  sign: val >= 0 ? '+' : '-',
+  value: Math.abs(val).toFixed(2),
+  class: getChangeClass(val)
 })
 
-const displayTotalPL = computed(() => {
-  const val = totalPL.value
-  return {
-    sign: val >= 0 ? '+' : '-',
-    value: formatAmount(Math.abs(val)),
-    class: val >= 0 ? 'positive' : 'negative'
-  }
-})
+// 格式化的显示值
+const displayUnrealizedPL = computed(() =>
+  createPLDisplay(unrealizedPL.value, unrealizedPLRate.value))
 
-const displayTotalValueChange = computed(() => {
-  const val = cryptoValueChange24h.value
-  return {
-    sign: val >= 0 ? '+' : '-',
-    value: Math.abs(val).toFixed(2),
-    class: getChangeClass(val)
-  }
-})
+const displayRealizedPL = computed(() =>
+  createPLDisplay(realizedPL.value, realizedPLRate.value))
 
-const ASSET_CONFIG = {
-  COLORS: {
-    USDT: '#26a17b',
-    BTC: '#f7931a',
-    ETH: '#627eea',
-    BNB: '#f0b90b',
-    XRP: '#0033ad',
-    ADA: '#0033ad',
-    SOL: '#00ffa3',
-    DOGE: '#c2a633',
-    TRX: '#eb0029',
-    AVAX: '#e84142',
-    HYPE: '#89F0E6'
-  },
-  ICONS: {
-    USDT: 'cryptocurrency-color:usdt',
-    BTC: 'cryptocurrency-color:btc',
-    ETH: 'cryptocurrency-color:eth',
-    BNB: 'cryptocurrency-color:bnb',
-    XRP: 'cryptocurrency-color:xrp',
-    ADA: 'cryptocurrency-color:ada',
-    SOL: 'token-branded:sol',
-    DOGE: 'cryptocurrency-color:doge',
-    TRX: 'cryptocurrency-color:trx',
-    AVAX: 'cryptocurrency-color:avax',
-    HYPE: 'token:hyper-evm'
-  },
-  NAMES: {
-    USDT: 'Tether',
-    BTC: 'Bitcoin',
-    ETH: 'Ethereum',
-    BNB: 'Binance Coin',
-    XRP: 'Ripple',
-    ADA: 'Cardano',
-    SOL: 'Solana',
-    DOGE: 'Dogecoin',
-    TRX: 'Tron',
-    AVAX: 'Avalanche',
-    HYPE: 'Hyperliquid'
-  }
-}
+const displayTotalPL = computed(() =>
+  createPLDisplay(totalPL.value))
+
+const displayTotalValueChange = computed(() =>
+  createChangeDisplay(cryptoValueChange24h.value))
 
 const getTradeTypeText = (type) => {
   const map = {
@@ -1214,64 +1167,9 @@ const quickBuy = async (crypto) => {
   })
 }
 
-const getAssetName = (symbol) => {
-  return ASSET_CONFIG.NAMES[symbol] || symbol
-}
+// 使用导入的工具函数
+const formatDate = formatDateTime
 
-const getAssetColor = (symbol) => {
-  return ASSET_CONFIG.COLORS[symbol] || '#667eea'
-}
-
-const getAssetIcon = (symbol) => {
-  return ASSET_CONFIG.ICONS[symbol] || symbol.charAt(0)
-}
-
-const formatAmount = (amount) => {
-  if (!amount && amount !== 0) return '0.0000'
-  return amount.toLocaleString('en-US', {
-    minimumFractionDigits: 4,
-    maximumFractionDigits: 4
-  })
-}
-
-// 格式化大金额为缩写形式（用于饼图中心显示）
-const formatCompactAmount = (amount) => {
-  if (!amount && amount !== 0) return '$0'
-  const absAmount = Math.abs(amount)
-  if (absAmount >= 1e9) {
-    return '$' + (amount / 1e9).toFixed(2) + 'B'
-  } else if (absAmount >= 1e6) {
-    return '$' + (amount / 1e6).toFixed(2) + 'M'
-  } else if (absAmount >= 1e3) {
-    return '$' + (amount / 1e3).toFixed(2) + 'K'
-  }
-  return '$' + amount.toFixed(2)
-}
-
-// 缓存日期格式化器，避免重复创建
-const dateFormatter = new Intl.DateTimeFormat('zh-CN', {
-  year: 'numeric',
-  month: '2-digit',
-  day: '2-digit',
-  hour: '2-digit',
-  minute: '2-digit',
-  second: '2-digit'
-})
-
-const formatDate = (timestamp) => {
-  if (!timestamp) return '-'
-  const date = new Date(timestamp)
-  return dateFormatter.format(date)
-}
-
-const getChangeClass = (change) => {
-  if (change > 0) return 'positive'
-  if (change < 0) return 'negative'
-  return ''
-}
-
-// 防抖计时器
-let refreshDebounceTimer = null
 const REFRESH_DEBOUNCE_MS = 5000 // 5秒内禁止重复刷新
 
 const refreshPrices = async () => {
@@ -1392,7 +1290,7 @@ const portfolioAllocation = computed(() => {
         name: portfolioItem.symbol,
         rawPercentage: (marketValue / total) * 100,
         value: marketValue,
-        color: ASSET_CONFIG.COLORS[portfolioItem.symbol]
+        color: getAssetColor(portfolioItem.symbol)
       })
     }
   })
