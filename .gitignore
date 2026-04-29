@@ -19,6 +19,12 @@ config.yml
 *.config.yaml
 *.config.yml
 
+# SQLite 数据库文件
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
 # OS
 .DS_Store
 Thumbs.db

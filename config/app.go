@@ -100,15 +100,15 @@ func InitConfig() *Config {
 
 // setDefaults 设置默认值
 func setDefaults(v *viper.Viper) {
-	// 数据库默认值
-	v.SetDefault("database.type", "mysql")
-	v.SetDefault("database.host", "172.23.112.1")
-	v.SetDefault("database.port", 3306)
-	v.SetDefault("database.user", "admin")
-	v.SetDefault("database.password", "ctsi@Passw0rd")
-	v.SetDefault("database.name", "insight_onchain")
-	v.SetDefault("database.charset", "utf8mb4")
-	v.SetDefault("database.ssl_mode", "disable")
+	// 数据库默认值 - 默认使用 SQLite
+	v.SetDefault("database.type", "sqlite")
+	v.SetDefault("database.host", "")
+	v.SetDefault("database.port", 0)
+	v.SetDefault("database.user", "")
+	v.SetDefault("database.password", "")
+	v.SetDefault("database.name", "fx.db")
+	v.SetDefault("database.charset", "")
+	v.SetDefault("database.ssl_mode", "")
 	v.SetDefault("database.log_level", "")
 
 	// 连接池默认值
