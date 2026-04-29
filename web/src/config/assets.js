@@ -1,28 +1,67 @@
-// 资产配置 - 颜色与各币种官方主题色保持一致
-// 参考来源：各币种官方品牌指南
-export const ASSET_CONFIG = {
+// 资产配置 - 支持多资产类型（加密货币、A股、美股、港股）
+// 参考来源：各币种/股票官方品牌指南
+
+// 资产类型定义
+export const ASSET_TYPES = {
+  CRYPTO: {
+    id: 'crypto',
+    name: '加密货币',
+    currency: 'USDT',
+    currencyName: '泰达币',
+    currencyIcon: 'cryptocurrency-color:usdt',
+    priceApi: 'coincap',
+    defaultColor: '#26A17B'
+  },
+  A_STOCK: {
+    id: 'a_stock',
+    name: 'A股',
+    currency: 'CNY',
+    currencyName: '人民币',
+    currencyIcon: 'mdi:currency-cny',
+    priceApi: 'tushare',
+    defaultColor: '#E60012'
+  },
+  US_STOCK: {
+    id: 'us_stock',
+    name: '美股',
+    currency: 'USD',
+    currencyName: '美元',
+    currencyIcon: 'mdi:currency-usd',
+    priceApi: 'alphavantage',
+    defaultColor: '#1E88E5'
+  },
+  HK_STOCK: {
+    id: 'hk_stock',
+    name: '港股',
+    currency: 'HKD',
+    currencyName: '港币',
+    currencyIcon: 'mdi:currency-hkd',
+    priceApi: 'tushare',
+    defaultColor: '#8E24AA'
+  }
+}
+
+// 货币汇率基准（以USD为基准）
+export const CURRENCY_RATES = {
+  USD: 1,
+  USDT: 1,  // 稳定币近似等于USD
+  CNY: 0.14,  // 1 CNY ≈ 0.14 USD (汇率会实时更新)
+  HKD: 0.128  // 1 HKD ≈ 0.128 USD
+}
+
+// 加密货币配置
+export const CRYPTO_CONFIG = {
   COLORS: {
-    // Tether - 官方绿色 #26A17B
     USDT: '#26A17B',
-    // Bitcoin - 官方橙色 #F7931A
     BTC: '#F7931A',
-    // Ethereum - 官方紫蓝色 #627EEA
     ETH: '#627EEA',
-    // Binance - 官方金黄色 #F3BA2F
     BNB: '#F3BA2F',
-    // XRP/Ripple - 官方蓝色 #00A5DF (企业蓝)
     XRP: '#00A5DF',
-    // Cardano - 官方深蓝色 #0033AD
     ADA: '#0033AD',
-    // Solana - 官方紫色 #9945FF (主要品牌色)
     SOL: '#9945FF',
-    // Dogecoin - 官方金色 #C2A633
     DOGE: '#C2A633',
-    // TRON - 官方红色 #EB0029
     TRX: '#EB0029',
-    // Avalanche - 官方红色 #E84142 (品牌主色)
     AVAX: '#E84142',
-    // Hyperliquid - 官方青色/蓝绿色 #89F0E6
     HYPE: '#89F0E6'
   },
   ICONS: {
@@ -53,14 +92,182 @@ export const ASSET_CONFIG = {
   }
 }
 
-// 支持的加密货币列表
-export const AVAILABLE_SYMBOLS = ['BTC', 'ETH', 'BNB', 'XRP', 'ADA', 'SOL', 'DOGE', 'TRX', 'AVAX', 'HYPE']
+// A股配置（示例股票）
+export const ASTOCK_CONFIG = {
+  COLORS: {
+    '600519': '#E60012',  // 茅台
+    '000858': '#FF6B00',  // 五粮液
+    '000333': '#0066CC',  // 美的
+    '002415': '#00A86B',  // 海康威视
+    '300750': '#FF1744',  // 宁德时代
+    '601318': '#9C27B0',  // 中国平安
+    '600036': '#3F51B5',  // 招商银行
+    '000002': '#795548'   // 万科
+  },
+  ICONS: {
+    '600519': 'mdi:glass-wine',
+    '000858': 'mdi:glass-mug',
+    '000333': 'mdi:air-conditioner',
+    '002415': 'mdi:cctv',
+    '300750': 'mdi:battery-charging',
+    '601318': 'mdi:shield-check',
+    '600036': 'mdi:bank',
+    '000002': 'mdi:home-city'
+  },
+  NAMES: {
+    '600519': '贵州茅台',
+    '000858': '五粮液',
+    '000333': '美的集团',
+    '002415': '海康威视',
+    '300750': '宁德时代',
+    '601318': '中国平安',
+    '600036': '招商银行',
+    '000002': '万科A'
+  }
+}
 
-// 获取资产颜色
-export const getAssetColor = (symbol) => ASSET_CONFIG.COLORS[symbol] || '#667eea'
+// 美股配置（示例股票）
+export const USSTOCK_CONFIG = {
+  COLORS: {
+    'AAPL': '#555555',  // 苹果
+    'MSFT': '#00A4EF',  // 微软
+    'GOOGL': '#4285F4', // 谷歌
+    'AMZN': '#FF9900',  // 亚马逊
+    'TSLA': '#CC0000',  // 特斯拉
+    'META': '#0081FB',  // Meta
+    'NVDA': '#76B900',  // 英伟达
+    'BABA': '#FF6A00'   // 阿里
+  },
+  ICONS: {
+    'AAPL': 'mdi:apple',
+    'MSFT': 'mdi:microsoft-windows',
+    'GOOGL': 'mdi:google',
+    'AMZN': 'mdi:amazon',
+    'TSLA': 'mdi:car-electric',
+    'META': 'mdi:facebook',
+    'NVDA': 'mdi:gpu',
+    'BABA': 'mdi:shopping'
+  },
+  NAMES: {
+    'AAPL': 'Apple',
+    'MSFT': 'Microsoft',
+    'GOOGL': 'Alphabet',
+    'AMZN': 'Amazon',
+    'TSLA': 'Tesla',
+    'META': 'Meta',
+    'NVDA': 'NVIDIA',
+    'BABA': 'Alibaba'
+  }
+}
 
-// 获取资产图标
-export const getAssetIcon = (symbol) => ASSET_CONFIG.ICONS[symbol] || 'mdi:currency-usd'
+// 港股配置（示例股票）
+export const HKSTOCK_CONFIG = {
+  COLORS: {
+    '0700': '#00A1E0',  // 腾讯
+    '3690': '#FFD100',  // 美团
+    '9988': '#FF6A00',  // 阿里健康
+    '2318': '#9C27B0',  // 平安
+    '0005': '#E60012'   // 汇丰
+  },
+  ICONS: {
+    '0700': 'mdi:message-text',
+    '3690': 'mdi:food-delivery',
+    '9988': 'mdi:hospital-box',
+    '2318': 'mdi:shield-check',
+    '0005': 'mdi:bank'
+  },
+  NAMES: {
+    '0700': '腾讯控股',
+    '3690': '美团',
+    '9988': '阿里健康',
+    '2318': '中国平安',
+    '0005': '汇丰控股'
+  }
+}
 
-// 获取资产名称
-export const getAssetName = (symbol) => ASSET_CONFIG.NAMES[symbol] || symbol
+// 支持的资产列表
+export const AVAILABLE_ASSETS = {
+  CRYPTO: ['BTC', 'ETH', 'BNB', 'XRP', 'ADA', 'SOL', 'DOGE', 'TRX', 'AVAX', 'HYPE'],
+  A_STOCK: ['600519', '000858', '000333', '002415', '300750', '601318', '600036', '000002'],
+  US_STOCK: ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'META', 'NVDA', 'BABA'],
+  HK_STOCK: ['0700', '3690', '9988', '2318', '0005']
+}
+
+// 向后兼容：默认导出加密货币列表
+export const AVAILABLE_SYMBOLS = AVAILABLE_ASSETS.CRYPTO
+
+// 获取资产类型配置
+export const getAssetTypeConfig = (assetType) => {
+  return ASSET_TYPES[assetType?.toUpperCase()] || ASSET_TYPES.CRYPTO
+}
+
+// 获取资产配置（根据资产类型和代码）
+export const getAssetConfig = (assetType, symbol) => {
+  switch (assetType) {
+    case 'a_stock':
+      return {
+        color: ASTOCK_CONFIG.COLORS[symbol] || '#E60012',
+        icon: ASTOCK_CONFIG.ICONS[symbol] || 'mdi:chart-line',
+        name: ASTOCK_CONFIG.NAMES[symbol] || symbol
+      }
+    case 'us_stock':
+      return {
+        color: USSTOCK_CONFIG.COLORS[symbol] || '#1E88E5',
+        icon: USSTOCK_CONFIG.ICONS[symbol] || 'mdi:chart-line',
+        name: USSTOCK_CONFIG.NAMES[symbol] || symbol
+      }
+    case 'hk_stock':
+      return {
+        color: HKSTOCK_CONFIG.COLORS[symbol] || '#8E24AA',
+        icon: HKSTOCK_CONFIG.ICONS[symbol] || 'mdi:chart-line',
+        name: HKSTOCK_CONFIG.NAMES[symbol] || symbol
+      }
+    case 'crypto':
+    default:
+      return {
+        color: CRYPTO_CONFIG.COLORS[symbol] || '#667eea',
+        icon: CRYPTO_CONFIG.ICONS[symbol] || 'mdi:currency-usd',
+        name: CRYPTO_CONFIG.NAMES[symbol] || symbol
+      }
+  }
+}
+
+// 获取资产颜色（向后兼容：如果只传一个参数，默认为加密货币）
+export const getAssetColor = (assetTypeOrSymbol, symbol) => {
+  const assetType = symbol ? assetTypeOrSymbol : 'crypto'
+  const sym = symbol || assetTypeOrSymbol
+  return getAssetConfig(assetType, sym).color
+}
+
+// 获取资产图标（向后兼容：如果只传一个参数，默认为加密货币）
+export const getAssetIcon = (assetTypeOrSymbol, symbol) => {
+  const assetType = symbol ? assetTypeOrSymbol : 'crypto'
+  const sym = symbol || assetTypeOrSymbol
+  return getAssetConfig(assetType, sym).icon
+}
+
+// 获取资产名称（向后兼容：如果只传一个参数，默认为加密货币）
+export const getAssetName = (assetTypeOrSymbol, symbol) => {
+  const assetType = symbol ? assetTypeOrSymbol : 'crypto'
+  const sym = symbol || assetTypeOrSymbol
+  return getAssetConfig(assetType, sym).name
+}
+
+// 货币换算（统一到目标货币）
+export const convertCurrency = (amount, fromCurrency, toCurrency = 'USD', rates = CURRENCY_RATES) => {
+  if (fromCurrency === toCurrency) return amount
+  const fromRate = rates[fromCurrency] || 1
+  const toRate = rates[toCurrency] || 1
+  return amount * (fromRate / toRate)
+}
+
+// 获取货币符号
+export const getCurrencySymbol = (currency) => {
+  const symbols = {
+    USD: '$',
+    USDT: '$',
+    CNY: '¥',
+    HKD: 'HK$'
+  }
+  return symbols[currency] || '$'
+}
