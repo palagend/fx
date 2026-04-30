@@ -7,12 +7,16 @@ const STORAGE_KEYS = {
   TRADES: 'portfolio_trades',
   PRICES: 'portfolio_prices',
   PRICE_CHANGES: 'portfolio_price_changes',
+  US_STOCK_PRICES: 'us_stock_prices',
   PRICE_UPDATED_AT: 'portfolio_price_updated_at'
 }
 
 // CoinCap API 配置
 const COINCAP_API_KEY = 'b617d9cf029dbb40f02b058a0e74919176b768cf36fd1ea6fae55a13a1610f41'
 const COINCAP_BASE_URL = 'https://rest.coincap.io/v3'
+
+// 腾讯财经API配置（股票价格）
+const TENCENT_STOCK_URL = 'https://qt.gtimg.cn'
 
 // 支持的加密货币列表（不含USDT）
 const supportedCryptos = {
@@ -26,6 +30,21 @@ const supportedCryptos = {
   'TRX': true,
   'AVAX': true,
   'HYPE': true
+}
+
+// 支持的美股列表
+const supportedUSStocks = {
+  'AAPL': true,
+  'MSFT': true,
+  'GOOG': true,
+  'AMZN': true,
+  'TSLA': true,
+  'META': true,
+  'NVDA': true,
+  'BABA': true,
+  'ORCL': true,
+  'CRCL': true,
+  'MSTR': true
 }
 
 // CoinCap ID 映射
@@ -116,9 +135,9 @@ function validateTradeRequest(req) {
       if (req.symbol === 'USDT') {
         throw new Error('不能直接买卖USDT，请使用充值功能')
       }
-      // 检查是否是支持的加密货币
-      if (!supportedCryptos[req.symbol]) {
-        throw new Error(`不支持的加密货币: ${req.symbol}`)
+      // 检查是否是支持的加密货币或股票
+      if (!supportedCryptos[req.symbol] && !supportedUSStocks[req.symbol]) {
+        throw new Error(`不支持的资产: ${req.symbol}`)
       }
       break
   }
@@ -146,8 +165,8 @@ function validateImportTrade(trade) {
   }
 
   // 币种有效性
-  if (trade.symbol !== 'USDT' && !supportedCryptos[trade.symbol]) {
-    return `不支持的币种: ${trade.symbol}`
+  if (trade.symbol !== 'USDT' && !supportedCryptos[trade.symbol] && !supportedUSStocks[trade.symbol]) {
+    return `不支持的资产: ${trade.symbol}`
   }
 
   // 数值有效性
@@ -254,7 +273,7 @@ function recalcUSDT(trades) {
 // ========== 投资组合统计计算 ==========
 
 // 计算投资组合统计（参考 calculatePortfolioStats）
-function calculatePortfolioStats(holdings, prices, priceChanges, trades) {
+function calculatePortfolioStats(holdings, prices, priceChanges, trades, usStockPrices = {}) {
   const portfolio = []
   let totalValue = 0
   let totalAssetsValue = 0
@@ -264,6 +283,7 @@ function calculatePortfolioStats(holdings, prices, priceChanges, trades) {
   let weightedChange = 0
   let totalRealizedPL = 0
   let totalHistoricalCost = 0
+  let usStockValue = 0
 
   // 按时间顺序遍历交易，计算各币种的成本和实现盈亏
   const assetData = {}
@@ -368,6 +388,12 @@ function calculatePortfolioStats(holdings, prices, priceChanges, trades) {
     totalCost += cost
     weightedChange += marketValue * (priceChanges[symbol] || 0)
 
+    // 区分加密货币和美股
+    const isUSStock = usStockPrices[symbol] !== undefined
+    if (isUSStock) {
+      usStockValue += marketValue
+    }
+
     // 计算实现盈亏率
     const realizedPLRate = d.totalIn !== 0 ? (realizedPL / d.totalIn) * 100 : 0
 
@@ -392,6 +418,7 @@ function calculatePortfolioStats(holdings, prices, priceChanges, trades) {
   return {
     portfolio,
     totalValue,
+    usStockValue,
     totalAssetsValue,
     usdtBalance,
     totalUnrealizedPL,
@@ -447,18 +474,8 @@ async function fetchPrices() {
   }
 }
 
-// 获取单个资产价格（参考 GetAssetPrice）
-async function fetchAssetPrice(symbol) {
-  // 校验symbol参数
-  if (!symbol) {
-    throw new Error('币种代码不能为空')
-  }
-
-  // 检查是否是USDT或支持的加密货币
-  if (symbol !== 'USDT' && !supportedCryptos[symbol]) {
-    throw new Error('不支持的加密货币')
-  }
-
+// 获取单个加密货币价格
+async function fetchCryptoPrice(symbol) {
   if (symbol === 'USDT') {
     return { price: 1.0, updated_at: Date.now() }
   }
@@ -481,9 +498,95 @@ async function fetchAssetPrice(symbol) {
     throw new Error('价格数据为空')
   } catch (error) {
     console.error(`获取 ${symbol} 价格失败:`, error)
-    // 返回缓存的价格
     const cachedPrices = getStorageData(STORAGE_KEYS.PRICES, {})
     return { price: cachedPrices[symbol] || 0, updated_at: Date.now() }
+  }
+}
+
+// 获取单个美股价格（从腾讯财经API）
+async function fetchUSStockPrice(symbol) {
+  const url = `${TENCENT_STOCK_URL}/q=us${symbol}`
+
+  try {
+    const response = await axios.get(url, {
+      timeout: 10000
+    })
+
+    const text = response.data
+    if (!text || !text.includes('v_us')) {
+      throw new Error('股票价格数据为空')
+    }
+
+    const pattern = new RegExp(`v_us${symbol}="([^"]+)"`, 'i')
+    const match = text.match(pattern)
+    if (match && match[1]) {
+      const data = match[1].split('~')
+      if (data.length > 4) {
+        const price = parseFloat(data[3]) || 0
+        return { price, updated_at: Date.now() }
+      }
+    }
+
+    throw new Error('解析股票价格失败')
+  } catch (error) {
+    console.error(`获取 ${symbol} 股票价格失败:`, error)
+    const cachedPrices = getStorageData(STORAGE_KEYS.US_STOCK_PRICES, {})
+    return { price: cachedPrices[symbol] || 0, updated_at: Date.now() }
+  }
+}
+
+// 批量获取美股价格（从腾讯财经API）
+async function fetchUSStockPricesBatch() {
+  const symbols = Object.keys(supportedUSStocks)
+  const stockCodes = symbols.map(s => `us${s}`).join(',')
+  const url = `${TENCENT_STOCK_URL}/q=${stockCodes}`
+
+  try {
+    const response = await axios.get(url, {
+      timeout: 10000
+    })
+
+    const text = response.data
+    const prices = {}
+
+    symbols.forEach(symbol => {
+      const pattern = new RegExp(`v_us${symbol}="([^"]+)"`, 'i')
+      const match = text.match(pattern)
+      if (match && match[1]) {
+        const data = match[1].split('~')
+        if (data.length > 4) {
+          prices[symbol] = parseFloat(data[3]) || 0
+        }
+      }
+    })
+
+    setStorageData(STORAGE_KEYS.US_STOCK_PRICES, prices)
+    return prices
+  } catch (error) {
+    console.error('批量获取美股价格失败:', error)
+    return getStorageData(STORAGE_KEYS.US_STOCK_PRICES, {})
+  }
+}
+
+// 获取单个资产价格（参考 GetAssetPrice）
+async function fetchAssetPrice(symbol, assetType = 'crypto') {
+  if (!symbol) {
+    throw new Error('币种代码不能为空')
+  }
+
+  switch (assetType) {
+    case 'crypto':
+      if (symbol !== 'USDT' && !supportedCryptos[symbol]) {
+        throw new Error('不支持的加密货币')
+      }
+      return fetchCryptoPrice(symbol)
+    case 'us_stock':
+      if (!supportedUSStocks[symbol]) {
+        throw new Error('不支持的美股')
+      }
+      return fetchUSStockPrice(symbol)
+    default:
+      throw new Error(`不支持的资产类型: ${assetType}`)
   }
 }
 
@@ -500,21 +603,31 @@ export const localPortfolioApi = {
   async getDashboard() {
     const trades = getStorageData(STORAGE_KEYS.TRADES)
 
-    // 获取价格数据
-    const { prices, priceChanges, updatedAt } = await fetchPrices()
+    // 并行获取加密货币和美股价格数据
+    const [cryptoResult, usStockPrices] = await Promise.all([
+      fetchPrices(),
+      fetchUSStockPricesBatch()
+    ])
+
+    const { prices, priceChanges, updatedAt } = cryptoResult
+
+    // 合并价格数据
+    const allPrices = { ...prices, ...usStockPrices }
 
     // 重新计算所有持仓
     const holdings = recalcAllHoldings(trades)
 
     // 计算统计数据
-    const stats = calculatePortfolioStats(holdings, prices, priceChanges, trades)
+    const stats = calculatePortfolioStats(holdings, allPrices, priceChanges, trades, usStockPrices)
 
     return mockResponse({
       prices: prices,
+      us_stock_prices: usStockPrices,
       price_changes: priceChanges,
       updated_at: new Date(updatedAt).toISOString(),
       portfolio: stats.portfolio,
       crypto_value: stats.totalValue,
+      us_stock_value: stats.usStockValue,
       total_assets_value: stats.totalAssetsValue,
       usdt_balance: stats.usdtBalance,
       unrealized_profit_loss: stats.totalUnrealizedPL,
@@ -635,8 +748,8 @@ export const localPortfolioApi = {
   },
 
   // 获取资产价格（参考 GetAssetPrice）
-  async getAssetPrice(symbol) {
-    const result = await fetchAssetPrice(symbol)
+  async getAssetPrice(symbol, assetType = 'crypto') {
+    const result = await fetchAssetPrice(symbol, assetType)
     return mockResponse({
       symbol: symbol,
       price: result.price,
