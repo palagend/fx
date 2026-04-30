@@ -60,6 +60,19 @@
           <Icon icon="fa7-solid:arrow-right" />
         </div>
       </router-link>
+
+      <router-link to="/password-generator" class="tool-card">
+        <div class="tool-icon">
+          <Icon icon="fa7-solid:key" />
+        </div>
+        <div class="tool-title">密码生成器</div>
+        <div class="tool-description">
+          生成安全强密码，支持自定义长度和字符类型
+        </div>
+        <div class="tool-arrow">
+          <Icon icon="fa7-solid:arrow-right" />
+        </div>
+      </router-link>
     </div>
   </div>
 </template>

@@ -34,6 +34,18 @@
               <span>二维码生成器</span>
             </router-link>
           </li>
+          <li class="nav-item">
+            <router-link to="/password-generator" class="nav-link" @click="closeMenu">
+              <Icon icon="fa7-solid:key" />
+              <span>密码生成器</span>
+            </router-link>
+          </li>
+          <li class="nav-item">
+            <router-link to="/password-manager" class="nav-link" @click="closeMenu">
+              <Icon icon="fa7-solid:lock" />
+              <span>密码管理器</span>
+            </router-link>
+          </li>
         </ul>
         <div class="nav-toggle" @click="toggleMenu">
           <span class="hamburger"></span>
