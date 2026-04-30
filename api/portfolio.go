@@ -629,8 +629,8 @@ func getUSStockPrice(c *gin.Context, symbol string) {
 		return
 	}
 
-	client := utils.NewTushareClient()
-	price, err := client.GetUSStockPrice(utils.SymbolToTSCode(symbol))
+	client := utils.GetITickClient()
+	price, err := client.GetUSStockPrice(symbol)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -762,14 +762,21 @@ func fetchCryptoPrices() (map[string]float64, map[string]float64, int64) {
 	return prices, priceChanges, updatedAt
 }
 
-// fetchUSStockPrices 获取美股价格
+// fetchUSStockPrices 获取美股价格（使用iTick API）
 func fetchUSStockPrices() map[string]float64 {
 	prices := make(map[string]float64)
-	client := utils.NewTushareClient()
+	client := utils.GetITickClient()
 
+	// 构建股票代码列表
+	symbols := make([]string, 0, len(supportedUSStocks))
 	for symbol := range supportedUSStocks {
-		price, err := client.GetUSStockPrice(utils.SymbolToTSCode(symbol))
-		if err == nil {
+		symbols = append(symbols, symbol)
+	}
+
+	// 使用批量获取方法（带缓存）
+	results := client.GetUSStockPricesBatch(symbols)
+	for symbol, price := range results {
+		if price != nil {
 			prices[symbol] = price.Close
 		}
 	}

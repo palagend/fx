@@ -12,7 +12,7 @@ database:
   port: 3306
   user: "admin"
   password: "ctsi@Passw0rd"
-  name: "insight_onchain"
+  name: "fx"
   charset: "utf8mb4"  # 仅MySQL有效
   ssl_mode: "disable" # 仅PostgreSQL有效 (disable, require, verify-ca, verify-full)
 
@@ -33,7 +33,7 @@ database:
 # API Keys
 api:
   coincap_key: "b617d9cf029dbb40f02b058a0e74919176b768cf36fd1ea6fae55a13a1610f41"  # CoinCap API Key，用于获取加密货币价格
-  tushare_key: "971814b300986732ce339c9572864f52911cb1642dfceb2e8990f535"  # Tushare API Token，用于获取美股价格
+  itick_key: "8bdaa820464b41b8ab2a1c90997ba8738cb52c930a7745bf9233534bc86bce79"  # iTick API Key，用于获取美股价格
 
 # 服务器配置
 server:

@@ -29,8 +29,8 @@ type Config struct {
 
 // APIConfig API相关配置
 type APIConfig struct {
-	CoinCapKey  string `mapstructure:"coincap_key"`
-	TushareKey  string `mapstructure:"tushare_key"`
+	CoinCapKey string `mapstructure:"coincap_key"`
+	ITickKey   string `mapstructure:"itick_key"`
 }
 
 // ServerConfig 服务器配置
