@@ -27,8 +27,8 @@ export const backendPortfolioApi = {
   },
 
   // 获取单个资产价格（用于交易时获取最新价）
-  getAssetPrice(symbol) {
-    return apiClient.get(`/prices/${symbol}`)
+  getAssetPrice(symbol, assetType = 'crypto') {
+    return apiClient.get(`/prices/${symbol}?asset_type=${assetType}`)
   },
 
   // 导出数据

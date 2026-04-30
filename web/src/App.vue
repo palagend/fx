@@ -23,9 +23,9 @@
             </router-link>
           </li>
           <li class="nav-item">
-            <router-link to="/crypto-portfolio" class="nav-link" @click="closeMenu">
+            <router-link to="/portfolio" class="nav-link" @click="closeMenu">
               <Icon icon="fa7-solid:wallet" />
-              <span>加密资产组合</span>
+              <span>资产组合</span>
             </router-link>
           </li>
           <li class="nav-item">

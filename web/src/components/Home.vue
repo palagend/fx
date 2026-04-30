@@ -35,13 +35,13 @@
         </div>
       </router-link>
 
-      <router-link to="/crypto-portfolio" class="tool-card">
+      <router-link to="/portfolio" class="tool-card">
         <div class="tool-icon">
           <Icon icon="fa7-solid:wallet" />
         </div>
-        <div class="tool-title">加密货币追踪</div>
+        <div class="tool-title">资产组合管理</div>
         <div class="tool-description">
-          实时追踪加密货币投资组合，查看盈亏情况
+          统一管理全资产投资组合，查看盈亏情况
         </div>
         <div class="tool-arrow">
           <Icon icon="fa7-solid:arrow-right" />

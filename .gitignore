@@ -31,3 +31,5 @@ Thumbs.db
 
 *.exe
 fx
+fx-server
+*.log

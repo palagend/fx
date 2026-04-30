@@ -1,5 +1,5 @@
 <template>
-  <div class="crypto-container">
+  <div class="portfolio-container">
     <div class="container">
       <div class="dashboard">
         <!-- 运行模式标识 -->
@@ -13,7 +13,7 @@
             <div class="prompt-content">
               <Icon icon="mdi:lock" class="prompt-icon" />
               <h3>请先登录</h3>
-              <p>登录后可查看和管理您的加密资产组合</p>
+              <p>登录后可查看和管理您的资产组合</p>
               <button class="btn-login" @click="userStore.openLoginModal">
                 <Icon icon="mdi:login" /> 立即登录
               </button>
@@ -21,18 +21,39 @@
           </section>
 
           <template v-else>
+            <!-- 本位切换器 -->
+            <div class="value-mode-switcher">
+              <span class="mode-label">计价本位:</span>
+              <button
+                class="mode-btn"
+                :class="{ active: valueMode === 'usd' }"
+                @click="valueMode = 'usd'"
+              >
+                <Icon icon="mdi:currency-usd" /> USD
+              </button>
+              <button
+                class="mode-btn"
+                :class="{ active: valueMode === 'btc' }"
+                @click="valueMode = 'btc'"
+              >
+                <Icon icon="mdi:bitcoin" /> BTC
+              </button>
+            </div>
+
             <section class="overview">
-              <div class="overview-card">
-                <h3><Icon icon="mdi:wallet" /> 加密资产价值</h3>
-                <div class="value">{{ formatCompactAmount(cryptoAssetsValue) }}</div>
-                <div class="change" :class="displayTotalValueChange.class">
-                  {{ displayTotalValueChange.sign }}{{ displayTotalValueChange.value }}% (24h)
+              <div class="overview-card total-card">
+                <h3><Icon icon="mdi:wallet" /> 总资产</h3>
+                <div class="value">{{ formatValue(totalAssetsValue) }}</div>
+                <div class="sub-value">
+                  加密: {{ formatValue(cryptoAssetsValue) }} |
+                  美股: {{ formatValue(usStockValue) }} |
+                  现金: {{ formatValue(cashBalance) }}
                 </div>
               </div>
               <div class="overview-card">
                 <h3><Icon icon="mdi:trending-up" /> 浮动盈亏</h3>
                 <div class="value" :class="displayUnrealizedPL.class">
-                  {{ displayUnrealizedPL.sign }}${{ displayUnrealizedPL.value }}
+                  {{ displayUnrealizedPL.sign }}{{ formatValue(Math.abs(unrealizedPL)) }}
                 </div>
                 <div class="change" :class="displayUnrealizedPL.class">
                   {{ displayUnrealizedPL.rate }}
@@ -41,7 +62,7 @@
               <div class="overview-card">
                 <h3><Icon icon="mdi:cash-multiple" /> 实现盈亏</h3>
                 <div class="value" :class="displayRealizedPL.class">
-                  {{ displayRealizedPL.sign }}${{ displayRealizedPL.value }}
+                  {{ displayRealizedPL.sign }}{{ formatValue(Math.abs(realizedPL)) }}
                 </div>
                 <div class="change" :class="displayRealizedPL.class">
                   {{ displayRealizedPL.rate }}
@@ -50,15 +71,15 @@
               <div class="overview-card">
                 <h3><Icon icon="mdi:sigma" /> 总盈亏</h3>
                 <div class="value" :class="displayTotalPL.class">
-                  {{ displayTotalPL.sign }}${{ displayTotalPL.value }}
+                  {{ displayTotalPL.sign }}{{ formatValue(Math.abs(totalPL)) }}
                 </div>
                 <div class="change" :class="displayTotalPL.class">
                   浮动 + 实现
                 </div>
               </div>
-              <div class="overview-card usdt-card">
-                <h3><Icon icon="mdi:cash-usd" /> USDT余额</h3>
-                <div class="value">{{ formatCompactAmount(cashBalance) }}</div>
+              <div class="overview-card cash-card">
+                <h3><Icon icon="mdi:cash-usd" /> USD现金</h3>
+                <div class="value">{{ formatValue(cashBalance) }}</div>
                 <button class="btn-recharge" @click="showRechargeModal = true">
                   <Icon icon="mdi:plus" /> 充值
                 </button>
@@ -112,7 +133,7 @@
                       />
                     </div>
                     <div class="pie-center">
-                      <span class="total-value">{{ formatCompactAmount(totalNetWorth) }}</span>
+                      <span class="total-value">{{ formatValue(totalAssetsValue) }}</span>
                       <span class="total-label">总资产</span>
                     </div>
                   </div>
@@ -130,7 +151,7 @@
                     <div class="legend-color" :style="{ backgroundColor: item.color }"></div>
                     <div class="legend-info">
                       <span class="legend-name">{{ item.name }}</span>
-                      <span class="legend-value">{{ formatCompactAmount(item.value) }}</span>
+                      <span class="legend-value">{{ formatValue(item.value) }}</span>
                       <span class="legend-percent">{{ item.percentage }}%</span>
                     </div>
                   </div>
@@ -161,20 +182,39 @@
                     </div>
                   </div>
 
+                  <!-- 资产类型选择 -->
+                  <div class="asset-type-selector">
+                    <label class="field-label">资产类型</label>
+                    <div class="asset-type-tabs">
+                      <button 
+                        :class="['type-tab', { active: currentAssetType === 'crypto' }]" 
+                        @click="switchAssetType('crypto')"
+                      >
+                        <Icon icon="cryptocurrency:btc" /> 加密货币
+                      </button>
+                      <button 
+                        :class="['type-tab', { active: currentAssetType === 'us_stock' }]" 
+                        @click="switchAssetType('us_stock')"
+                      >
+                        <Icon icon="mdi:chart-line" /> 美股
+                      </button>
+                    </div>
+                  </div>
+
                   <!-- 币种选择网格 -->
                   <div class="asset-selector">
                     <label class="field-label">选择资产</label>
                     <div class="asset-grid">
                       <button
-                        v-for="symbol in availableSymbols"
+                        v-for="symbol in currentAvailableSymbols"
                         :key="symbol"
                         :class="['asset-btn', { active: newTrade.symbol === symbol }]"
                         @click="selectSymbol(symbol)"
                       >
-                        <Icon :icon="getAssetIcon(symbol)" :style="{ color: getAssetColor(symbol) }" />
+                        <Icon :icon="getAssetIcon(currentAssetType, symbol)" :style="{ color: getAssetColor(currentAssetType, symbol) }" />
                         <span class="asset-code">{{ symbol }}</span>
-                        <span class="asset-price" v-if="portfolioStore.prices[symbol]">
-                          ${{ formatAmount(portfolioStore.prices[symbol]) }}
+                        <span class="asset-price" v-if="getCurrentPrice(symbol)">
+                          {{ getCurrencySymbol() }}{{ formatAmount(getCurrentPrice(symbol)) }}
                         </span>
                       </button>
                     </div>
@@ -364,9 +404,9 @@
                     >
                       <td>
                         <div class="asset-info">
-                          <Icon width="32" height="32" :icon="getAssetIcon(crypto.symbol)" :style="{ color: getAssetColor(crypto.symbol) }" />
+                          <Icon width="32" height="32" :icon="getAssetIcon(crypto.asset_type, crypto.symbol)" :style="{ color: getAssetColor(crypto.asset_type, crypto.symbol) }" />
                           <div>
-                            <div class="asset-name">{{ getAssetName(crypto.symbol) }}</div>
+                            <div class="asset-name">{{ getAssetName(crypto.asset_type, crypto.symbol) }}</div>
                             <div class="asset-symbol">{{ crypto.symbol }}</div>
                           </div>
                         </div>
@@ -388,32 +428,32 @@
                         </template>
                       </td>
                       <td class="asset-price">${{ formatAmount(crypto.current_price) }}</td>
-                      <td class="asset-value">${{ formatAmount(crypto.market_value) }}</td>
+                      <td class="asset-value">{{ formatValue(crypto.market_value) }}</td>
                       <td class="asset-profit" :class="getProfitClass(crypto)">
                         <!-- avg_cost > 0: 正常情况 -->
                         <template v-if="crypto.avg_cost > 0">
                           <div class="profit-value">
-                            {{ (crypto.amount * (crypto.current_price - crypto.avg_cost)) >= 0 ? '+' : '-' }}${{ formatAmount(Math.abs(crypto.amount * (crypto.current_price - crypto.avg_cost))) }}
+                            {{ (crypto.amount * (crypto.current_price - crypto.avg_cost)) >= 0 ? '+' : '-' }}{{ formatValue(Math.abs(crypto.amount * (crypto.current_price - crypto.avg_cost))) }}
                           </div>
                           <div class="profit-rate" v-if="crypto.symbol !== 'USDT'">
                             {{ ((crypto.current_price - crypto.avg_cost) / crypto.avg_cost * 100) >= 0 ? '+' : '-' }}{{ Math.abs((crypto.current_price - crypto.avg_cost) / crypto.avg_cost * 100).toFixed(2) }}%
                           </div>
                         </template>
-                        
+
                         <!-- avg_cost = 0: 投资全部收回 -->
                         <template v-else-if="crypto.avg_cost === 0">
                           <div class="profit-value positive">
-                            +${{ formatAmount(crypto.amount * crypto.current_price) }}
+                            +{{ formatValue(crypto.amount * crypto.current_price) }}
                           </div>
                           <div class="profit-rate" v-if="crypto.symbol !== 'USDT'">
                             <span class="status-badge recovered">✓ 已回本</span>
                           </div>
                         </template>
-                        
+
                         <!-- avg_cost < 0: 投资回报超过100% -->
                         <template v-else>
                           <div class="profit-value positive">
-                            +${{ formatAmount(crypto.amount * crypto.current_price - crypto.cost) }}
+                            +{{ formatValue(crypto.amount * crypto.current_price - crypto.cost) }}
                           </div>
                           <div class="profit-rate" v-if="crypto.symbol !== 'USDT'">
                             <span class="status-badge super-profit">🚀 超100%回报</span>
@@ -423,7 +463,7 @@
                       <td class="asset-realized-profit" :class="{ 'positive': crypto.realized_pl > 0, 'negative': crypto.realized_pl < 0 }" v-if="crypto.symbol !== 'USDT'">
                         <template v-if="crypto.realized_pl !== 0">
                           <div class="profit-value">
-                            {{ crypto.realized_pl > 0 ? '+' : '-' }}${{ formatAmount(Math.abs(crypto.realized_pl)) }}
+                            {{ crypto.realized_pl > 0 ? '+' : '-' }}{{ formatValue(Math.abs(crypto.realized_pl)) }}
                           </div>
                           <div class="profit-rate">
                             {{ crypto.realized_pl > 0 ? '+' : '-' }}{{ Math.abs(crypto.realized_pl_rate).toFixed(2) }}%
@@ -446,7 +486,7 @@
                     <tr v-if="filteredHoldings.length === 0">
                       <td colspan="8" class="empty-state">
                         <Icon icon="mdi:inbox" />
-                        <p>暂无资产数据，请充值USDT后开始交易</p>
+                        <p>暂无资产数据，请充值USD后开始交易</p>
                       </td>
                     </tr>
                   </tbody>
@@ -503,7 +543,7 @@
                       <td class="trade-time">{{ formatDate(trade.created_at || trade.timestamp) }}</td>
                       <td>
                         <div class="trade-asset">
-                          <Icon :icon="getAssetIcon(trade.symbol)" :style="{ color: getAssetColor(trade.symbol) }" />
+                          <Icon :icon="getAssetIcon(trade.asset_type, trade.symbol)" :style="{ color: getAssetColor(trade.asset_type, trade.symbol) }" />
                           <span>{{ trade.symbol }}</span>
                         </div>
                       </td>
@@ -540,27 +580,27 @@
     <div v-if="showRechargeModal" class="modal-overlay" @click.self="showRechargeModal = false">
       <div class="modal">
         <div class="modal-header">
-          <h3><Icon icon="mdi:cash-plus" /> 充值USDT</h3>
+          <h3><Icon icon="mdi:cash-plus" /> 充值USD</h3>
           <button class="btn-close" @click="showRechargeModal = false">
             <Icon icon="mdi:close" />
           </button>
         </div>
         <div class="modal-body">
           <div class="form-group">
-            <label>充值金额 (USDT)</label>
+            <label>充值金额 (USD)</label>
             <input
               type="number"
               v-model.number="rechargeAmount"
               placeholder="输入充值金额"
               min="0.01"
               step="0.01"
-              @keyup.enter="rechargeUSDT"
+              @keyup.enter="rechargeUSD"
             >
           </div>
         </div>
         <div class="modal-footer">
           <button class="btn-cancel" @click="showRechargeModal = false">取消</button>
-          <button class="btn-confirm" @click="rechargeUSDT" :disabled="!rechargeAmount || rechargeAmount <= 0 || isSubmitting.recharge">
+          <button class="btn-confirm" @click="rechargeUSD" :disabled="!rechargeAmount || rechargeAmount <= 0 || isSubmitting.recharge">
             确认充值
           </button>
         </div>
@@ -707,7 +747,7 @@ import { useUserStore } from '../stores/user'
 import { config } from '../config'
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js'
 import { Doughnut } from 'vue-chartjs'
-import { AVAILABLE_SYMBOLS, getAssetColor, getAssetIcon, getAssetName } from '../config/assets'
+import { AVAILABLE_SYMBOLS, AVAILABLE_ASSETS, getAssetColor, getAssetIcon, getAssetName } from '../config/assets'
 import { formatAmount, formatCompactAmount, formatDateTime, getChangeClass } from '../utils/format'
 
 ChartJS.register(ArcElement, Tooltip, Legend)
@@ -715,16 +755,48 @@ ChartJS.register(ArcElement, Tooltip, Legend)
 const portfolioStore = usePortfolioStore()
 const userStore = useUserStore()
 
-// 支持的加密货币列表
+// 支持的资产列表
 const availableSymbols = AVAILABLE_SYMBOLS
+const availableUSStocks = AVAILABLE_ASSETS.US_STOCK
+
+// 当前可用的资产列表
+const currentAvailableSymbols = computed(() => {
+  return currentAssetType.value === 'crypto' ? availableSymbols : availableUSStocks
+})
+
+// 切换资产类型
+const switchAssetType = (type) => {
+  currentAssetType.value = type
+  newTrade.value.assetType = type
+  newTrade.value.symbol = ''
+  newTrade.value.amount = null
+  newTrade.value.price = null
+  currentMarketPrice.value = 0
+}
+
+// 获取当前价格
+const getCurrentPrice = (symbol) => {
+  if (currentAssetType.value === 'crypto') {
+    return portfolioStore.prices[symbol]
+  } else {
+    return portfolioStore.usStockPrices[symbol]
+  }
+}
+
+// 获取货币符号
+const getCurrencySymbol = () => {
+  return currentAssetType.value === 'crypto' ? '$' : '$'
+}
 
 // 状态
 const newTrade = ref({
+  assetType: 'crypto',
   symbol: '',
   type: 'buy',
   amount: null,
   price: null
 })
+const currentAssetType = ref('crypto') // 当前选中的资产类型
 const currentMarketPrice = ref(0) // 当前选中的币种市价
 const tradeFilter = ref('all')
 const refreshing = ref(false)
@@ -741,6 +813,10 @@ const showRechargeModal = ref(false)
 const rechargeAmount = ref(null)
 const protectHistory = ref(true)
 let refreshTimer = null
+
+// 本位模式（USD本位或BTC本位）
+const valueMode = ref('usd') // 'usd' 或 'btc'
+const btcPrice = computed(() => dashboardData.value?.btc_price || 0)
 
 // 重复提交保护状态
 const isSubmitting = ref({
@@ -777,10 +853,13 @@ const importError = ref('')
 let refreshDebounceTimer = null
 
 // 从store获取数据（后端已计算好）
+const dashboardData = computed(() => portfolioStore.dashboardData)
 const portfolio = computed(() => portfolioStore.portfolio)
 const trades = computed(() => portfolioStore.trades)
-const cryptoAssetsValue = computed(() => portfolioStore.cryptoAssetsValue) // 加密资产市值（不含 USDT）
-const cashBalance = computed(() => portfolioStore.cashBalance) // USDT现金余额
+const cryptoAssetsValue = computed(() => portfolioStore.cryptoAssetsValue) // 加密资产市值
+const usStockValue = computed(() => portfolioStore.usStockValue) // 美股市值
+const cashBalance = computed(() => portfolioStore.cashBalance) // USD现金余额
+const totalAssetsValue = computed(() => portfolioStore.totalAssetsValue) // 总资产
 const unrealizedPL = computed(() => portfolioStore.unrealizedPL) // 浮动盈亏
 const unrealizedPLRate = computed(() => portfolioStore.unrealizedPLRate) // 浮动盈亏率
 const realizedPL = computed(() => portfolioStore.realizedPL) // 实现盈亏
@@ -817,6 +896,23 @@ const displayTotalPL = computed(() =>
 const displayTotalValueChange = computed(() =>
   createChangeDisplay(cryptoValueChange24h.value))
 
+// 本位格式化函数
+const formatValue = (valueInUSD) => {
+  if (valueMode.value === 'btc' && btcPrice.value > 0) {
+    // 转换为 BTC (sats)
+    const btcValue = valueInUSD / btcPrice.value
+    if (btcValue >= 1) {
+      return `₿${btcValue.toFixed(4)}`
+    } else {
+      // 小于1 BTC时显示为 sats
+      const sats = Math.round(btcValue * 100000000)
+      return `${sats.toLocaleString()} sats`
+    }
+  }
+  // 默认 USD 本位
+  return formatCompactAmount(valueInUSD)
+}
+
 const getTradeTypeText = (type) => {
   const map = {
     buy: '买入',
@@ -830,51 +926,41 @@ const toggleProtectHistory = () => {
   protectHistory.value = !protectHistory.value
 }
 
-const selectSymbol = async (symbol) => {
-  newTrade.value.symbol = symbol
+// 设置交易对价格并聚焦输入框
+const setSymbolPrice = async (symbol, focusInput = true) => {
+  if (!symbol) {
+    currentMarketPrice.value = 0
+    return
+  }
   // 优先从已有数据中获取价格，避免额外请求
-  const cachedPrice = portfolioStore.prices[symbol]
+  const cachedPrice = getCurrentPrice(symbol)
   if (cachedPrice) {
     newTrade.value.price = cachedPrice
     currentMarketPrice.value = cachedPrice
   } else {
     // 只有在没有缓存价格时才请求
-    const result = await portfolioStore.fetchAssetPrice(symbol)
+    const result = await portfolioStore.fetchAssetPrice(symbol, currentAssetType.value)
     if (result.success) {
       newTrade.value.price = result.price
       currentMarketPrice.value = result.price
     }
   }
-  nextTick(() => {
-    if (amountInput.value) {
-      amountInput.value.focus()
-    }
-  })
+  if (focusInput) {
+    nextTick(() => {
+      if (amountInput.value) {
+        amountInput.value.focus()
+      }
+    })
+  }
+}
+
+const selectSymbol = async (symbol) => {
+  newTrade.value.symbol = symbol
+  await setSymbolPrice(symbol, true)
 }
 
 const onSymbolChange = async () => {
-  if (newTrade.value.symbol) {
-    // 优先从已有数据中获取价格，避免额外请求
-    const cachedPrice = portfolioStore.prices[newTrade.value.symbol]
-    if (cachedPrice) {
-      newTrade.value.price = cachedPrice
-      currentMarketPrice.value = cachedPrice
-    } else {
-      // 只有在没有缓存价格时才请求
-      const result = await portfolioStore.fetchAssetPrice(newTrade.value.symbol)
-      if (result.success) {
-        newTrade.value.price = result.price
-        currentMarketPrice.value = result.price
-      }
-    }
-  } else {
-    currentMarketPrice.value = 0
-  }
-  nextTick(() => {
-    if (amountInput.value) {
-      amountInput.value.focus()
-    }
-  })
+  await setSymbolPrice(newTrade.value.symbol, true)
 }
 
 const isFormValid = computed(() => {
@@ -958,7 +1044,7 @@ const addTrade = async () => {
   if (isSubmitting.value.trade) return
 
   if (!newTrade.value.symbol) {
-    errorMessage.value = '请选择加密货币'
+    errorMessage.value = '请选择资产'
     setTimeout(() => errorMessage.value = '', 3000)
     return
   }
@@ -979,6 +1065,7 @@ const addTrade = async () => {
 
   try {
     const result = await portfolioStore.createTrade({
+      asset_type: newTrade.value.assetType,
       symbol: newTrade.value.symbol,
       type: newTrade.value.type,
       amount: newTrade.value.amount,
@@ -994,6 +1081,7 @@ const addTrade = async () => {
     // store 层已经自动刷新数据，这里不需要再调用 refreshPrices()
     // 只需要重置表单
     newTrade.value = {
+      assetType: currentAssetType.value,
       symbol: '',
       type: 'buy',
       amount: null,
@@ -1004,7 +1092,7 @@ const addTrade = async () => {
   }
 }
 
-const rechargeUSDT = async () => {
+const rechargeUSD = async () => {
   if (isSubmitting.value.recharge) return
 
   if (!rechargeAmount.value || rechargeAmount.value <= 0) {
@@ -1017,7 +1105,8 @@ const rechargeUSDT = async () => {
 
   try {
     const result = await portfolioStore.createTrade({
-      symbol: 'USDT',
+      asset_type: 'cash',  // 现金类型
+      symbol: 'USD',
       type: 'recharge',
       amount: rechargeAmount.value,
       price: 1
@@ -1111,10 +1200,13 @@ const selectAsset = (symbol) => {
   }
 }
 
-const quickSell = async (crypto) => {
+// 快速设置交易（买入/卖出）
+const setupQuickTrade = async (crypto, type, focusInput = false) => {
   newTrade.value.symbol = crypto.symbol
-  newTrade.value.type = 'sell'
-  newTrade.value.amount = crypto.amount
+  newTrade.value.type = type
+  if (type === 'sell') {
+    newTrade.value.amount = crypto.amount
+  }
   // 优先使用传入的当前价格，避免额外请求
   if (crypto.currentPrice) {
     newTrade.value.price = crypto.currentPrice
@@ -1134,37 +1226,22 @@ const quickSell = async (crypto) => {
         newTrade.value.price = crypto.avg_cost || crypto.price
       }
     }
+  }
+  if (focusInput) {
+    nextTick(() => {
+      if (amountInput.value) {
+        amountInput.value.focus()
+      }
+    })
   }
 }
 
+const quickSell = async (crypto) => {
+  await setupQuickTrade(crypto, 'sell', false)
+}
+
 const quickBuy = async (crypto) => {
-  newTrade.value.symbol = crypto.symbol
-  newTrade.value.type = 'buy'
-  // 优先使用传入的当前价格，避免额外请求
-  if (crypto.currentPrice) {
-    newTrade.value.price = crypto.currentPrice
-    currentMarketPrice.value = crypto.currentPrice
-  } else {
-    // 回退到缓存或请求
-    const cachedPrice = portfolioStore.prices[crypto.symbol]
-    if (cachedPrice) {
-      newTrade.value.price = cachedPrice
-      currentMarketPrice.value = cachedPrice
-    } else {
-      const result = await portfolioStore.fetchAssetPrice(crypto.symbol)
-      if (result.success) {
-        newTrade.value.price = result.price
-        currentMarketPrice.value = result.price
-      } else {
-        newTrade.value.price = crypto.avg_cost || crypto.price
-      }
-    }
-  }
-  nextTick(() => {
-    if (amountInput.value) {
-      amountInput.value.focus()
-    }
-  })
+  await setupQuickTrade(crypto, 'buy', true)
 }
 
 // 使用导入的工具函数
@@ -1268,10 +1345,10 @@ const filteredTrades = computed(() => {
   return filter === 'all' ? trades.value : trades.value?.filter(t => t.type === filter)
 })
 
-// 总资产净值 = 加密资产市值 + USDT余额
-const totalNetWorth = computed(() => cryptoAssetsValue.value + cashBalance.value)
+// 总资产净值 = 加密资产市值 + 美股市值 + USD现金余额
+const totalNetWorth = computed(() => cryptoAssetsValue.value + usStockValue.value + cashBalance.value)
 
-// 投资组合分布（包含加密资产和USDT）
+// 投资组合分布（包含加密资产、美股和现金）
 const portfolioAllocation = computed(() => {
   const portfolioItems = portfolio.value || []
   if (portfolioItems.length === 0 && cashBalance.value <= 0) return []
@@ -1290,7 +1367,7 @@ const portfolioAllocation = computed(() => {
         name: portfolioItem.symbol,
         rawPercentage: (marketValue / total) * 100,
         value: marketValue,
-        color: getAssetColor(portfolioItem.symbol)
+        color: getAssetColor(portfolioItem.asset_type, portfolioItem.symbol)
       })
     }
   })
@@ -1414,7 +1491,7 @@ const chartOptions = {
         title: (items) => items[0].label,
         label: (context) => {
           const value = context.raw
-          return ` 价值: $${formatAmount(value)}`
+          return ` 价值: ${formatValue(value)}`
         },
         afterLabel: (context) => {
           const value = context.raw
@@ -1642,7 +1719,7 @@ watch(() => userStore.isLoggedIn, async (isLoggedIn) => {
 </script>
 
 <style scoped>
-.crypto-container {
+.portfolio-container {
   min-height: calc(100vh - 120px);
 }
 
@@ -1816,8 +1893,58 @@ watch(() => userStore.isLoggedIn, async (isLoggedIn) => {
   color: #ef4444;
 }
 
-.usdt-card {
+.cash-card {
   position: relative;
+}
+
+.value-mode-switcher {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+  padding: 12px 16px;
+  background: var(--card-bg);
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+}
+
+.mode-label {
+  font-size: 14px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.mode-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-color);
+  color: var(--text-secondary);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.mode-btn:hover {
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+}
+
+.mode-btn.active {
+  background: var(--primary-color);
+  color: white;
+  border-color: var(--primary-color);
+}
+
+.total-card .sub-value {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 8px;
+  opacity: 0.8;
 }
 
 .btn-recharge {

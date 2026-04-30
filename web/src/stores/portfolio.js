@@ -14,15 +14,18 @@ export const usePortfolioStore = defineStore('portfolio', () => {
 
   // ========== 计算属性 - 价格数据 ==========
   const prices = computed(() => dashboardData.value?.prices || {})
+  const usStockPrices = computed(() => dashboardData.value?.us_stock_prices || {})
   const priceChanges = computed(() => dashboardData.value?.price_changes || {})
+  const exchangeRates = computed(() => dashboardData.value?.exchange_rates || {})
 
   // ========== 计算属性 - 持仓数据 ==========
   const portfolio = computed(() => dashboardData.value?.portfolio || [])
 
   // ========== 计算属性 - 资产价值 ==========
   const cryptoAssetsValue = computed(() => dashboardData.value?.crypto_value || 0)
-  const cashBalance = computed(() => dashboardData.value?.usdt_balance || 0)
-  const totalAssetsValue = computed(() => cryptoAssetsValue.value + cashBalance.value)
+  const usStockValue = computed(() => dashboardData.value?.us_stock_value || 0)
+  const cashBalance = computed(() => dashboardData.value?.cash_balance || 0)
+  const totalAssetsValue = computed(() => cryptoAssetsValue.value + usStockValue.value + cashBalance.value)
 
   // ========== 计算属性 - 盈亏数据 ==========
   const unrealizedPL = computed(() => dashboardData.value?.unrealized_profit_loss || 0)
@@ -44,17 +47,6 @@ export const usePortfolioStore = defineStore('portfolio', () => {
       return { success: false, error: '请先登录' }
     }
     return fn(...args)
-  }
-
-  // 自动刷新包装器
-  const withAutoRefresh = (fn) => async (...args) => {
-    const result = await fn(...args)
-    // 默认自动刷新，可通过 options.refresh = false 禁用
-    const options = args.find(arg => typeof arg === 'object' && arg !== null) || {}
-    if (result.success && options.refresh !== false) {
-      await fetchDashboard()
-    }
-    return result
   }
 
   // 获取仪表盘聚合数据
@@ -92,13 +84,20 @@ export const usePortfolioStore = defineStore('portfolio', () => {
   }
 
   // 获取单个资产价格
-  async function fetchAssetPrice(symbol) {
+  async function fetchAssetPrice(symbol, assetType = 'crypto') {
     try {
-      const response = await portfolioApi.getAssetPrice(symbol)
+      const response = await portfolioApi.getAssetPrice(symbol, assetType)
       if (dashboardData.value) {
-        dashboardData.value.prices = {
-          ...dashboardData.value.prices,
-          [symbol]: response.data.price
+        if (assetType === 'crypto') {
+          dashboardData.value.prices = {
+            ...dashboardData.value.prices,
+            [symbol]: response.data.price
+          }
+        } else if (assetType === 'us_stock') {
+          dashboardData.value.us_stock_prices = {
+            ...dashboardData.value.us_stock_prices,
+            [symbol]: response.data.price
+          }
         }
       }
       return {
@@ -239,11 +238,14 @@ export const usePortfolioStore = defineStore('portfolio', () => {
     error,
     // 价格
     prices,
+    usStockPrices,
     priceChanges,
+    exchangeRates,
     // 持仓组合
     portfolio,
     // 资产价值
     cryptoAssetsValue,
+    usStockValue,
     cashBalance,
     totalAssetsValue,
     // 盈亏
