@@ -1176,9 +1176,11 @@ const clearTrades = async () => {
 }
 
 const clearForm = () => {
+  const currentSymbol = newTrade.value.symbol
+  const currentType = newTrade.value.type
   newTrade.value = {
-    symbol: '',
-    type: 'buy',
+    symbol: currentSymbol,
+    type: currentType,
     amount: null,
     price: null
   }

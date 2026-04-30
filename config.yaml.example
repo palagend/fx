@@ -33,7 +33,6 @@ database:
 # API Keys
 api:
   coincap_key: "b617d9cf029dbb40f02b058a0e74919176b768cf36fd1ea6fae55a13a1610f41"  # CoinCap API Key，用于获取加密货币价格
-  itick_key: "8bdaa820464b41b8ab2a1c90997ba8738cb52c930a7745bf9233534bc86bce79"  # iTick API Key，用于获取美股价格
 
 # 服务器配置
 server:

@@ -126,37 +126,46 @@ export const ASTOCK_CONFIG = {
   }
 }
 
-// 美股配置（示例股票）
+// 美股配置
 export const USSTOCK_CONFIG = {
   COLORS: {
     'AAPL': '#555555',  // 苹果
     'MSFT': '#00A4EF',  // 微软
-    'GOOGL': '#4285F4', // 谷歌
+    'GOOG': '#4285F4', // 谷歌
     'AMZN': '#FF9900',  // 亚马逊
     'TSLA': '#CC0000',  // 特斯拉
     'META': '#0081FB',  // Meta
     'NVDA': '#76B900',  // 英伟达
-    'BABA': '#FF6A00'   // 阿里
+    'BABA': '#FF6A00',  // 阿里
+    'ORCL': '#F80000',  // Oracle
+    'CRCL': '#00A86B',  // Circle
+    'MSTR': '#1A1A1A'   // MicroStrategy
   },
   ICONS: {
-    'AAPL': 'mdi:apple',
-    'MSFT': 'mdi:microsoft-windows',
-    'GOOGL': 'mdi:google',
-    'AMZN': 'mdi:amazon',
-    'TSLA': 'mdi:car-electric',
-    'META': 'mdi:facebook',
-    'NVDA': 'mdi:gpu',
-    'BABA': 'mdi:shopping'
+    'AAPL': 'simple-icons:apple',
+    'MSFT': 'simple-icons:microsoft',
+    'GOOG': 'simple-icons:google',
+    'AMZN': 'simple-icons:amazon',
+    'TSLA': 'simple-icons:tesla',
+    'META': 'simple-icons:meta',
+    'NVDA': 'simple-icons:nvidia',
+    'BABA': 'simple-icons:alibabadotcom',
+    'ORCL': 'simple-icons:oracle',
+    'CRCL': 'simple-icons:circle',
+    'MSTR': 'simple-icons:microstrategy'
   },
   NAMES: {
     'AAPL': 'Apple',
     'MSFT': 'Microsoft',
-    'GOOGL': 'Alphabet',
+    'GOOG': 'Alphabet',
     'AMZN': 'Amazon',
     'TSLA': 'Tesla',
     'META': 'Meta',
     'NVDA': 'NVIDIA',
-    'BABA': 'Alibaba'
+    'BABA': 'Alibaba',
+    'ORCL': 'Oracle',
+    'CRCL': 'Circle',
+    'MSTR': 'MicroStrategy'
   }
 }
 
@@ -189,7 +198,7 @@ export const HKSTOCK_CONFIG = {
 export const AVAILABLE_ASSETS = {
   CRYPTO: ['BTC', 'ETH', 'BNB', 'XRP', 'ADA', 'SOL', 'DOGE', 'TRX', 'AVAX', 'HYPE'],
   A_STOCK: ['600519', '000858', '000333', '002415', '300750', '601318', '600036', '000002'],
-  US_STOCK: ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'META', 'NVDA', 'BABA'],
+  US_STOCK: ['AAPL', 'MSFT', 'GOOG', 'AMZN', 'TSLA', 'META', 'NVDA', 'BABA', 'ORCL', 'CRCL', 'MSTR'],
   HK_STOCK: ['0700', '3690', '9988', '2318', '0005']
 }
 

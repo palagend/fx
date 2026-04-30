@@ -61,14 +61,17 @@ var supportedCryptos = map[string]bool{
 
 // 支持的美股列表
 var supportedUSStocks = map[string]bool{
-	"AAPL":  true,
-	"MSFT":  true,
-	"GOOGL": true,
-	"AMZN":  true,
-	"TSLA":  true,
-	"META":  true,
-	"NVDA":  true,
-	"BABA":  true,
+	"AAPL": true,
+	"MSFT": true,
+	"GOOG": true,
+	"AMZN": true,
+	"TSLA": true,
+	"META": true,
+	"NVDA": true,
+	"BABA": true,
+	"ORCL": true,
+	"CRCL": true,
+	"MSTR": true,
 }
 
 // BusinessError 业务错误类型
@@ -629,7 +632,7 @@ func getUSStockPrice(c *gin.Context, symbol string) {
 		return
 	}
 
-	client := utils.GetITickClient()
+	client := utils.GetStockClient()
 	price, err := client.GetUSStockPrice(symbol)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -762,10 +765,10 @@ func fetchCryptoPrices() (map[string]float64, map[string]float64, int64) {
 	return prices, priceChanges, updatedAt
 }
 
-// fetchUSStockPrices 获取美股价格（使用iTick API）
+// fetchUSStockPrices 获取美股价格
 func fetchUSStockPrices() map[string]float64 {
 	prices := make(map[string]float64)
-	client := utils.GetITickClient()
+	client := utils.GetStockClient()
 
 	// 构建股票代码列表
 	symbols := make([]string, 0, len(supportedUSStocks))
