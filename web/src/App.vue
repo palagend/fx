@@ -5,44 +5,44 @@
         <div class="nav-left">
           <UserProfile v-if="config.isBackend" />
           <router-link to="/" class="nav-logo">
-            <Icon icon="fa7-solid:tools" />
+            <Icon icon="mdi:wrench" />
             <span>工具集合</span>
           </router-link>
         </div>
         <ul class="nav-menu">
           <li class="nav-item">
             <router-link to="/exchange-rate" class="nav-link" @click="closeMenu">
-              <Icon icon="fa7-solid:exchange-alt" />
+              <Icon icon="mdi:swap-horizontal" />
               <span>汇率查询</span>
             </router-link>
           </li>
           <li class="nav-item">
             <router-link to="/calculator" class="nav-link" @click="closeMenu">
-              <Icon icon="fa7-solid:calculator" />
+              <Icon icon="mdi:calculator" />
               <span>计算器</span>
             </router-link>
           </li>
           <li class="nav-item">
             <router-link to="/portfolio" class="nav-link" @click="closeMenu">
-              <Icon icon="fa7-solid:wallet" />
+              <Icon icon="mdi:wallet" />
               <span>资产组合</span>
             </router-link>
           </li>
           <li class="nav-item">
             <router-link to="/qrcode-generator" class="nav-link" @click="closeMenu">
-              <Icon icon="fa7-solid:qrcode" />
+              <Icon icon="mdi:qrcode" />
               <span>二维码生成器</span>
             </router-link>
           </li>
           <li class="nav-item">
             <router-link to="/password-generator" class="nav-link" @click="closeMenu">
-              <Icon icon="fa7-solid:key" />
+              <Icon icon="mdi:key" />
               <span>密码生成器</span>
             </router-link>
           </li>
           <li class="nav-item">
             <router-link to="/password-manager" class="nav-link" @click="closeMenu">
-              <Icon icon="fa7-solid:lock" />
+              <Icon icon="mdi:lock" />
               <span>密码管理器</span>
             </router-link>
           </li>
@@ -51,8 +51,8 @@
           <span class="hamburger"></span>
         </div>
         <div class="theme-toggle" @click="toggleTheme">
-          <Icon icon="fa7-solid:sun" />
-          <Icon icon="fa7-solid:moon" />
+          <Icon icon="solar:sun-bold" />
+          <Icon icon="solar:moon-bold" />
           <div class="toggle-circle"></div>
         </div>
       </div>
@@ -67,19 +67,244 @@
     <Teleport to="body">
       <div v-if="isMobile" class="mobile-overlay" :class="{ show: showMobileOverlay }" @click="closeMobileOverlay"></div>
     </Teleport>
+
+    <Teleport to="body">
+      <Transition name="modal">
+        <div v-if="showLoginModal" class="modal-overlay" @click.self="closeLoginModal">
+          <div class="modal-container">
+            <div class="modal-header">
+              <h3>{{ isRegistering ? '注册账号' : '用户登录' }}</h3>
+              <button class="btn-close" @click="closeLoginModal">
+                <Icon icon="mdi:close" />
+              </button>
+            </div>
+            <div class="modal-body">
+              <form @submit.prevent="handleAuthSubmit">
+                <div class="form-group">
+                  <label>
+                    <Icon icon="mdi:user" />
+                    用户名
+                  </label>
+                  <input
+                    v-model="authForm.username"
+                    type="text"
+                    placeholder="请输入用户名"
+                    required
+                    minlength="3"
+                    maxlength="50"
+                  />
+                </div>
+                <div v-if="isRegistering" class="form-group">
+                  <label>
+                    <Icon icon="mdi:email" />
+                    邮箱
+                  </label>
+                  <input
+                    v-model="authForm.email"
+                    type="email"
+                    placeholder="请输入邮箱"
+                    required
+                  />
+                </div>
+                <div class="form-group">
+                  <label>
+                    <Icon icon="mdi:lock" />
+                    密码
+                  </label>
+                  <div class="password-input">
+                    <input
+                      v-model="authForm.password"
+                      :type="showPassword ? 'text' : 'password'"
+                      placeholder="请输入密码"
+                      required
+                      minlength="6"
+                    />
+                    <button type="button" class="btn-toggle-password" @click="showPassword = !showPassword">
+                      <Icon :icon="showPassword ? 'mdi:eye-off' : 'mdi:eye'" />
+                    </button>
+                  </div>
+                </div>
+                <div v-if="isRegistering" class="form-group">
+                  <label>
+                    <Icon icon="mdi:lock-check" />
+                    确认密码
+                  </label>
+                  <input
+                    v-model="authForm.confirmPassword"
+                    :type="showPassword ? 'text' : 'password'"
+                    placeholder="请再次输入密码"
+                    required
+                  />
+                </div>
+                <div v-if="authError" class="auth-error">
+                  <Icon icon="mdi:alert-circle" />
+                  <span>{{ authError }}</span>
+                </div>
+                <button type="submit" class="btn-submit" :disabled="isSubmitting">
+                  <Icon v-if="isSubmitting" icon="mdi:loading" class="spin" />
+                  <span v-else>{{ isRegistering ? '注册' : '登录' }}</span>
+                </button>
+              </form>
+              <div class="auth-switch">
+                <span>{{ isRegistering ? '已有账号？' : '还没有账号？' }}</span>
+                <button type="button" class="btn-switch" @click="isRegistering = !isRegistering">
+                  {{ isRegistering ? '立即登录' : '立即注册' }}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
+
+    <Teleport to="body">
+      <Transition name="modal">
+        <div v-if="showProfileModal" class="modal-overlay" @click.self="closeProfileModal">
+          <div class="modal-container">
+            <div class="modal-header">
+              <h3>个人资料</h3>
+              <button class="btn-close" @click="closeProfileModal">
+                <Icon icon="mdi:close" />
+              </button>
+            </div>
+            <div class="modal-body">
+              <div class="profile-info">
+                <div class="avatar-huge">
+                  <Icon icon="mdi:user-circle" />
+                </div>
+                <div class="info-list">
+                  <div class="info-item">
+                    <span class="info-label">用户名</span>
+                    <span class="info-value">{{ userStore.user?.username }}</span>
+                  </div>
+                  <div class="info-item">
+                    <span class="info-label">邮箱</span>
+                    <span class="info-value">{{ userStore.user?.email }}</span>
+                  </div>
+                  <div class="info-item">
+                    <span class="info-label">注册时间</span>
+                    <span class="info-value">{{ formatDate(userStore.user?.created_at) }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
+
+    <Teleport to="body">
+      <Transition name="modal">
+        <div v-if="showPasswordModal" class="modal-overlay" @click.self="closePasswordModal">
+          <div class="modal-container">
+            <div class="modal-header">
+              <h3>修改密码</h3>
+              <button class="btn-close" @click="closePasswordModal">
+                <Icon icon="mdi:close" />
+              </button>
+            </div>
+            <div class="modal-body">
+              <form @submit.prevent="handlePasswordChange">
+                <div class="form-group">
+                  <label>
+                    <Icon icon="mdi:lock" />
+                    当前密码
+                  </label>
+                  <input
+                    v-model="passwordForm.oldPassword"
+                    type="password"
+                    placeholder="请输入当前密码"
+                    required
+                  />
+                </div>
+                <div class="form-group">
+                  <label>
+                    <Icon icon="mdi:lock-plus" />
+                    新密码
+                  </label>
+                  <input
+                    v-model="passwordForm.newPassword"
+                    type="password"
+                    placeholder="请输入新密码（至少6位）"
+                    required
+                    minlength="6"
+                  />
+                </div>
+                <div class="form-group">
+                  <label>
+                    <Icon icon="mdi:lock-check" />
+                    确认新密码
+                  </label>
+                  <input
+                    v-model="passwordForm.confirmPassword"
+                    type="password"
+                    placeholder="请再次输入新密码"
+                    required
+                  />
+                </div>
+                <div v-if="passwordError" class="auth-error">
+                  <Icon icon="mdi:alert-circle" />
+                  <span>{{ passwordError }}</span>
+                </div>
+                <div v-if="passwordSuccess" class="auth-success">
+                  <Icon icon="mdi:check-circle" />
+                  <span>{{ passwordSuccess }}</span>
+                </div>
+                <button type="submit" class="btn-submit" :disabled="isChangingPassword">
+                  <Icon v-if="isChangingPassword" icon="mdi:loading" class="spin" />
+                  <span v-else>确认修改</span>
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, provide } from 'vue'
+import { ref, onMounted, onUnmounted, provide, watch } from 'vue'
 import { Icon } from '@iconify/vue'
 import UserProfile from './components/UserProfile.vue'
 import MobileNav from './components/MobileNav.vue'
+import { useUserStore } from './stores/user'
 import { config } from './config'
+
+const userStore = useUserStore()
 
 const isDark = ref(false)
 const isMobile = ref(false)
 const showMobileOverlay = ref(false)
+
+const showLoginModal = ref(false)
+const isRegistering = ref(false)
+const showPassword = ref(false)
+const authError = ref('')
+const isSubmitting = ref(false)
+
+const showProfileModal = ref(false)
+const showPasswordModal = ref(false)
+const passwordError = ref('')
+const passwordSuccess = ref('')
+const isChangingPassword = ref(false)
+
+const passwordForm = ref({
+  oldPassword: '',
+  newPassword: '',
+  confirmPassword: ''
+})
+
+const authForm = ref({
+  username: '',
+  email: '',
+  password: '',
+  confirmPassword: ''
+})
+
+watch(() => userStore.showLoginModal, (newVal) => {
+  showLoginModal.value = newVal
+})
 
 const loadTheme = () => {
   const savedTheme = localStorage.getItem('theme')
@@ -99,6 +324,116 @@ provide('isDark', isDark)
 provide('toggleTheme', toggleTheme)
 
 const isMenuOpen = ref(false)
+
+const closeLoginModal = () => {
+  userStore.closeLoginModal()
+  authError.value = ''
+  resetAuthForm()
+}
+
+const resetAuthForm = () => {
+  authForm.value = {
+    username: '',
+    email: '',
+    password: '',
+    confirmPassword: ''
+  }
+  isRegistering.value = false
+}
+
+const handleAuthSubmit = async () => {
+  if (isSubmitting.value) return
+  isSubmitting.value = true
+  authError.value = ''
+
+  try {
+    if (isRegistering.value) {
+      if (authForm.value.password !== authForm.value.confirmPassword) {
+        authError.value = '两次输入的密码不一致'
+        return
+      }
+      const result = await userStore.register(authForm.value.username, authForm.value.email, authForm.value.password)
+      if (result.success) {
+        closeLoginModal()
+      } else {
+        authError.value = result.error
+      }
+    } else {
+      const result = await userStore.login(authForm.value.username, authForm.value.password)
+      if (result.success) {
+        closeLoginModal()
+      } else {
+        authError.value = result.error
+      }
+    }
+  } finally {
+    isSubmitting.value = false
+  }
+}
+
+const openProfileModal = () => {
+  showProfileModal.value = true
+}
+
+const closeProfileModal = () => {
+  showProfileModal.value = false
+}
+
+const openPasswordModal = () => {
+  showPasswordModal.value = true
+  passwordError.value = ''
+  passwordSuccess.value = ''
+}
+
+const closePasswordModal = () => {
+  showPasswordModal.value = false
+  passwordError.value = ''
+  passwordSuccess.value = ''
+  passwordForm.value = {
+    oldPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  }
+}
+
+provide('openProfileModal', openProfileModal)
+provide('openPasswordModal', openPasswordModal)
+
+const handlePasswordChange = async () => {
+  if (isChangingPassword.value) return
+  isChangingPassword.value = true
+  passwordError.value = ''
+  passwordSuccess.value = ''
+
+  try {
+    if (passwordForm.value.newPassword !== passwordForm.value.confirmPassword) {
+      passwordError.value = '两次输入的新密码不一致'
+      return
+    }
+
+    const result = await userStore.changePassword(passwordForm.value.oldPassword, passwordForm.value.newPassword)
+    if (result.success) {
+      passwordSuccess.value = '密码修改成功'
+      setTimeout(() => {
+        closePasswordModal()
+      }, 2000)
+    } else {
+      passwordError.value = result.error
+    }
+  } finally {
+    isChangingPassword.value = false
+  }
+}
+
+const formatDate = (dateString) => {
+  if (!dateString) return '-'
+  const date = new Date(dateString)
+  return date.toLocaleDateString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  })
+}
 
 const toggleMenu = () => {
   isMenuOpen.value = !isMenuOpen.value
@@ -680,5 +1015,265 @@ body {
 .mobile-overlay.show {
   opacity: 1;
   visibility: visible;
+}
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  padding: 1rem;
+}
+
+.modal-container {
+  background: var(--card-bg, white);
+  border-radius: 16px;
+  width: 100%;
+  max-width: 400px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.2rem 1.5rem;
+  border-bottom: 1px solid var(--border-color, rgba(0, 0, 0, 0.08));
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 1.2rem;
+  color: var(--text-primary, #212529);
+}
+
+.btn-close {
+  background: none;
+  border: none;
+  color: var(--text-secondary, #6c757d);
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 0.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.btn-close:hover {
+  background: var(--btn-secondary-bg, #f8f9fa);
+  color: var(--text-primary, #212529);
+}
+
+.modal-body {
+  padding: 1.5rem;
+}
+
+.form-group {
+  margin-bottom: 1.2rem;
+}
+
+.form-group label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+  color: var(--text-secondary, #6c757d);
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.form-group input {
+  width: 100%;
+  padding: 0.8rem 1rem;
+  border: 1px solid var(--border-color, rgba(0, 0, 0, 0.15));
+  border-radius: 10px;
+  background: var(--input-bg, white);
+  color: var(--text-primary, #212529);
+  font-size: 0.95rem;
+  transition: all 0.3s ease;
+}
+
+.form-group input:focus {
+  outline: none;
+  border-color: #4361ee;
+  box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.1);
+}
+
+.password-input {
+  position: relative;
+}
+
+.password-input input {
+  padding-right: 2.5rem;
+}
+
+.btn-toggle-password {
+  position: absolute;
+  right: 0.8rem;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: var(--text-secondary, #6c757d);
+  cursor: pointer;
+  font-size: 1.2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.auth-error {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.8rem 1rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+  background: rgba(220, 53, 69, 0.1);
+  color: #dc3545;
+}
+
+.btn-submit {
+  width: 100%;
+  padding: 0.9rem;
+  background: linear-gradient(135deg, #4361ee 0%, #7209b7 100%);
+  border: none;
+  border-radius: 10px;
+  color: white;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.btn-submit:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(67, 97, 238, 0.3);
+}
+
+.btn-submit:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.auth-switch {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 1.2rem;
+  color: var(--text-secondary, #6c757d);
+  font-size: 0.9rem;
+}
+
+.btn-switch {
+  background: none;
+  border: none;
+  color: #4361ee;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+}
+
+.btn-switch:hover {
+  text-decoration: underline;
+}
+
+.modal-enter-active,
+.modal-leave-active {
+  transition: all 0.3s ease;
+}
+
+.modal-enter-from,
+.modal-leave-to {
+  opacity: 0;
+}
+
+.modal-enter-from .modal-container,
+.modal-leave-to .modal-container {
+  transform: scale(0.95);
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.profile-info {
+  text-align: center;
+  padding: 1rem 0;
+}
+
+.avatar-huge {
+  width: 100px;
+  height: 100px;
+  margin: 0 auto 1.5rem;
+  background: linear-gradient(135deg, #4361ee 0%, #7209b7 100%);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 3rem;
+  color: white;
+}
+
+.info-list {
+  text-align: left;
+}
+
+.info-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.8rem 0;
+  border-bottom: 1px solid var(--border-color, rgba(0, 0, 0, 0.08));
+}
+
+.info-item:last-child {
+  border-bottom: none;
+}
+
+.info-label {
+  color: var(--text-secondary, #6c757d);
+  font-size: 0.9rem;
+}
+
+.info-value {
+  color: var(--text-primary, #212529);
+  font-weight: 500;
+  font-size: 0.9rem;
+}
+
+.auth-success {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.8rem 1rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+  background: rgba(25, 135, 84, 0.1);
+  color: #198754;
 }
 </style>

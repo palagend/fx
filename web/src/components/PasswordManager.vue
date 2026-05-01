@@ -2,7 +2,7 @@
   <div class="password-manager-container">
     <div class="card">
       <h2 class="page-title">
-        <Icon icon="fa7-solid:lock" />
+        <Icon icon="mdi:lock" />
         <span>密码管理器</span>
         <span class="password-count">({{ filteredPasswords.length }})</span>
       </h2>
@@ -10,7 +10,7 @@
       <!-- 搜索和筛选 -->
       <div class="search-section">
         <div class="search-box">
-          <Icon icon="fa7-solid:search" class="search-icon" />
+          <Icon icon="mdi:search" class="search-icon" />
           <input
             type="text"
             v-model="searchQuery"
@@ -34,7 +34,7 @@
             class="clear-filter"
             @click="clearFilter"
           >
-            <Icon icon="fa7-solid:times" />
+            <Icon icon="mdi:close" />
             清除筛选
           </button>
         </div>
@@ -43,15 +43,15 @@
       <!-- 操作按钮 -->
       <div class="actions-bar">
         <button class="action-btn-primary" @click="showImport = true">
-          <Icon icon="fa7-solid:file-import" />
+          <Icon icon="mdi:file-import" />
           <span>导入</span>
         </button>
         <button class="action-btn-primary" @click="exportPasswords">
-          <Icon icon="fa7-solid:file-export" />
+          <Icon icon="mdi:file-export" />
           <span>导出</span>
         </button>
         <button class="action-btn-danger" @click="confirmClearAll">
-          <Icon icon="fa7-solid:trash-alt" />
+          <Icon icon="mdi:trash-can" />
           <span>清空</span>
         </button>
       </div>
@@ -78,27 +78,27 @@
           <div class="password-details">
             <div class="detail-row" v-if="item.username">
               <span class="detail-label">
-                <Icon icon="fa7-solid:user" />
+                <Icon icon="mdi:user" />
                 用户名
               </span>
               <span class="detail-value">{{ item.username }}</span>
             </div>
             <div class="detail-row" v-if="item.url">
               <span class="detail-label">
-                <Icon icon="fa7-solid:link" />
+                <Icon icon="mdi:link" />
                 网址
               </span>
               <a :href="item.url" target="_blank" class="detail-value link">{{ item.url }}</a>
             </div>
             <div class="detail-row">
               <span class="detail-label">
-                <Icon icon="fa7-solid:key" />
+                <Icon icon="mdi:key" />
                 密码
               </span>
               <div class="password-value">
                 <span class="password-mask">{{ showPassword[item.id] ? item.password : '••••••••' }}</span>
                 <button class="toggle-btn" @click="toggleShowPassword(item.id)">
-                  <Icon :icon="showPassword[item.id] ? 'fa7-solid:eye-slash' : 'fa7-solid:eye'" />
+                  <Icon :icon="showPassword[item.id] ? 'mdi:eye-off' : 'mdi:eye'" />
                 </button>
               </div>
             </div>
@@ -106,24 +106,24 @@
 
           <div class="password-meta">
             <span class="meta-item">
-              <Icon icon="fa7-solid:calendar" />
+              <Icon icon="mdi:calendar" />
               {{ formatDate(item.createdAt) }}
             </span>
             <span class="meta-item" v-if="item.useCount">
-              <Icon icon="fa7-solid:copy" />
+              <Icon icon="mdi:content-copy" />
               使用 {{ item.useCount }} 次
             </span>
           </div>
 
           <div class="password-actions">
             <button class="action-btn" @click="copyPassword(item)" title="复制密码">
-              <Icon icon="fa7-solid:copy" />
+              <Icon icon="mdi:content-copy" />
             </button>
             <button class="action-btn" @click="editPassword(item)" title="编辑">
-              <Icon icon="fa7-solid:edit" />
+              <Icon icon="mdi:edit" />
             </button>
             <button class="action-btn delete" @click="confirmDelete(item)" title="删除">
-              <Icon icon="fa7-solid:trash-alt" />
+              <Icon icon="mdi:trash-can" />
             </button>
           </div>
         </div>
@@ -131,7 +131,7 @@
 
       <!-- 空状态 -->
       <div class="empty-state" v-else>
-        <Icon icon="fa7-solid:lock-open" class="empty-icon" />
+        <Icon icon="mdi:lock-open" class="empty-icon" />
         <p>暂无保存的密码</p>
         <router-link to="/password-generator" class="create-link">
           去生成密码
@@ -143,7 +143,7 @@
     <div class="modal-overlay" v-if="showEditModal" @click.self="closeEditModal">
       <div class="modal">
         <h3>
-          <Icon icon="fa7-solid:edit" />
+          <Icon icon="mdi:edit" />
           编辑密码
         </h3>
         <div class="modal-form">
@@ -164,7 +164,7 @@
             <div class="password-input-group">
               <input :type="showEditPassword ? 'text' : 'password'" v-model="editForm.password" />
               <button @click="showEditPassword = !showEditPassword">
-                <Icon :icon="showEditPassword ? 'fa7-solid:eye-slash' : 'fa7-solid:eye'" />
+                <Icon :icon="showEditPassword ? 'mdi:eye-off' : 'mdi:eye'" />
               </button>
             </div>
           </div>
@@ -181,7 +181,7 @@
                 <span v-for="(tag, index) in editForm.tags" :key="index" class="tag">
                   {{ tag }}
                   <button @click="removeEditTag(index)">
-                    <Icon icon="fa7-solid:times" />
+                    <Icon icon="mdi:close" />
                   </button>
                 </span>
               </div>
@@ -191,7 +191,7 @@
         <div class="modal-actions">
           <button class="btn-secondary" @click="closeEditModal">取消</button>
           <button class="btn-primary" @click="saveEdit" :disabled="!editForm.title">
-            <Icon icon="fa7-solid:save" />
+            <Icon icon="mdi:content-save" />
             保存
           </button>
         </div>
@@ -202,7 +202,7 @@
     <div class="modal-overlay" v-if="showImport" @click.self="showImport = false">
       <div class="modal">
         <h3>
-          <Icon icon="fa7-solid:file-import" />
+          <Icon icon="mdi:file-import" />
           导入密码
         </h3>
         <div class="modal-body">
@@ -215,7 +215,7 @@
               class="file-input"
             />
             <div class="upload-area" @click="$refs.fileInput.click()">
-              <Icon icon="fa7-solid:cloud-upload-alt" />
+              <Icon icon="mdi:cloud-upload" />
               <p>点击选择文件或拖拽到此处</p>
               <span>支持 .json 格式</span>
             </div>
@@ -238,7 +238,7 @@
     <div class="modal-overlay" v-if="showConfirm" @click.self="showConfirm = false">
       <div class="modal confirm-modal">
         <div class="confirm-icon" :class="confirmType">
-          <Icon :icon="confirmType === 'danger' ? 'fa7-solid:exclamation-triangle' : 'fa7-solid:question-circle'" />
+          <Icon :icon="confirmType === 'danger' ? 'mdi:alert-triangle' : 'mdi:help-circle'" />
         </div>
         <h3>{{ confirmTitle }}</h3>
         <p>{{ confirmMessage }}</p>

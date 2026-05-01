@@ -4,14 +4,14 @@
       <div class="header-bg"></div>
       <div class="profile-info">
         <div class="avatar">
-          <Icon icon="fa7-solid:user" />
+          <Icon icon="mdi:user" />
         </div>
         <div class="user-details">
           <h2>{{ profileName }}</h2>
           <p>{{ profileDesc }}</p>
         </div>
         <button v-if="showLoginBtn" class="login-btn" @click="userStore.openLoginModal">
-          <Icon icon="fa7-solid:log-in" />
+          <Icon icon="mdi:login" />
           <span>登录</span>
         </button>
       </div>
@@ -21,86 +21,86 @@
       <div class="menu-group">
         <button class="menu-item" @click="goToPortfolio">
           <div class="menu-icon blue">
-            <Icon icon="fa7-solid:wallet" />
+            <Icon icon="mdi:wallet" />
           </div>
           <span class="menu-text">资产组合</span>
-          <Icon icon="fa7-solid:chevron-right" class="menu-arrow" />
+          <Icon icon="mdi:chevron-right" class="menu-arrow" />
         </button>
 
         <button class="menu-item" @click="goToExchange">
           <div class="menu-icon green">
-            <Icon icon="fa7-solid:exchange-alt" />
+            <Icon icon="mdi:swap-horizontal" />
           </div>
           <span class="menu-text">汇率换算</span>
-          <Icon icon="fa7-solid:chevron-right" class="menu-arrow" />
+          <Icon icon="mdi:chevron-right" class="menu-arrow" />
         </button>
 
         <button class="menu-item" @click="goToCalculator">
           <div class="menu-icon orange">
-            <Icon icon="fa7-solid:calculator" />
+            <Icon icon="mdi:calculator" />
           </div>
           <span class="menu-text">实用计算器</span>
-          <Icon icon="fa7-solid:chevron-right" class="menu-arrow" />
+          <Icon icon="mdi:chevron-right" class="menu-arrow" />
         </button>
 
         <button class="menu-item" @click="goToQRCode">
           <div class="menu-icon purple">
-            <Icon icon="fa7-solid:qrcode" />
+            <Icon icon="mdi:qrcode" />
           </div>
           <span class="menu-text">二维码生成</span>
-          <Icon icon="fa7-solid:chevron-right" class="menu-arrow" />
+          <Icon icon="mdi:chevron-right" class="menu-arrow" />
         </button>
 
         <button class="menu-item" @click="goToPasswordGenerator">
           <div class="menu-icon red">
-            <Icon icon="fa7-solid:key" />
+            <Icon icon="mdi:key" />
           </div>
           <span class="menu-text">密码生成器</span>
-          <Icon icon="fa7-solid:chevron-right" class="menu-arrow" />
+          <Icon icon="mdi:chevron-right" class="menu-arrow" />
         </button>
 
         <button class="menu-item" @click="goToPasswordManager">
           <div class="menu-icon cyan">
-            <Icon icon="fa7-solid:lock" />
+            <Icon icon="mdi:lock" />
           </div>
           <span class="menu-text">密码管理器</span>
-          <Icon icon="fa7-solid:chevron-right" class="menu-arrow" />
+          <Icon icon="mdi:chevron-right" class="menu-arrow" />
         </button>
       </div>
     </section>
 
     <section class="settings-section" v-if="!config.isFrontend">
       <div class="menu-group">
-        <button v-if="userStore.isLoggedIn" class="menu-item" @click="openProfileModal">
+        <button v-if="userStore.isLoggedIn" class="menu-item" @click="handleOpenProfileModal">
           <div class="menu-icon gray">
-            <Icon icon="fa7-solid:user-circle" />
+            <Icon icon="mdi:account-circle" />
           </div>
           <span class="menu-text">个人资料</span>
-          <Icon icon="fa7-solid:chevron-right" class="menu-arrow" />
+          <Icon icon="mdi:chevron-right" class="menu-arrow" />
         </button>
 
-        <button v-if="userStore.isLoggedIn" class="menu-item" @click="openPasswordModal">
+        <button v-if="userStore.isLoggedIn" class="menu-item" @click="handleOpenPasswordModal">
           <div class="menu-icon gray">
-            <Icon icon="fa7-solid:lock" />
+            <Icon icon="mdi:lock" />
           </div>
           <span class="menu-text">修改密码</span>
-          <Icon icon="fa7-solid:chevron-right" class="menu-arrow" />
+          <Icon icon="mdi:chevron-right" class="menu-arrow" />
         </button>
 
         <button v-if="userStore.isLoggedIn" class="menu-item logout" @click="handleLogout">
           <div class="menu-icon logout-icon">
-            <Icon icon="fa7-solid:sign-out" />
+            <Icon icon="mdi:logout" />
           </div>
           <span class="menu-text">退出登录</span>
-          <Icon icon="fa7-solid:chevron-right" class="menu-arrow" />
+          <Icon icon="mdi:chevron-right" class="menu-arrow" />
         </button>
 
         <button v-if="!userStore.isLoggedIn" class="menu-item" @click="userStore.openLoginModal">
           <div class="menu-icon gray">
-            <Icon icon="fa7-solid:log-in" />
+            <Icon icon="mdi:login" />
           </div>
           <span class="menu-text">登录</span>
-          <Icon icon="fa7-solid:chevron-right" class="menu-arrow" />
+          <Icon icon="mdi:chevron-right" class="menu-arrow" />
         </button>
       </div>
     </section>
@@ -109,12 +109,24 @@
       <div class="menu-group">
         <button class="menu-item" @click="toggleTheme">
           <div class="menu-icon dark-icon">
-            <Icon :icon="isDarkRef ? 'fa7-solid:sun' : 'fa7-solid:moon'" />
+            <Icon icon="mdi:theme-light-dark" />
           </div>
-          <span class="menu-text">{{ isDarkRef ? '浅色模式' : '深色模式' }}</span>
+          <span class="menu-text">{{ isDarkRef ? '暗色模式' : '浅色模式' }}</span>
           <div class="theme-switch" :class="{ active: isDarkRef }">
             <div class="switch-circle"></div>
           </div>
+        </button>
+      </div>
+    </section>
+
+    <section class="cache-section">
+      <div class="menu-group">
+        <button class="menu-item cache" @click="showClearCacheConfirm">
+          <div class="menu-icon cache-icon">
+            <Icon icon="mdi:trash-can" />
+          </div>
+          <span class="menu-text">清理缓存</span>
+          <Icon icon="mdi:chevron-right" class="menu-arrow" />
         </button>
       </div>
     </section>
@@ -123,10 +135,10 @@
       <div class="menu-group">
         <button class="menu-item" @click="showAbout">
           <div class="menu-icon gray">
-            <Icon icon="fa7-solid:info-circle" />
+            <Icon icon="mdi:information-circle" />
           </div>
           <span class="menu-text">关于我们</span>
-          <Icon icon="fa7-solid:chevron-right" class="menu-arrow" />
+          <Icon icon="mdi:chevron-right" class="menu-arrow" />
         </button>
       </div>
     </section>
@@ -135,18 +147,46 @@
 
     <Teleport to="body">
       <Transition name="modal">
+        <div v-if="showCacheConfirm" class="modal-overlay" @click.self="showCacheConfirm = false">
+          <div class="modal-container">
+            <div class="modal-header">
+              <h3>清理缓存</h3>
+              <button class="btn-close" @click="showCacheConfirm = false">
+                <Icon icon="mdi:close" />
+              </button>
+            </div>
+            <div class="modal-body">
+              <div class="confirm-content">
+                <div class="confirm-icon">
+                  <Icon icon="mdi:alert-triangle" />
+                </div>
+                <p class="confirm-text">确定要清理所有缓存数据吗？</p>
+                <p class="confirm-hint">清理后将删除本地存储的所有数据，包括资产组合、汇率记录等。</p>
+              </div>
+              <div class="confirm-actions">
+                <button class="btn-cancel" @click="showCacheConfirm = false">取消</button>
+                <button class="btn-confirm" @click="clearCache">确定清理</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
+
+    <Teleport to="body">
+      <Transition name="modal">
         <div v-if="showAboutModal" class="modal-overlay" @click.self="showAboutModal = false">
           <div class="modal-container">
             <div class="modal-header">
               <h3>关于工具集合</h3>
               <button class="btn-close" @click="showAboutModal = false">
-                <Icon icon="fa7-solid:xmark" />
+                <Icon icon="mdi:close" />
               </button>
             </div>
             <div class="modal-body">
               <div class="about-content">
                 <div class="logo-icon">
-                  <Icon icon="fa7-solid:tools" />
+                  <Icon icon="mdi:wrench" />
                 </div>
                 <h2>工具集合</h2>
                 <p>高效、便捷的实用工具平台</p>
@@ -173,10 +213,13 @@ const router = useRouter()
 const userStore = useUserStore()
 
 const showAboutModal = ref(false)
+const showCacheConfirm = ref(false)
 
 const isDarkRef = ref(false)
 const isDark = inject('isDark', ref(false))
 const toggleTheme = inject('toggleTheme', () => {})
+const openProfileModal = inject('openProfileModal', () => {})
+const openPasswordModal = inject('openPasswordModal', () => {})
 
 if (isDark) {
   isDarkRef.value = isDark.value
@@ -231,12 +274,12 @@ const goToPasswordManager = () => {
   router.push('/password-manager')
 }
 
-const openProfileModal = () => {
-  userStore.openProfileModal()
+const handleOpenProfileModal = () => {
+  openProfileModal()
 }
 
-const openPasswordModal = () => {
-  userStore.openPasswordModal()
+const handleOpenPasswordModal = () => {
+  openPasswordModal()
 }
 
 const handleLogout = async () => {
@@ -245,6 +288,16 @@ const handleLogout = async () => {
 
 const showAbout = () => {
   showAboutModal.value = true
+}
+
+const showClearCacheConfirm = () => {
+  showCacheConfirm.value = true
+}
+
+const clearCache = () => {
+  localStorage.clear()
+  showCacheConfirm.value = false
+  router.push('/')
 }
 </script>
 
@@ -339,6 +392,7 @@ const showAbout = () => {
 
 .menu-section,
 .settings-section,
+.cache-section,
 .about-section {
   padding: 0 16px 16px;
   animation: slideInUp 0.4s ease-out forwards;
@@ -487,6 +541,14 @@ const showAbout = () => {
 
 .menu-icon.logout-icon svg {
   color: #dc3545;
+}
+
+.menu-icon.cache-icon {
+  background: rgba(245, 158, 11, 0.1);
+}
+
+.menu-icon.cache-icon svg {
+  color: #f59e0b;
 }
 
 .menu-text {
@@ -681,6 +743,10 @@ const showAbout = () => {
   border-color: rgba(74, 144, 226, 0.4);
 }
 
+.dark .login-btn svg {
+  color: #4a90e2;
+}
+
 .dark .menu-group {
   background: rgba(25, 25, 25, 0.95);
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
@@ -759,5 +825,92 @@ const showAbout = () => {
 .modal-enter-from .modal-container,
 .modal-leave-to .modal-container {
   transform: scale(0.95);
+}
+
+.confirm-content {
+  text-align: center;
+  padding: 1rem 0;
+}
+
+.confirm-icon {
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 1rem;
+  background: rgba(245, 158, 11, 0.1);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  color: #f59e0b;
+}
+
+.confirm-text {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #333;
+  margin: 0 0 0.5rem;
+}
+
+.confirm-hint {
+  font-size: 0.85rem;
+  color: #666;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.confirm-actions {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.btn-cancel,
+.btn-confirm {
+  flex: 1;
+  padding: 0.8rem;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.btn-cancel {
+  background: #f0f2f5;
+  border: none;
+  color: #666;
+}
+
+.btn-cancel:hover {
+  background: #e9ecef;
+}
+
+.btn-confirm {
+  background: linear-gradient(135deg, #dc3545, #c0392b);
+  border: none;
+  color: white;
+}
+
+.btn-confirm:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(220, 53, 69, 0.3);
+}
+
+.dark .confirm-text {
+  color: #e9ecef;
+}
+
+.dark .confirm-hint {
+  color: #adb5bd;
+}
+
+.dark .btn-cancel {
+  background: rgba(255, 255, 255, 0.08);
+  color: #adb5bd;
+}
+
+.dark .btn-cancel:hover {
+  background: rgba(255, 255, 255, 0.1);
 }
 </style>

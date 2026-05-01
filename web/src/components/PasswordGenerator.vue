@@ -2,7 +2,7 @@
   <div class="password-generator-container">
     <div class="card">
       <h2 class="page-title">
-        <Icon icon="fa7-solid:key" />
+        <Icon icon="mdi:key" />
         <span>密码生成器</span>
       </h2>
 
@@ -15,7 +15,7 @@
           placeholder="点击生成按钮创建密码"
         />
         <button class="copy-btn" @click="copyPassword" :disabled="!password">
-          <Icon :icon="copied ? 'fa7-solid:check' : 'fa7-solid:copy'" />
+          <Icon :icon="copied ? 'mdi:check' : 'mdi:content-copy'" />
           <span>{{ copied ? '已复制' : '复制' }}</span>
         </button>
       </div>
@@ -65,13 +65,13 @@
               <span v-for="(tag, index) in saveForm.tags" :key="index" class="tag">
                 {{ tag }}
                 <button @click="removeTag(index)" class="tag-remove">
-                  <Icon icon="fa7-solid:times" />
+                  <Icon icon="mdi:close" />
                 </button>
               </span>
             </div>
           </div>
           <button class="save-btn" @click="savePassword" :disabled="!saveForm.title || isSaving">
-            <Icon :icon="isSaving ? 'fa7-solid:spinner' : 'fa7-solid:save'" :class="{ spinning: isSaving }" />
+            <Icon :icon="isSaving ? 'mdi:loading' : 'mdi:content-save'" :class="{ spinning: isSaving }" />
             <span>{{ isSaving ? '保存中...' : '保存到密码库' }}</span>
           </button>
         </div>
@@ -79,7 +79,7 @@
 
       <div class="options-section">
         <h3>
-          <Icon icon="fa7-solid:cog" />
+          <Icon icon="mdi:settings" />
           <span>选项设置</span>
         </h3>
 
@@ -110,7 +110,7 @@
             <input type="checkbox" v-model="options.uppercase" />
             <span class="checkmark"></span>
             <span class="label-text">
-              <Icon icon="fa7-solid:font" />
+              <Icon icon="mdi:font" />
               大写字母 (A-Z)
             </span>
           </label>
@@ -119,7 +119,7 @@
             <input type="checkbox" v-model="options.lowercase" />
             <span class="checkmark"></span>
             <span class="label-text">
-              <Icon icon="fa7-solid:font" />
+              <Icon icon="mdi:font" />
               小写字母 (a-z)
             </span>
           </label>
@@ -128,7 +128,7 @@
             <input type="checkbox" v-model="options.numbers" />
             <span class="checkmark"></span>
             <span class="label-text">
-              <Icon icon="fa7-solid:hashtag" />
+              <Icon icon="mdi:hash" />
               数字 (0-9)
             </span>
           </label>
@@ -137,7 +137,7 @@
             <input type="checkbox" v-model="options.symbols" />
             <span class="checkmark"></span>
             <span class="label-text">
-              <Icon icon="fa7-solid:icons" />
+              <Icon icon="mdi:emoticon" />
               特殊符号 (!@#$%^&*)
             </span>
           </label>
@@ -146,7 +146,7 @@
             <input type="checkbox" v-model="options.excludeSimilar" />
             <span class="checkmark"></span>
             <span class="label-text">
-              <Icon icon="fa7-solid:ban" />
+              <Icon icon="mdi:ban" />
               排除相似字符 (0, O, l, 1)
             </span>
           </label>
@@ -154,17 +154,17 @@
       </div>
 
       <button class="generate-btn" @click="generatePassword">
-        <Icon icon="fa7-solid:sync" :class="{ spinning: isGenerating }" />
+        <Icon icon="mdi:sync" :class="{ spinning: isGenerating }" />
         <span>生成密码</span>
       </button>
 
       <!-- 最近保存的密码 -->
       <div class="saved-passwords-section" v-if="recentSavedPasswords.length > 0">
         <h3>
-          <Icon icon="fa7-solid:lock" />
+          <Icon icon="mdi:lock" />
           <span>最近保存</span>
           <router-link to="/password-manager" class="view-all-link">
-            查看全部 <Icon icon="fa7-solid:arrow-right" />
+            查看全部 <Icon icon="mdi:arrow-right" />
           </router-link>
         </h3>
         <div class="saved-list">
@@ -176,12 +176,12 @@
             <div class="saved-info">
               <div class="saved-title">{{ item.title }}</div>
               <div class="saved-meta" v-if="item.username">
-                <Icon icon="fa7-solid:user" /> {{ item.username }}
+                <Icon icon="mdi:user" /> {{ item.username }}
               </div>
             </div>
             <div class="saved-actions">
               <button class="action-btn" @click="copySavedPassword(item.password)" title="复制密码">
-                <Icon icon="fa7-solid:copy" />
+                <Icon icon="mdi:content-copy" />
               </button>
             </div>
           </div>
@@ -190,7 +190,7 @@
 
       <div class="history-section" v-if="history.length > 0">
         <h3>
-          <Icon icon="fa7-solid:history" />
+          <Icon icon="mdi:history" />
           <span>生成历史</span>
         </h3>
         <div class="history-list">
@@ -201,12 +201,12 @@
           >
             <span class="history-password">{{ item }}</span>
             <button class="history-copy-btn" @click="copyToClipboard(item)">
-              <Icon icon="fa7-solid:copy" />
+              <Icon icon="mdi:content-copy" />
             </button>
           </div>
         </div>
         <button class="clear-history-btn" @click="clearHistory">
-          <Icon icon="fa7-solid:trash-alt" />
+          <Icon icon="mdi:trash-can" />
           <span>清空历史</span>
         </button>
       </div>

@@ -2,13 +2,13 @@
   <div class="qrcode-container">
     <div class="card">
       <h2 class="page-title">
-        <Icon icon="fa7-solid:qrcode" />
+        <Icon icon="mdi:qrcode" />
         <span>二维码生成器</span>
       </h2>
 
       <div class="input-section">
         <div class="input-box">
-          <label><Icon icon="fa7-solid:text-height" /> 内容</label>
+          <label><Icon icon="mdi:format-text-height" /> 内容</label>
           <textarea
             v-model="content"
             placeholder="请输入要生成二维码的内容（文本、URL 等）"
@@ -21,14 +21,14 @@
 
         <div class="options-row">
           <div class="option-box">
-            <label><Icon icon="fa7-solid:image" /> 尺寸</label>
+            <label><Icon icon="mdi:image" /> 尺寸</label>
             <select v-model="size">
               <option v-for="s in sizes" :key="s" :value="s">{{ s }}px</option>
             </select>
           </div>
 
           <div class="option-box">
-            <label><Icon icon="fa7-solid:pencil-alt" /> 纠错级别</label>
+            <label><Icon icon="mdi:pencil" /> 纠错级别</label>
             <select v-model="errorLevel">
               <option v-for="level in errorLevels" :key="level.value" :value="level.value">
                 {{ level.label }}
@@ -53,28 +53,28 @@
           />
         </div>
         <div class="empty-state" v-else>
-          <Icon icon="fa7-solid:qrcode" />
+          <Icon icon="mdi:qrcode" />
           <p>请输入内容生成二维码</p>
         </div>
       </div>
 
       <div class="actions">
         <button class="btn btn-download" @click="downloadQRCode" :disabled="!content">
-          <Icon icon="fa7-solid:download" />
+          <Icon icon="mdi:download" />
           <span>下载二维码</span>
         </button>
         <button class="btn btn-random" @click="randomizeColors" :disabled="!content">
-          <Icon icon="fa7-solid:sync-alt" />
+          <Icon icon="mdi:sync" />
           <span>随机换色</span>
         </button>
         <button class="btn btn-reset" @click="reset">
-          <Icon icon="fa7-solid:trash-alt" />
+          <Icon icon="mdi:trash-can" />
           <span>清空</span>
         </button>
       </div>
 
       <div class="tips">
-        <Icon icon="fa7-solid:info-circle" />
+        <Icon icon="mdi:information-circle" />
         <span>提示：点击按钮可随机更换颜色，支持文本、URL、联系方式等内容</span>
       </div>
     </div>

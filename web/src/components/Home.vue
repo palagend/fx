@@ -2,7 +2,7 @@
   <div class="home-container">
     <div class="hero-section">
       <h2 class="hero-title">
-        <Icon icon="fa7-solid:tools" />
+        <Icon icon="mdi:wrench" />
         <span>欢迎使用工具集合</span>
       </h2>
       <p class="hero-subtitle">高效、便捷的实用工具平台</p>
@@ -11,66 +11,66 @@
     <div class="tools-grid">
       <router-link to="/exchange-rate" class="tool-card">
         <div class="tool-icon">
-          <Icon icon="fa7-solid:exchange-alt" />
+          <Icon icon="mdi:swap-horizontal" />
         </div>
         <div class="tool-title">实时汇率查询</div>
         <div class="tool-description">
           支持11种主要货币之间的汇率换算，附带损耗计算功能
         </div>
         <div class="tool-arrow">
-          <Icon icon="fa7-solid:arrow-right" />
+          <Icon icon="mdi:arrow-right" />
         </div>
       </router-link>
 
       <router-link to="/calculator" class="tool-card">
         <div class="tool-icon">
-          <Icon icon="fa7-solid:calculator" />
+          <Icon icon="mdi:calculator" />
         </div>
         <div class="tool-title">实用计算器</div>
         <div class="tool-description">
           日常数值计算与单位转换，支持多种计算模式
         </div>
         <div class="tool-arrow">
-          <Icon icon="fa7-solid:arrow-right" />
+          <Icon icon="mdi:arrow-right" />
         </div>
       </router-link>
 
       <router-link to="/portfolio" class="tool-card">
         <div class="tool-icon">
-          <Icon icon="fa7-solid:wallet" />
+          <Icon icon="mdi:wallet" />
         </div>
         <div class="tool-title">资产组合管理</div>
         <div class="tool-description">
           统一管理全资产投资组合，查看盈亏情况
         </div>
         <div class="tool-arrow">
-          <Icon icon="fa7-solid:arrow-right" />
+          <Icon icon="mdi:arrow-right" />
         </div>
       </router-link>
 
       <router-link to="/qrcode-generator" class="tool-card">
         <div class="tool-icon">
-          <Icon icon="fa7-solid:qrcode" />
+          <Icon icon="mdi:qrcode" />
         </div>
         <div class="tool-title">二维码生成器</div>
         <div class="tool-description">
           快速生成高质量二维码，支持自定义尺寸和颜色
         </div>
         <div class="tool-arrow">
-          <Icon icon="fa7-solid:arrow-right" />
+          <Icon icon="mdi:arrow-right" />
         </div>
       </router-link>
 
       <router-link to="/password-generator" class="tool-card">
         <div class="tool-icon">
-          <Icon icon="fa7-solid:key" />
+          <Icon icon="mdi:key" />
         </div>
         <div class="tool-title">密码生成器</div>
         <div class="tool-description">
           生成安全强密码，支持自定义长度和字符类型
         </div>
         <div class="tool-arrow">
-          <Icon icon="fa7-solid:arrow-right" />
+          <Icon icon="mdi:arrow-right" />
         </div>
       </router-link>
     </div>

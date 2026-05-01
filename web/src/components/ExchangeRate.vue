@@ -2,16 +2,16 @@
   <div class="exchange-rate-container">
     <div class="card">
       <h2 class="page-title">
-        <Icon icon="fa7-solid:exchange-alt" />
+        <Icon icon="mdi:swap-horizontal" />
         <span>实时汇率换算（含损耗计算）</span>
       </h2>
 
       <div class="input-box">
-        <label><Icon icon="fa7-solid:coins" /> 兑换本金</label>
+        <label><Icon icon="mdi:coins" /> 兑换本金</label>
         <div class="input-with-clear">
           <input type="number" v-model.number="amount" placeholder="请输入金额" min="0.01" max="99999999" step="0.01" @input="onAmountInput">
           <button v-if="amount" class="clear-btn" @click="clearAmount">
-            <Icon icon="fa7-solid:xmark" />
+            <Icon icon="mdi:close" />
           </button>
         </div>
         <div class="quick-amounts">
@@ -37,11 +37,11 @@
                   </option>
                 </optgroup>
               </select>
-              <Icon icon="fa7-solid:chevron-down" class="select-icon" />
+              <Icon icon="mdi:chevron-down" class="select-icon" />
             </div>
           </div>
           <button class="swap-btn" @click="swapCurrency">
-            <Icon icon="fa7-solid:exchange-alt" />
+            <Icon icon="mdi:swap-horizontal" />
           </button>
           <div class="currency-col">
             <span class="currency-label">到</span>
@@ -56,40 +56,40 @@
                   </option>
                 </optgroup>
               </select>
-              <Icon icon="fa7-solid:chevron-down" class="select-icon" />
+              <Icon icon="mdi:chevron-down" class="select-icon" />
             </div>
           </div>
         </div>
       </div>
 
       <button class="btn btn-query" @click="getRate" :disabled="loading">
-        <Icon :icon="loading ? 'fa7-solid:spinner' : 'fa7-solid:search'" />
+        <Icon :icon="loading ? 'mdi:loading' : 'mdi:search'" />
         <span>{{ loading ? '查询中...' : '查询市场中间价' }}</span>
       </button>
 
       <div v-if="message && message.type === 'error'" :class="['message', message.type]">
-        <Icon :icon="message.type === 'error' ? 'fa7-solid:circle-exclamation' : 'fa7-solid:circle-info'" />
+        <Icon :icon="message.type === 'error' ? 'mdi:alert-circle' : 'mdi:information-circle'" />
         <span>{{ message.text }}</span>
       </div>
 
       <div class="result" v-if="result" @click="copyResult">
         <div class="result-header">
-          <Icon icon="fa7-solid:calculator" />
+          <Icon icon="mdi:calculator" />
           <span>{{ amount.toLocaleString('zh-CN') }} {{ from }}</span>
           <span class="result-equals">=</span>
           <strong>{{ result.toLocaleString('zh-CN') }}</strong>
           <span class="result-currency">{{ to }}</span>
           <button class="copy-btn" :class="{ copied: copySuccess }" @click.stop="copyResult" aria-label="复制结果">
-            <Icon :icon="copySuccess ? 'fa7-solid:check' : 'fa7-solid:copy'" style="color: white" />
+            <Icon :icon="copySuccess ? 'mdi:check' : 'mdi:content-copy'" style="color: white" />
           </button>
         </div>
         <div class="result-footer">
           <div class="rate-info">
-            <Icon icon="fa7-solid:info-circle" />
+            <Icon icon="mdi:information-circle" />
             <span>1 {{ from }} = <strong>{{ rateFixed }}</strong> {{ to }}</span>
           </div>
           <div class="source-info">
-            <Icon icon="fa7-solid:clock" />
+            <Icon icon="mdi:clock" />
             <span>{{ updateTime ? '更新：' + updateTime : '数据来源: exchangerate.host' }}</span>
           </div>
         </div>
@@ -99,21 +99,21 @@
 
       <div v-if="result" class="loss-section">
         <h3 class="section-subtitle">
-          <Icon icon="fa7-solid:percentage" />
+          <Icon icon="mdi:percent" />
           <span>兑换损耗计算</span>
           <button class="toggle-btn" @click="toggleLossSection">
-            <Icon :icon="showLossSection ? 'fa7-solid:chevron-up' : 'fa7-solid:chevron-down'" />
+            <Icon :icon="showLossSection ? 'mdi:chevron-up' : 'mdi:chevron-down'" />
           </button>
         </h3>
         
         <transition name="expand">
           <div v-show="showLossSection" class="loss-content">
             <div class="input-box">
-              <label><Icon icon="fa7-solid:hand-holding-usd" /> 实际到账{{ to }}金额</label>
+              <label><Icon icon="mdi:hand-coin" /> 实际到账{{ to }}金额</label>
               <input type="number" v-model.number="actualAmount" placeholder="输入实际到账金额" min="0.01" step="0.01">
             </div>
             <button class="btn btn-calc-loss" @click="calcLoss">
-              <Icon icon="fa7-solid:calculator" />
+              <Icon icon="mdi:calculator" />
               <span>计算兑换损耗</span>
             </button>
 
@@ -137,10 +137,10 @@
 
       <div v-if="history.length" class="history-section">
         <h3 class="section-subtitle">
-          <Icon icon="fa7-solid:history" />
+          <Icon icon="mdi:history" />
           <span>最近查询</span>
           <button class="clear-history-btn" @click="clearHistory">
-            <Icon icon="fa7-solid:trash" />
+            <Icon icon="mdi:trash-can" />
           </button>
         </h3>
         <div class="history-list">
@@ -191,7 +191,7 @@ const lossData = ref({
 const toast = ref({
   show: false,
   text: '',
-  icon: 'fa7-solid:check'
+  icon: 'mdi:check'
 })
 
 const quickAmounts = [100, 200, 1000, 10000, 50000, 100000, 1000000]
@@ -261,7 +261,7 @@ const saveToHistory = () => {
 const clearHistory = () => {
   history.value = []
   localStorage.removeItem('exchangeRateHistory')
-  showToast('历史记录已清除', 'fa7-solid:trash')
+  showToast('历史记录已清除', 'mdi:trash-can')
 }
 
 const swapCurrency = () => {
@@ -293,7 +293,7 @@ const setAmount = (val) => {
 const onAmountInput = () => {
   if (amount.value && amount.value > 0) {
     if (amount.value > 99999999) {
-      showToast('金额过大，请输入小于1亿的金额', 'fa7-solid:circle-exclamation')
+      showToast('金额过大，请输入小于1亿的金额', 'mdi:alert-circle')
       amount.value = 99999999
       return
     }
@@ -319,7 +319,7 @@ const showMessage = (text, type = 'info') => {
   }
 }
 
-const showToast = (text, icon = 'fa7-solid:check') => {
+const showToast = (text, icon = 'mdi:check') => {
   toast.value = { show: true, text, icon }
   setTimeout(() => {
     toast.value.show = false
@@ -333,12 +333,12 @@ const copyResult = async () => {
     const text = `${amount.value} ${from.value} = ${result.value} ${to.value}`
     await navigator.clipboard.writeText(text)
     copySuccess.value = true
-    showToast('结果已复制到剪贴板', 'fa7-solid:check')
+    showToast('结果已复制到剪贴板', 'mdi:check')
     setTimeout(() => {
       copySuccess.value = false
     }, 2000)
   } catch (err) {
-    showToast('复制失败，请重试', 'fa7-solid:xmark')
+    showToast('复制失败，请重试', 'mdi:close')
   }
 }
 
@@ -351,7 +351,7 @@ const getRate = async () => {
   }
   
   if (amount.value > 99999999) {
-    showToast('金额过大，请输入小于1亿的金额', 'fa7-solid:circle-exclamation')
+    showToast('金额过大，请输入小于1亿的金额', 'mdi:alert-circle')
     return
   }
 
@@ -423,9 +423,9 @@ const getRate = async () => {
     }
     
     saveToHistory()
-    showToast('汇率查询成功', 'fa7-solid:check')
+    showToast('汇率查询成功', 'mdi:check')
   } catch (err) {
-    showToast('网络错误，请检查连接', 'fa7-solid:circle-xmark')
+    showToast('网络错误，请检查连接', 'mdi:close-circle')
   } finally {
     loading.value = false
   }
@@ -433,13 +433,13 @@ const getRate = async () => {
 
 const calcLoss = () => {
   if (!actualAmount.value || actualAmount.value <= 0) {
-    showToast(`请输入大于0的实际到账${to.value}金额`, 'fa7-solid:circle-exclamation')
+    showToast(`请输入大于0的实际到账${to.value}金额`, 'mdi:alert-circle')
     return
   }
   
   const currentLoss = result.value - actualAmount.value
   if (currentLoss < 0) {
-    showToast('实际到账金额不能高于市场中间价', 'fa7-solid:circle-xmark')
+    showToast('实际到账金额不能高于市场中间价', 'mdi:close-circle')
     return
   }
   
@@ -453,7 +453,7 @@ const calcLoss = () => {
     lossRate
   }
   
-  showToast('损耗计算完成', 'fa7-solid:percent')
+  showToast('损耗计算完成', 'mdi:percent')
 }
 
 onMounted(() => {

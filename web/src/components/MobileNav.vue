@@ -7,7 +7,7 @@
         :class="{ active: $route.path.startsWith('/portfolio') }"
       >
         <div class="nav-icon">
-          <Icon icon="fa7-solid:wallet" />
+          <Icon icon="mdi:wallet" />
         </div>
         <span class="nav-text">资产</span>
       </router-link>
@@ -18,7 +18,7 @@
         :class="{ active: $route.path.startsWith('/exchange-rate') }"
       >
         <div class="nav-icon">
-          <Icon icon="fa7-solid:exchange-alt" />
+          <Icon icon="mdi:swap-horizontal" />
         </div>
         <span class="nav-text">汇率</span>
       </router-link>
@@ -29,7 +29,7 @@
         :class="{ active: $route.path === '/tools' }"
       >
         <div class="nav-icon">
-          <Icon icon="fa7-solid:compass" />
+          <Icon icon="mdi:compass" />
         </div>
         <span class="nav-text">发现</span>
       </router-link>
@@ -40,7 +40,7 @@
         :class="{ active: $route.path.startsWith('/profile') }"
       >
         <div class="nav-icon">
-          <Icon icon="fa7-solid:user" />
+          <Icon icon="mdi:user" />
         </div>
         <span class="nav-text">我</span>
       </router-link>

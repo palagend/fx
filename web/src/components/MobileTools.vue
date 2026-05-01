@@ -8,74 +8,74 @@
     <section class="tools-grid">
       <router-link to="/calculator" class="tool-card">
         <div class="tool-icon blue">
-          <Icon icon="fa7-solid:calculator" />
+          <Icon icon="mdi:calculator" />
         </div>
         <div class="tool-info">
           <h3>计算器</h3>
           <p>支持基础运算和科学计算</p>
         </div>
-        <Icon icon="fa7-solid:chevron-right" class="tool-arrow" />
+        <Icon icon="mdi:chevron-right" class="tool-arrow" />
       </router-link>
 
       <router-link to="/exchange-rate" class="tool-card">
         <div class="tool-icon green">
-          <Icon icon="fa7-solid:exchange-alt" />
+          <Icon icon="mdi:swap-horizontal" />
         </div>
         <div class="tool-info">
           <h3>汇率换算</h3>
           <p>实时汇率查询与换算</p>
         </div>
-        <Icon icon="fa7-solid:chevron-right" class="tool-arrow" />
+        <Icon icon="mdi:chevron-right" class="tool-arrow" />
       </router-link>
 
       <router-link to="/qrcode-generator" class="tool-card">
         <div class="tool-icon purple">
-          <Icon icon="fa7-solid:qrcode" />
+          <Icon icon="mdi:qrcode" />
         </div>
         <div class="tool-info">
           <h3>二维码生成</h3>
           <p>快速生成各种二维码</p>
         </div>
-        <Icon icon="fa7-solid:chevron-right" class="tool-arrow" />
+        <Icon icon="mdi:chevron-right" class="tool-arrow" />
       </router-link>
 
       <router-link to="/password-generator" class="tool-card">
         <div class="tool-icon orange">
-          <Icon icon="fa7-solid:key" />
+          <Icon icon="mdi:key" />
         </div>
         <div class="tool-info">
           <h3>密码生成</h3>
           <p>生成高强度安全密码</p>
         </div>
-        <Icon icon="fa7-solid:chevron-right" class="tool-arrow" />
+        <Icon icon="mdi:chevron-right" class="tool-arrow" />
       </router-link>
 
       <router-link to="/password-manager" class="tool-card">
         <div class="tool-icon red">
-          <Icon icon="fa7-solid:lock" />
+          <Icon icon="mdi:lock" />
         </div>
         <div class="tool-info">
           <h3>密码管理</h3>
           <p>安全管理您的密码</p>
         </div>
-        <Icon icon="fa7-solid:chevron-right" class="tool-arrow" />
+        <Icon icon="mdi:chevron-right" class="tool-arrow" />
       </router-link>
 
       <router-link to="/portfolio" class="tool-card">
         <div class="tool-icon cyan">
-          <Icon icon="fa7-solid:wallet" />
+          <Icon icon="mdi:wallet" />
         </div>
         <div class="tool-info">
           <h3>资产组合</h3>
           <p>管理您的投资组合</p>
         </div>
-        <Icon icon="fa7-solid:chevron-right" class="tool-arrow" />
+        <Icon icon="mdi:chevron-right" class="tool-arrow" />
       </router-link>
     </section>
 
     <section class="tips-section">
       <div class="tip-card">
-        <Icon icon="fa7-solid:lightbulb" class="tip-icon" />
+        <Icon icon="mdi:lightbulb" class="tip-icon" />
         <div class="tip-content">
           <h3>使用提示</h3>
           <p>所有工具均为本地运行，数据不会上传到服务器，请放心使用。</p>
