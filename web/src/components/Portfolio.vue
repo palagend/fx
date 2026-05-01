@@ -28,7 +28,7 @@
               <!-- 移动端快速导航 - 首屏聚焦 -->
               <div class="mobile-quick-nav">
                 <button class="quick-nav-btn" @click="scrollToSection('overview')">
-                  <Icon icon="mdi:pie-chart" />
+                  <Icon icon="mdi:view-dashboard" />
                   <span>概览</span>
                 </button>
                 <button class="quick-nav-btn" @click="scrollToSection('portfolio')">
@@ -45,26 +45,7 @@
                 </button>
               </div>
 
-              <!-- 本位切换器（仅PC端显示） -->
-              <div class="value-mode-switcher desktop-only">
-                <span class="mode-label">计价本位:</span>
-                <button
-                  class="mode-btn"
-                  :class="{ active: valueMode === 'usd' }"
-                  @click="valueMode = 'usd'"
-                >
-                  <Icon icon="mdi:currency-usd" /> USD
-                </button>
-                <button
-                  class="mode-btn"
-                  :class="{ active: valueMode === 'btc' }"
-                  @click="valueMode = 'btc'"
-                >
-                  <Icon icon="mdi:bitcoin" /> BTC
-                </button>
-              </div>
-
-            <section id="overview" class="overview">
+              <section id="overview" class="overview">
               <div class="overview-card total-card">
                 <div class="card-header-row">
                   <h3><Icon icon="mdi:wallet" /> 总资产</h3>
@@ -261,6 +242,19 @@
                           ref="amountInput"
                         >
                         <span class="input-unit">{{ newTrade.symbol }}</span>
+                      </div>
+                      <!-- 快捷输入按钮 -->
+                      <div class="quick-amount-buttons" v-if="newTrade.type === 'sell' && getHoldingAmount(newTrade.symbol) > 0">
+                        <button class="quick-btn" @click="setQuickAmount(25)">25%</button>
+                        <button class="quick-btn" @click="setQuickAmount(50)">50%</button>
+                        <button class="quick-btn" @click="setQuickAmount(75)">75%</button>
+                        <button class="quick-btn primary" @click="setQuickAmount(100)">100%</button>
+                      </div>
+                      <div class="quick-amount-buttons" v-else-if="newTrade.type === 'buy' && cashBalance > 0">
+                        <button class="quick-btn" @click="setQuickBuyAmount(25)">25%</button>
+                        <button class="quick-btn" @click="setQuickBuyAmount(50)">50%</button>
+                        <button class="quick-btn" @click="setQuickBuyAmount(75)">75%</button>
+                        <button class="quick-btn primary" @click="setQuickBuyAmount(100)">100%</button>
                       </div>
                     </div>
 
@@ -962,8 +956,6 @@ const unrealizedPL = computed(() => portfolioStore.unrealizedPL) // 浮动盈亏
 const unrealizedPLRate = computed(() => portfolioStore.unrealizedPLRate) // 浮动盈亏率
 const realizedPL = computed(() => portfolioStore.realizedPL) // 实现盈亏
 const realizedPLRate = computed(() => portfolioStore.realizedPLRate) // 实现盈亏率
-const totalPL = computed(() => portfolioStore.totalPL) // 总盈亏
-
 
 // 创建显示值的通用函数
 const createPLDisplay = (val, rate = null) => ({
@@ -981,9 +973,6 @@ const displayUnrealizedPL = computed(() =>
 
 const displayRealizedPL = computed(() =>
   createPLDisplay(realizedPL.value, realizedPLRate.value))
-
-const displayTotalPL = computed(() =>
-  createPLDisplay(totalPL.value))
 
 // 本位格式化函数
 const formatValue = (valueInUSD) => {
@@ -1335,6 +1324,20 @@ const quickSell = async (crypto) => {
 
 const quickBuy = async (crypto) => {
   await setupQuickTrade(crypto, 'buy', true)
+}
+
+// 快捷设置卖出数量（百分比）
+const setQuickAmount = (percent) => {
+  const holding = getHoldingAmount(newTrade.value.symbol)
+  newTrade.value.amount = Number((holding * percent / 100).toFixed(4))
+}
+
+// 快捷设置买入数量（基于现金余额百分比）
+const setQuickBuyAmount = (percent) => {
+  if (currentMarketPrice.value > 0) {
+    const maxAmount = (cashBalance.value * percent / 100) / currentMarketPrice.value
+    newTrade.value.amount = Number(maxAmount.toFixed(4))
+  }
 }
 
 // 使用导入的工具函数
@@ -1994,52 +1997,6 @@ watch(() => userStore.isLoggedIn, async (isLoggedIn) => {
 
 .cash-card {
   position: relative;
-}
-
-.value-mode-switcher {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 20px;
-  padding: 12px 16px;
-  background: var(--card-bg);
-  border-radius: 12px;
-  border: 1px solid var(--border-color);
-}
-
-.mode-label {
-  font-size: 14px;
-  color: var(--text-secondary);
-  font-weight: 500;
-}
-
-.mode-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 12px 20px;
-  min-width: 80px;
-  min-height: 44px;
-  border: 1px solid var(--border-color);
-  background: var(--bg-color);
-  color: var(--text-secondary);
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  font-size: 14px;
-  font-weight: 500;
-}
-
-.mode-btn:hover {
-  border-color: var(--primary-color);
-  color: var(--primary-color);
-}
-
-.mode-btn.active {
-  background: var(--primary-color);
-  color: white;
-  border-color: var(--primary-color);
 }
 
 .total-card .sub-value {
@@ -2719,6 +2676,67 @@ watch(() => userStore.isLoggedIn, async (isLoggedIn) => {
   font-weight: 500;
   color: #9ca3af;
   pointer-events: none;
+}
+
+/* 快捷数量按钮 */
+.quick-amount-buttons {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.quick-btn {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid #e5e7eb;
+  background: white;
+  color: #6b7280;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.quick-btn:hover {
+  border-color: #6366f1;
+  color: #6366f1;
+}
+
+.quick-btn:active {
+  transform: scale(0.98);
+}
+
+.quick-btn.primary {
+  background: #6366f1;
+  border-color: #6366f1;
+  color: white;
+}
+
+.quick-btn.primary:hover {
+  background: #4f46e5;
+  border-color: #4f46e5;
+}
+
+.dark .quick-btn {
+  background: #2d2d2d;
+  border-color: #404040;
+  color: #9ca3af;
+}
+
+.dark .quick-btn:hover {
+  border-color: #4a90e2;
+  color: #4a90e2;
+}
+
+.dark .quick-btn.primary {
+  background: #4a90e2;
+  border-color: #4a90e2;
+}
+
+.dark .quick-btn.primary:hover {
+  background: #3d7bc6;
+  border-color: #3d7bc6;
 }
 
 .btn-use-market {
@@ -4313,25 +4331,6 @@ watch(() => userStore.isLoggedIn, async (isLoggedIn) => {
   .mode-indicator {
     display: none !important;
   }
-}
-
-/* 本位切换按钮样式 */
-.value-mode-toggle {
-  background: rgba(67, 97, 238, 0.1);
-  color: #4361ee;
-}
-
-.value-mode-toggle:active {
-  background: rgba(67, 97, 238, 0.2);
-}
-
-.dark .value-mode-toggle {
-  background: rgba(74, 144, 230, 0.1);
-  color: #4a90e2;
-}
-
-.dark .value-mode-toggle:active {
-  background: rgba(74, 144, 230, 0.2);
 }
 
 /* 价值本位切换开关 */
