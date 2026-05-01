@@ -39,29 +39,50 @@ export interface TradeResult {
 export const usePortfolioStore = defineStore('portfolio', () => {
   const userStore = useUserStore()
 
-  const dashboardData = ref<DashboardData | null>(null)
+  const dashboardData = ref<DashboardData>({
+    prices: {},
+    us_stock_prices: {},
+    price_changes: {},
+    exchange_rates: {},
+    portfolio: [],
+    crypto_value: 0,
+    us_stock_value: 0,
+    cash_balance: 0,
+    unrealized_profit_loss: 0,
+    realized_profit_loss: 0,
+    unrealized_profit_loss_rate: 0,
+    realized_profit_loss_rate: 0,
+    value_change_24h: 0
+  })
   const trades = ref<Trade[]>([])
   const isLoading = ref<boolean>(false)
   const error = ref<string | null>(null)
 
-  const prices = computed(() => dashboardData.value?.prices || {})
-  const usStockPrices = computed(() => dashboardData.value?.us_stock_prices || {})
-  const priceChanges = computed(() => dashboardData.value?.price_changes || {})
-  const exchangeRates = computed(() => dashboardData.value?.exchange_rates || {})
-  const portfolio = computed(() => dashboardData.value?.portfolio || [])
+  const prices = computed(() => dashboardData.value.prices)
+  const usStockPrices = computed(() => dashboardData.value.us_stock_prices)
+  const priceChanges = computed(() => dashboardData.value.price_changes)
+  const exchangeRates = computed(() => dashboardData.value.exchange_rates)
+  const portfolio = computed(() => dashboardData.value.portfolio)
 
-  const cryptoAssetsValue = ref<number>(0)
-  const usStockValue = ref<number>(0)
-  const cashBalance = ref<number>(0)
-  const totalAssetsValue = ref<number>(0)
+  const cryptoAssetsValue = computed(() => dashboardData.value.crypto_value)
+  const usStockValue = computed(() => dashboardData.value.us_stock_value)
+  const cashBalance = computed(() => dashboardData.value.cash_balance)
+  const totalAssetsValue = computed(() => 
+    dashboardData.value.crypto_value + 
+    dashboardData.value.us_stock_value + 
+    dashboardData.value.cash_balance
+  )
 
-  const unrealizedPL = ref<number>(0)
-  const realizedPL = ref<number>(0)
-  const totalPL = ref<number>(0)
+  const unrealizedPL = computed(() => dashboardData.value.unrealized_profit_loss)
+  const realizedPL = computed(() => dashboardData.value.realized_profit_loss)
+  const totalPL = computed(() => 
+    dashboardData.value.unrealized_profit_loss + 
+    dashboardData.value.realized_profit_loss
+  )
 
-  const unrealizedPLRate = ref<number>(0)
-  const realizedPLRate = ref<number>(0)
-  const cryptoValueChange24h = ref<number>(0)
+  const unrealizedPLRate = computed(() => dashboardData.value.unrealized_profit_loss_rate)
+  const realizedPLRate = computed(() => dashboardData.value.realized_profit_loss_rate)
+  const cryptoValueChange24h = computed(() => dashboardData.value.value_change_24h)
 
   const requireAuth = <T extends (...args: unknown[]) => Promise<TradeResult>>(fn: T) => async (...args: Parameters<T>): Promise<TradeResult> => {
     if (!userStore.isLoggedIn) {
@@ -70,40 +91,38 @@ export const usePortfolioStore = defineStore('portfolio', () => {
     return fn(...args)
   }
 
-  function updateCalculatedValues() {
-    if (!dashboardData.value) {
-      cryptoAssetsValue.value = 0
-      usStockValue.value = 0
-      cashBalance.value = 0
-      totalAssetsValue.value = 0
-      unrealizedPL.value = 0
-      realizedPL.value = 0
-      totalPL.value = 0
-      unrealizedPLRate.value = 0
-      realizedPLRate.value = 0
-      cryptoValueChange24h.value = 0
-      return
+  function mergeDashboardData(newData: DashboardData) {
+    Object.assign(dashboardData.value, newData)
+  }
+
+  function mergePrices(newPrices: Record<string, number>) {
+    Object.assign(dashboardData.value.prices, newPrices)
+  }
+
+  function mergeUsStockPrices(newPrices: Record<string, number>) {
+    Object.assign(dashboardData.value.us_stock_prices, newPrices)
+  }
+
+  function updatePortfolioItem(index: number, updates: Partial<Asset>) {
+    if (dashboardData.value.portfolio[index]) {
+      Object.assign(dashboardData.value.portfolio[index], updates)
     }
+  }
 
-    cryptoAssetsValue.value = dashboardData.value.crypto_value || 0
-    usStockValue.value = dashboardData.value.us_stock_value || 0
-    cashBalance.value = dashboardData.value.cash_balance || 0
-    totalAssetsValue.value = cryptoAssetsValue.value + usStockValue.value + cashBalance.value
+  function addTrade(newTrade: Trade) {
+    trades.value.unshift(newTrade)
+  }
 
-    unrealizedPL.value = dashboardData.value.unrealized_profit_loss || 0
-    realizedPL.value = dashboardData.value.realized_profit_loss || 0
-    totalPL.value = unrealizedPL.value + realizedPL.value
-
-    unrealizedPLRate.value = dashboardData.value.unrealized_profit_loss_rate || 0
-    realizedPLRate.value = dashboardData.value.realized_profit_loss_rate || 0
-    cryptoValueChange24h.value = dashboardData.value.value_change_24h || 0
+  function removeTrade(id: string) {
+    const index = trades.value.findIndex(t => t.id === id)
+    if (index !== -1) {
+      trades.value.splice(index, 1)
+    }
   }
 
   async function fetchDashboard(): Promise<TradeResult & { updatedAt?: number }> {
     if (config.isBackend && !userStore.isLoggedIn) {
-      dashboardData.value = null
-      trades.value = []
-      updateCalculatedValues()
+      resetDashboardData()
       return { success: false, error: '请先登录' }
     }
 
@@ -116,10 +135,10 @@ export const usePortfolioStore = defineStore('portfolio', () => {
         portfolioApi.getTrades()
       ])
 
-      dashboardData.value = dashboardRes.data
-      trades.value = tradesRes.data.trades || []
+      mergeDashboardData(dashboardRes.data)
 
-      updateCalculatedValues()
+      const newTrades = tradesRes.data.trades || []
+      reconcileTrades(newTrades)
 
       return {
         success: true,
@@ -134,20 +153,50 @@ export const usePortfolioStore = defineStore('portfolio', () => {
     }
   }
 
+  function reconcileTrades(newTrades: Trade[]) {
+    const existingIds = new Set(trades.value.map(t => t.id))
+    const newIds = new Set(newTrades.map(t => t.id))
+
+    const toAdd = newTrades.filter(t => !existingIds.has(t.id))
+    const toRemove = trades.value.filter(t => !newIds.has(t.id))
+
+    toRemove.forEach(t => removeTrade(t.id))
+    toAdd.forEach(t => addTrade(t))
+
+    trades.value.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+  }
+
+  function resetDashboardData() {
+    dashboardData.value = {
+      prices: {},
+      us_stock_prices: {},
+      price_changes: {},
+      exchange_rates: {},
+      portfolio: [],
+      crypto_value: 0,
+      us_stock_value: 0,
+      cash_balance: 0,
+      unrealized_profit_loss: 0,
+      realized_profit_loss: 0,
+      unrealized_profit_loss_rate: 0,
+      realized_profit_loss_rate: 0,
+      value_change_24h: 0
+    }
+    trades.value = []
+  }
+
   async function fetchAssetPrice(symbol: string, assetType: 'crypto' | 'us_stock' = 'crypto'): Promise<TradeResult & { price?: number; updatedAt?: number }> {
     try {
       const response = await portfolioApi.getAssetPrice(symbol, assetType)
-      if (dashboardData.value) {
-        if (assetType === 'crypto') {
-          dashboardData.value.prices = {
-            ...dashboardData.value.prices,
-            [symbol]: response.data.price
-          }
-        } else if (assetType === 'us_stock') {
-          dashboardData.value.us_stock_prices = {
-            ...dashboardData.value.us_stock_prices,
-            [symbol]: response.data.price
-          }
+      if (assetType === 'crypto') {
+        dashboardData.value.prices = {
+          ...dashboardData.value.prices,
+          [symbol]: response.data.price
+        }
+      } else if (assetType === 'us_stock') {
+        dashboardData.value.us_stock_prices = {
+          ...dashboardData.value.us_stock_prices,
+          [symbol]: response.data.price
         }
       }
       return {
@@ -193,6 +242,18 @@ export const usePortfolioStore = defineStore('portfolio', () => {
     }
   }
 
+  const deleteTrade = async (id: string, options: { refresh?: boolean } = {}): Promise<TradeResult> => {
+    const result = await requireAuth(_deleteTrade)(id)
+    if (result.success) {
+      if (options.refresh !== false) {
+        await fetchDashboard()
+      } else {
+        removeTrade(id)
+      }
+    }
+    return result
+  }
+
   async function _clearAllTrades(): Promise<TradeResult> {
     isLoading.value = true
     error.value = null
@@ -206,6 +267,18 @@ export const usePortfolioStore = defineStore('portfolio', () => {
     } finally {
       isLoading.value = false
     }
+  }
+
+  const clearAllTrades = async (options: { refresh?: boolean } = {}): Promise<TradeResult> => {
+    const result = await requireAuth(_clearAllTrades)()
+    if (result.success) {
+      if (options.refresh !== false) {
+        await fetchDashboard()
+      } else {
+        resetDashboardData()
+      }
+    }
+    return result
   }
 
   async function _exportData(): Promise<TradeResult & { data?: unknown }> {
@@ -252,22 +325,6 @@ export const usePortfolioStore = defineStore('portfolio', () => {
     }
   }
 
-  const deleteTrade = async (id: string, options: { refresh?: boolean } = {}): Promise<TradeResult> => {
-    const result = await requireAuth(_deleteTrade)(id)
-    if (result.success && options.refresh !== false) {
-      await fetchDashboard()
-    }
-    return result
-  }
-
-  const clearAllTrades = async (options: { refresh?: boolean } = {}): Promise<TradeResult> => {
-    const result = await requireAuth(_clearAllTrades)()
-    if (result.success && options.refresh !== false) {
-      await fetchDashboard()
-    }
-    return result
-  }
-
   const exportData = () => requireAuth(_exportData)()
   const importPreview = (data: unknown) => requireAuth(_importPreview)(data)
   const importConfirm = (data: unknown, conflictStrategy: string) => requireAuth(_importConfirm)(data, conflictStrategy)
@@ -299,6 +356,8 @@ export const usePortfolioStore = defineStore('portfolio', () => {
     clearAllTrades,
     exportData,
     importPreview,
-    importConfirm
+    importConfirm,
+    addTrade,
+    removeTrade
   }
 })

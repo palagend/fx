@@ -88,6 +88,42 @@ export const usePasswordStore = defineStore('password', () => {
       .slice(0, 5)
   }
 
+  function reconcilePasswords(newPasswords: PasswordEntry[]) {
+    const existingIds = new Set(passwords.value.map(p => p.id))
+    const newIds = new Set(newPasswords.map(p => p.id))
+
+    const toAdd = newPasswords.filter(p => !existingIds.has(p.id))
+    const toRemove = passwords.value.filter(p => !newIds.has(p.id))
+
+    toRemove.forEach(p => removePassword(p.id))
+    
+    for (const newPwd of toAdd) {
+      passwords.value.push(newPwd)
+    }
+
+    for (const newPwd of newPasswords) {
+      const existingIndex = passwords.value.findIndex(p => p.id === newPwd.id)
+      if (existingIndex !== -1) {
+        Object.assign(passwords.value[existingIndex], newPwd)
+      }
+    }
+  }
+
+  function updatePasswordInPlace(id: string, updates: Partial<PasswordEntry>) {
+    const index = passwords.value.findIndex(p => p.id === id)
+    if (index !== -1) {
+      Object.assign(passwords.value[index], updates)
+      updateCachedValues()
+    }
+  }
+
+  function removePassword(id: string) {
+    const index = passwords.value.findIndex(p => p.id === id)
+    if (index !== -1) {
+      passwords.value.splice(index, 1)
+    }
+  }
+
   async function fetchPasswords(params: Record<string, unknown> = {}): Promise<PasswordResult> {
     isLoading.value = true
     error.value = null
@@ -104,7 +140,8 @@ export const usePasswordStore = defineStore('password', () => {
         return { success: false, error: response.error }
       }
 
-      passwords.value = response.data.passwords || []
+      const newPasswords = response.data.passwords || []
+      reconcilePasswords(newPasswords)
       updateCachedValues()
 
       return { success: true, data: response.data }
@@ -167,12 +204,7 @@ export const usePasswordStore = defineStore('password', () => {
         return { success: false, error: response.error }
       }
 
-      const index = passwords.value.findIndex(p => p.id === id)
-      if (index !== -1) {
-        passwords.value[index] = { ...passwords.value[index], ...response.data }
-      }
-
-      updateCachedValues()
+      updatePasswordInPlace(id, response.data)
       await fetchTags()
 
       return { success: true, data: response.data }
@@ -196,7 +228,7 @@ export const usePasswordStore = defineStore('password', () => {
         return { success: false, error: response.error }
       }
 
-      passwords.value = passwords.value.filter(p => p.id !== id)
+      removePassword(id)
       updateCachedValues()
 
       return { success: true }
@@ -216,16 +248,10 @@ export const usePasswordStore = defineStore('password', () => {
         return { success: false, error: response.error }
       }
 
-      const index = passwords.value.findIndex(p => p.id === id)
-      if (index !== -1) {
-        passwords.value[index] = {
-          ...passwords.value[index],
-          useCount: (passwords.value[index].useCount || 0) + 1,
-          lastUsedAt: Date.now()
-        }
-      }
-
-      updateCachedValues()
+      updatePasswordInPlace(id, {
+        useCount: ((passwords.value.find(p => p.id === id)?.useCount || 0) + 1),
+        lastUsedAt: Date.now()
+      })
 
       return { success: true }
     } catch (err) {
@@ -241,7 +267,12 @@ export const usePasswordStore = defineStore('password', () => {
         return { success: false, error: response.error }
       }
 
-      tags.value = response.data.tags || []
+      const newTags = response.data.tags || []
+      const existingTagsSet = new Set(tags.value)
+      
+      newTags.forEach(tag => existingTagsSet.add(tag))
+      tags.value = Array.from(existingTagsSet).sort()
+      
       return { success: true, data: response.data }
     } catch (err) {
       return { success: false, error: err.message }
@@ -266,7 +297,7 @@ export const usePasswordStore = defineStore('password', () => {
         return { success: false, error: response.error }
       }
 
-      settings.value = { ...settings.value, ...response.data }
+      Object.assign(settings.value, response.data)
       return { success: true, data: settings.value }
     } catch (err) {
       return { success: false, error: err.message }
@@ -281,7 +312,7 @@ export const usePasswordStore = defineStore('password', () => {
         return { success: false, error: response.error }
       }
 
-      settings.value = { ...settings.value, ...response.data }
+      Object.assign(settings.value, response.data)
       return { success: true, data: settings.value }
     } catch (err) {
       return { success: false, error: err.message }
@@ -404,6 +435,8 @@ export const usePasswordStore = defineStore('password', () => {
     exportPasswords,
     importPasswords,
     clearAll,
-    init
+    init,
+    updatePasswordInPlace,
+    removePassword
   }
 })
