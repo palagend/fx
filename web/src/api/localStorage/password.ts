@@ -1,15 +1,125 @@
-// LocalStorage 版本的 Password API（纯前端模式）
-// 预留后端接口结构，方便后续切换
+interface PasswordData {
+  id: string
+  password: string
+  title: string
+  username: string
+  url: string
+  tags: string[]
+  strength: number
+  length: number
+  createdAt: number
+  updatedAt: number
+  useCount: number
+  lastUsedAt: number | null
+}
+
+interface GetPasswordsParams {
+  search?: string
+  tag?: string
+  sortBy?: string
+  sortOrder?: 'asc' | 'desc'
+}
+
+interface GetPasswordsResponse {
+  data: {
+    passwords: PasswordData[]
+    total: number
+  }
+}
+
+interface GetPasswordResponse {
+  data?: PasswordData
+  error?: string
+  status?: number
+}
+
+interface CreatePasswordRequest {
+  title?: string
+  username?: string
+  password: string
+  url?: string
+  tags?: string[]
+  strength?: number
+  length?: number
+}
+
+interface CreatePasswordResponse {
+  data?: PasswordData
+  error?: string
+  status?: number
+}
+
+interface UpdatePasswordRequest {
+  title?: string
+  username?: string
+  password?: string
+  url?: string
+  tags?: string[]
+}
+
+interface UpdatePasswordResponse {
+  data?: PasswordData
+  error?: string
+  status?: number
+}
+
+interface DeletePasswordResponse {
+  data?: { success: boolean }
+  error?: string
+  status?: number
+}
+
+interface RecordPasswordUseResponse {
+  data?: { success: boolean }
+  error?: string
+  status?: number
+}
+
+interface GetTagsResponse {
+  data: {
+    tags: string[]
+  }
+}
+
+interface ExportPasswordsResponse {
+  data: {
+    passwords: PasswordData[]
+    exportAt: number
+  }
+}
+
+interface ImportPasswordsResponse {
+  data: { success: boolean }
+}
+
+interface GetSettingsResponse {
+  data: {
+    defaultLength: number
+    autoSave: boolean
+    defaultTags: string[]
+  }
+}
+
+interface SaveSettingsRequest {
+  defaultLength?: number
+  autoSave?: boolean
+  defaultTags?: string[]
+}
+
+interface SaveSettingsResponse {
+  data: {
+    defaultLength: number
+    autoSave: boolean
+    defaultTags: string[]
+  }
+}
 
 const STORAGE_KEYS = {
   PASSWORDS: 'password_manager_passwords',
   SETTINGS: 'password_manager_settings'
 }
 
-// ========== 辅助函数 ==========
-
-// 获取存储的数据
-function getStorageData(key, defaultValue = []) {
+function getStorageData<T>(key: string, defaultValue: T): T {
   try {
     const data = localStorage.getItem(key)
     return data ? JSON.parse(data) : defaultValue
@@ -19,8 +129,7 @@ function getStorageData(key, defaultValue = []) {
   }
 }
 
-// 设置存储的数据
-function setStorageData(key, value) {
+function setStorageData(key: string, value: unknown): boolean {
   try {
     localStorage.setItem(key, JSON.stringify(value))
     return true
@@ -30,8 +139,7 @@ function setStorageData(key, value) {
   }
 }
 
-// 生成 UUID
-function generateUUID() {
+function generateUUID(): string {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
     const r = Math.random() * 16 | 0
     const v = c === 'x' ? r : (r & 0x3 | 0x8)
@@ -39,15 +147,11 @@ function generateUUID() {
   })
 }
 
-// 加密密码（简单 Base64，生产环境应使用 AES）
-function encryptPassword(password) {
-  // TODO: 生产环境使用 CryptoJS.AES 加密
+function encryptPassword(password: string): string {
   return btoa(password)
 }
 
-// 解密密码
-function decryptPassword(encrypted) {
-  // TODO: 生产环境使用 CryptoJS.AES 解密
+function decryptPassword(encrypted: string): string {
   try {
     return atob(encrypted)
   } catch {
@@ -55,28 +159,16 @@ function decryptPassword(encrypted) {
   }
 }
 
-// ========== 密码管理 API ==========
-
-/**
- * 获取所有密码
- * @param {Object} params - 查询参数
- * @param {string} params.search - 搜索关键词
- * @param {string} params.tag - 标签筛选
- * @param {string} params.sortBy - 排序字段
- * @param {string} params.sortOrder - 排序方向 (asc/desc)
- */
-export function getPasswords(params = {}) {
+export function getPasswords(params: GetPasswordsParams = {}): GetPasswordsResponse {
   const { search, tag, sortBy = 'createdAt', sortOrder = 'desc' } = params
 
-  let passwords = getStorageData(STORAGE_KEYS.PASSWORDS, [])
+  let passwords = getStorageData<PasswordData[]>(STORAGE_KEYS.PASSWORDS, [])
 
-  // 解密密码
   passwords = passwords.map(p => ({
     ...p,
     password: decryptPassword(p.password)
   }))
 
-  // 搜索筛选
   if (search) {
     const searchLower = search.toLowerCase()
     passwords = passwords.filter(p =>
@@ -87,15 +179,13 @@ export function getPasswords(params = {}) {
     )
   }
 
-  // 标签筛选
   if (tag) {
     passwords = passwords.filter(p => p.tags?.includes(tag))
   }
 
-  // 排序
   passwords.sort((a, b) => {
-    const aVal = a[sortBy] || 0
-    const bVal = b[sortBy] || 0
+    const aVal = a[sortBy as keyof PasswordData] || 0
+    const bVal = b[sortBy as keyof PasswordData] || 0
     return sortOrder === 'asc' ? (aVal > bVal ? 1 : -1) : (aVal < bVal ? 1 : -1)
   })
 
@@ -107,12 +197,8 @@ export function getPasswords(params = {}) {
   }
 }
 
-/**
- * 获取单个密码
- * @param {string} id - 密码 ID
- */
-export function getPassword(id) {
-  const passwords = getStorageData(STORAGE_KEYS.PASSWORDS, [])
+export function getPassword(id: string): GetPasswordResponse {
+  const passwords = getStorageData<PasswordData[]>(STORAGE_KEYS.PASSWORDS, [])
   const password = passwords.find(p => p.id === id)
 
   if (!password) {
@@ -127,14 +213,10 @@ export function getPassword(id) {
   }
 }
 
-/**
- * 创建密码
- * @param {Object} data - 密码数据
- */
-export function createPassword(data) {
-  const passwords = getStorageData(STORAGE_KEYS.PASSWORDS, [])
+export function createPassword(data: CreatePasswordRequest): CreatePasswordResponse {
+  const passwords = getStorageData<PasswordData[]>(STORAGE_KEYS.PASSWORDS, [])
 
-  const newPassword = {
+  const newPassword: PasswordData = {
     id: generateUUID(),
     password: encryptPassword(data.password),
     title: data.title || '',
@@ -163,20 +245,15 @@ export function createPassword(data) {
   }
 }
 
-/**
- * 更新密码
- * @param {string} id - 密码 ID
- * @param {Object} data - 更新数据
- */
-export function updatePassword(id, data) {
-  const passwords = getStorageData(STORAGE_KEYS.PASSWORDS, [])
+export function updatePassword(id: string, data: UpdatePasswordRequest): UpdatePasswordResponse {
+  const passwords = getStorageData<PasswordData[]>(STORAGE_KEYS.PASSWORDS, [])
   const index = passwords.findIndex(p => p.id === id)
 
   if (index === -1) {
     return { error: '密码不存在', status: 404 }
   }
 
-  const updatedPassword = {
+  const updatedPassword: PasswordData = {
     ...passwords[index],
     ...data,
     password: data.password ? encryptPassword(data.password) : passwords[index].password,
@@ -197,12 +274,8 @@ export function updatePassword(id, data) {
   }
 }
 
-/**
- * 删除密码
- * @param {string} id - 密码 ID
- */
-export function deletePassword(id) {
-  let passwords = getStorageData(STORAGE_KEYS.PASSWORDS, [])
+export function deletePassword(id: string): DeletePasswordResponse {
+  let passwords = getStorageData<PasswordData[]>(STORAGE_KEYS.PASSWORDS, [])
   const index = passwords.findIndex(p => p.id === id)
 
   if (index === -1) {
@@ -218,12 +291,8 @@ export function deletePassword(id) {
   return { data: { success: true } }
 }
 
-/**
- * 记录密码使用
- * @param {string} id - 密码 ID
- */
-export function recordPasswordUse(id) {
-  const passwords = getStorageData(STORAGE_KEYS.PASSWORDS, [])
+export function recordPasswordUse(id: string): RecordPasswordUseResponse {
+  const passwords = getStorageData<PasswordData[]>(STORAGE_KEYS.PASSWORDS, [])
   const index = passwords.findIndex(p => p.id === id)
 
   if (index === -1) {
@@ -238,12 +307,9 @@ export function recordPasswordUse(id) {
   return { data: { success: true } }
 }
 
-/**
- * 获取所有标签
- */
-export function getTags() {
-  const passwords = getStorageData(STORAGE_KEYS.PASSWORDS, [])
-  const tagsSet = new Set()
+export function getTags(): GetTagsResponse {
+  const passwords = getStorageData<PasswordData[]>(STORAGE_KEYS.PASSWORDS, [])
+  const tagsSet = new Set<string>()
 
   passwords.forEach(p => {
     p.tags?.forEach(tag => tagsSet.add(tag))
@@ -256,11 +322,8 @@ export function getTags() {
   }
 }
 
-/**
- * 导出所有密码
- */
-export function exportPasswords() {
-  const passwords = getStorageData(STORAGE_KEYS.PASSWORDS, [])
+export function exportPasswords(): ExportPasswordsResponse {
+  const passwords = getStorageData<PasswordData[]>(STORAGE_KEYS.PASSWORDS, [])
   const decrypted = passwords.map(p => ({
     ...p,
     password: decryptPassword(p.password)
@@ -274,12 +337,7 @@ export function exportPasswords() {
   }
 }
 
-/**
- * 导入密码
- * @param {Array} passwords - 密码数组
- * @param {boolean} overwrite - 是否覆盖现有数据
- */
-export function importPasswords(passwords, overwrite = false) {
+export function importPasswords(passwords: PasswordData[], overwrite = false): ImportPasswordsResponse {
   if (overwrite) {
     const encrypted = passwords.map(p => ({
       ...p,
@@ -288,7 +346,7 @@ export function importPasswords(passwords, overwrite = false) {
     }))
     setStorageData(STORAGE_KEYS.PASSWORDS, encrypted)
   } else {
-    const existing = getStorageData(STORAGE_KEYS.PASSWORDS, [])
+    const existing = getStorageData<PasswordData[]>(STORAGE_KEYS.PASSWORDS, [])
     const encrypted = passwords.map(p => ({
       ...p,
       id: generateUUID(),
@@ -302,20 +360,12 @@ export function importPasswords(passwords, overwrite = false) {
   return { data: { success: true } }
 }
 
-/**
- * 清空所有密码
- */
-export function clearAllPasswords() {
+export function clearAllPasswords(): ImportPasswordsResponse {
   setStorageData(STORAGE_KEYS.PASSWORDS, [])
   return { data: { success: true } }
 }
 
-// ========== 设置管理 ==========
-
-/**
- * 获取设置
- */
-export function getSettings() {
+export function getSettings(): GetSettingsResponse {
   const settings = getStorageData(STORAGE_KEYS.SETTINGS, {
     defaultLength: 16,
     autoSave: false,
@@ -325,11 +375,12 @@ export function getSettings() {
   return { data: settings }
 }
 
-/**
- * 保存设置
- */
-export function saveSettings(settings) {
-  const current = getStorageData(STORAGE_KEYS.SETTINGS, {})
+export function saveSettings(settings: SaveSettingsRequest): SaveSettingsResponse {
+  const current = getStorageData(STORAGE_KEYS.SETTINGS, {
+    defaultLength: 16,
+    autoSave: false,
+    defaultTags: []
+  })
   const updated = { ...current, ...settings }
   setStorageData(STORAGE_KEYS.SETTINGS, updated)
   return { data: updated }

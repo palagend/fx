@@ -1,4 +1,4 @@
-import { createRouter, createWebHistory } from 'vue-router'
+import { createRouter, createWebHistory, RouteRecordRaw } from 'vue-router'
 import Home from '../components/Home.vue'
 import ExchangeRate from '../components/ExchangeRate.vue'
 import Calculator from '../components/Calculator.vue'
@@ -9,7 +9,7 @@ import PasswordManager from '../components/PasswordManager.vue'
 import MobileTools from '../components/MobileTools.vue'
 import MobileProfile from '../components/MobileProfile.vue'
 
-const routes = [
+const routes: RouteRecordRaw[] = [
   { 
     path: '/', 
     name: 'Home',

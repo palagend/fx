@@ -2,59 +2,93 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { passwordApi } from '../api'
 
+export interface PasswordEntry {
+  id: string
+  title: string
+  username: string
+  password: string
+  url?: string
+  tags?: string[]
+  notes?: string
+  createdAt?: number
+  useCount?: number
+  lastUsedAt?: number
+}
+
+export interface PasswordSettings {
+  defaultLength: number
+  autoSave: boolean
+  defaultTags: string[]
+}
+
+export interface PasswordResult {
+  success: boolean
+  error?: string
+  data?: PasswordEntry | PasswordEntry[] | unknown
+  count?: number
+}
+
 export const usePasswordStore = defineStore('password', () => {
-  // ========== 状态 ==========
-  const passwords = ref([])
-  const tags = ref([])
-  const settings = ref({
+  const passwords = ref<PasswordEntry[]>([])
+  const tags = ref<string[]>([])
+  const settings = ref<PasswordSettings>({
     defaultLength: 16,
     autoSave: false,
     defaultTags: []
   })
-  const isLoading = ref(false)
-  const error = ref(null)
-  const searchQuery = ref('')
-  const selectedTag = ref('')
+  const isLoading = ref<boolean>(false)
+  const error = ref<string | null>(null)
+  const searchQuery = ref<string>('')
+  const selectedTag = ref<string>('')
 
-  // ========== 计算属性 ==========
+  const cachedFilteredPasswords = ref<PasswordEntry[]>([])
+  const cachedRecentPasswords = ref<PasswordEntry[]>([])
+  const cachedMostUsedPasswords = ref<PasswordEntry[]>([])
+
   const filteredPasswords = computed(() => {
-    let result = passwords.value
-
-    if (searchQuery.value) {
-      const query = searchQuery.value.toLowerCase()
-      result = result.filter(p =>
-        p.title?.toLowerCase().includes(query) ||
-        p.username?.toLowerCase().includes(query) ||
-        p.url?.toLowerCase().includes(query) ||
-        p.tags?.some(t => t.toLowerCase().includes(query))
-      )
+    if (!searchQuery.value && !selectedTag.value) {
+      return passwords.value
     }
 
-    if (selectedTag.value) {
-      result = result.filter(p => p.tags?.includes(selectedTag.value))
+    if (!searchQuery.value && selectedTag.value) {
+      return passwords.value.filter(p => p.tags?.includes(selectedTag.value))
     }
 
-    return result
+    return cachedFilteredPasswords.value
   })
 
   const totalPasswords = computed(() => passwords.value.length)
 
-  const recentPasswords = computed(() => {
-    return [...passwords.value]
+  const recentPasswords = computed(() => cachedRecentPasswords.value)
+  const mostUsedPasswords = computed(() => cachedMostUsedPasswords.value)
+
+  function updateCachedValues() {
+    const query = searchQuery.value.toLowerCase()
+    
+    if (searchQuery.value || selectedTag.value) {
+      cachedFilteredPasswords.value = passwords.value.filter(p => {
+        const matchesSearch = !query || 
+          p.title?.toLowerCase().includes(query) ||
+          p.username?.toLowerCase().includes(query) ||
+          p.url?.toLowerCase().includes(query) ||
+          p.tags?.some(t => t.toLowerCase().includes(query))
+        
+        const matchesTag = !selectedTag.value || p.tags?.includes(selectedTag.value)
+        
+        return matchesSearch && matchesTag
+      })
+    }
+
+    cachedRecentPasswords.value = [...passwords.value]
       .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
       .slice(0, 5)
-  })
 
-  const mostUsedPasswords = computed(() => {
-    return [...passwords.value]
+    cachedMostUsedPasswords.value = [...passwords.value]
       .sort((a, b) => (b.useCount || 0) - (a.useCount || 0))
       .slice(0, 5)
-  })
+  }
 
-  // ========== Actions ==========
-
-  // 获取所有密码
-  async function fetchPasswords(params = {}) {
+  async function fetchPasswords(params: Record<string, unknown> = {}): Promise<PasswordResult> {
     isLoading.value = true
     error.value = null
 
@@ -71,6 +105,8 @@ export const usePasswordStore = defineStore('password', () => {
       }
 
       passwords.value = response.data.passwords || []
+      updateCachedValues()
+
       return { success: true, data: response.data }
     } catch (err) {
       error.value = err.message
@@ -80,8 +116,7 @@ export const usePasswordStore = defineStore('password', () => {
     }
   }
 
-  // 获取单个密码
-  async function getPassword(id) {
+  async function getPassword(id: string): Promise<PasswordResult> {
     try {
       const response = passwordApi.getPassword(id)
 
@@ -95,8 +130,7 @@ export const usePasswordStore = defineStore('password', () => {
     }
   }
 
-  // 创建密码
-  async function createPassword(data) {
+  async function createPassword(data: Omit<PasswordEntry, 'id'>): Promise<PasswordResult> {
     isLoading.value = true
     error.value = null
 
@@ -109,7 +143,8 @@ export const usePasswordStore = defineStore('password', () => {
       }
 
       passwords.value.unshift(response.data)
-      await fetchTags() // 刷新标签列表
+      updateCachedValues()
+      await fetchTags()
 
       return { success: true, data: response.data }
     } catch (err) {
@@ -120,8 +155,7 @@ export const usePasswordStore = defineStore('password', () => {
     }
   }
 
-  // 更新密码
-  async function updatePassword(id, data) {
+  async function updatePassword(id: string, data: Partial<PasswordEntry>): Promise<PasswordResult> {
     isLoading.value = true
     error.value = null
 
@@ -135,10 +169,11 @@ export const usePasswordStore = defineStore('password', () => {
 
       const index = passwords.value.findIndex(p => p.id === id)
       if (index !== -1) {
-        passwords.value[index] = response.data
+        passwords.value[index] = { ...passwords.value[index], ...response.data }
       }
 
-      await fetchTags() // 刷新标签列表
+      updateCachedValues()
+      await fetchTags()
 
       return { success: true, data: response.data }
     } catch (err) {
@@ -149,8 +184,7 @@ export const usePasswordStore = defineStore('password', () => {
     }
   }
 
-  // 删除密码
-  async function deletePassword(id) {
+  async function deletePassword(id: string): Promise<PasswordResult> {
     isLoading.value = true
     error.value = null
 
@@ -163,6 +197,7 @@ export const usePasswordStore = defineStore('password', () => {
       }
 
       passwords.value = passwords.value.filter(p => p.id !== id)
+      updateCachedValues()
 
       return { success: true }
     } catch (err) {
@@ -173,8 +208,7 @@ export const usePasswordStore = defineStore('password', () => {
     }
   }
 
-  // 记录密码使用
-  async function recordUse(id) {
+  async function recordUse(id: string): Promise<PasswordResult> {
     try {
       const response = passwordApi.recordPasswordUse(id)
 
@@ -184,9 +218,14 @@ export const usePasswordStore = defineStore('password', () => {
 
       const index = passwords.value.findIndex(p => p.id === id)
       if (index !== -1) {
-        passwords.value[index].useCount = (passwords.value[index].useCount || 0) + 1
-        passwords.value[index].lastUsedAt = Date.now()
+        passwords.value[index] = {
+          ...passwords.value[index],
+          useCount: (passwords.value[index].useCount || 0) + 1,
+          lastUsedAt: Date.now()
+        }
       }
+
+      updateCachedValues()
 
       return { success: true }
     } catch (err) {
@@ -194,8 +233,7 @@ export const usePasswordStore = defineStore('password', () => {
     }
   }
 
-  // 获取所有标签
-  async function fetchTags() {
+  async function fetchTags(): Promise<PasswordResult> {
     try {
       const response = passwordApi.getTags()
 
@@ -210,18 +248,17 @@ export const usePasswordStore = defineStore('password', () => {
     }
   }
 
-  // 设置搜索关键词
-  function setSearchQuery(query) {
+  function setSearchQuery(query: string): void {
     searchQuery.value = query
+    updateCachedValues()
   }
 
-  // 设置选中的标签
-  function setSelectedTag(tag) {
+  function setSelectedTag(tag: string): void {
     selectedTag.value = tag
+    updateCachedValues()
   }
 
-  // 获取设置
-  async function fetchSettings() {
+  async function fetchSettings(): Promise<PasswordResult> {
     try {
       const response = passwordApi.getSettings()
 
@@ -236,8 +273,7 @@ export const usePasswordStore = defineStore('password', () => {
     }
   }
 
-  // 保存设置
-  async function saveSettings(newSettings) {
+  async function saveSettings(newSettings: Partial<PasswordSettings>): Promise<PasswordResult> {
     try {
       const response = passwordApi.saveSettings(newSettings)
 
@@ -252,8 +288,7 @@ export const usePasswordStore = defineStore('password', () => {
     }
   }
 
-  // 导出密码
-  async function exportPasswords() {
+  async function exportPasswords(): Promise<PasswordResult> {
     try {
       const response = passwordApi.exportPasswords()
 
@@ -261,7 +296,6 @@ export const usePasswordStore = defineStore('password', () => {
         return { success: false, error: response.error }
       }
 
-      // 创建下载文件
       const dataStr = JSON.stringify(response.data, null, 2)
       const blob = new Blob([dataStr], { type: 'application/json' })
       const url = URL.createObjectURL(blob)
@@ -280,8 +314,7 @@ export const usePasswordStore = defineStore('password', () => {
     }
   }
 
-  // 导入密码
-  async function importPasswords(file, overwrite = false) {
+  async function importPasswords(file: File, overwrite = false): Promise<PasswordResult> {
     isLoading.value = true
     error.value = null
 
@@ -312,8 +345,7 @@ export const usePasswordStore = defineStore('password', () => {
     }
   }
 
-  // 清空所有密码
-  async function clearAll() {
+  async function clearAll(): Promise<PasswordResult> {
     isLoading.value = true
     error.value = null
 
@@ -327,6 +359,7 @@ export const usePasswordStore = defineStore('password', () => {
 
       passwords.value = []
       tags.value = []
+      updateCachedValues()
 
       return { success: true }
     } catch (err) {
@@ -337,8 +370,7 @@ export const usePasswordStore = defineStore('password', () => {
     }
   }
 
-  // 初始化
-  async function init() {
+  async function init(): Promise<void> {
     await Promise.all([
       fetchPasswords(),
       fetchTags(),
@@ -347,7 +379,6 @@ export const usePasswordStore = defineStore('password', () => {
   }
 
   return {
-    // 状态
     passwords,
     tags,
     settings,
@@ -355,14 +386,10 @@ export const usePasswordStore = defineStore('password', () => {
     error,
     searchQuery,
     selectedTag,
-
-    // 计算属性
     filteredPasswords,
     totalPasswords,
     recentPasswords,
     mostUsedPasswords,
-
-    // Actions
     fetchPasswords,
     getPassword,
     createPassword,

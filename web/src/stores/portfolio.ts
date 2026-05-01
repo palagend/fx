@@ -2,59 +2,108 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { portfolioApi, config } from '../api'
 import { useUserStore } from './user'
+import type { Asset, Trade } from '../types'
+
+export interface DashboardData {
+  prices: Record<string, number>
+  us_stock_prices: Record<string, number>
+  price_changes: Record<string, number>
+  exchange_rates: Record<string, number>
+  portfolio: Asset[]
+  crypto_value: number
+  us_stock_value: number
+  cash_balance: number
+  unrealized_profit_loss: number
+  realized_profit_loss: number
+  unrealized_profit_loss_rate: number
+  realized_profit_loss_rate: number
+  value_change_24h: number
+  updated_at?: number
+}
+
+export interface CreateTradeParams {
+  symbol: string
+  asset_type: 'crypto' | 'us_stock'
+  type: 'buy' | 'sell'
+  amount: number
+  price: number
+  fee?: number
+}
+
+export interface TradeResult {
+  success: boolean
+  error?: string
+  data?: unknown
+}
 
 export const usePortfolioStore = defineStore('portfolio', () => {
   const userStore = useUserStore()
 
-  // ========== 状态 ==========
-  const dashboardData = ref(null)
-  const trades = ref([])
-  const isLoading = ref(false)
-  const error = ref(null)
+  const dashboardData = ref<DashboardData | null>(null)
+  const trades = ref<Trade[]>([])
+  const isLoading = ref<boolean>(false)
+  const error = ref<string | null>(null)
 
-  // ========== 计算属性 - 价格数据 ==========
   const prices = computed(() => dashboardData.value?.prices || {})
   const usStockPrices = computed(() => dashboardData.value?.us_stock_prices || {})
   const priceChanges = computed(() => dashboardData.value?.price_changes || {})
   const exchangeRates = computed(() => dashboardData.value?.exchange_rates || {})
-
-  // ========== 计算属性 - 持仓数据 ==========
   const portfolio = computed(() => dashboardData.value?.portfolio || [])
 
-  // ========== 计算属性 - 资产价值 ==========
-  const cryptoAssetsValue = computed(() => dashboardData.value?.crypto_value || 0)
-  const usStockValue = computed(() => dashboardData.value?.us_stock_value || 0)
-  const cashBalance = computed(() => dashboardData.value?.cash_balance || 0)
-  const totalAssetsValue = computed(() => cryptoAssetsValue.value + usStockValue.value + cashBalance.value)
+  const cryptoAssetsValue = ref<number>(0)
+  const usStockValue = ref<number>(0)
+  const cashBalance = ref<number>(0)
+  const totalAssetsValue = ref<number>(0)
 
-  // ========== 计算属性 - 盈亏数据 ==========
-  const unrealizedPL = computed(() => dashboardData.value?.unrealized_profit_loss || 0)
-  const realizedPL = computed(() => dashboardData.value?.realized_profit_loss || 0)
-  const totalPL = computed(() => unrealizedPL.value + realizedPL.value)
+  const unrealizedPL = ref<number>(0)
+  const realizedPL = ref<number>(0)
+  const totalPL = ref<number>(0)
 
-  // ========== 计算属性 - 盈亏率（后端已计算好） ==========
-  const unrealizedPLRate = computed(() => dashboardData.value?.unrealized_profit_loss_rate || 0)
-  const realizedPLRate = computed(() => dashboardData.value?.realized_profit_loss_rate || 0)
+  const unrealizedPLRate = ref<number>(0)
+  const realizedPLRate = ref<number>(0)
+  const cryptoValueChange24h = ref<number>(0)
 
-  // ========== 计算属性 - 24小时变化 ==========
-  const cryptoValueChange24h = computed(() => dashboardData.value?.value_change_24h || 0)
-
-  // ========== Actions ==========
-
-  // 检查登录状态的包装器
-  const requireAuth = (fn) => async (...args) => {
+  const requireAuth = <T extends (...args: unknown[]) => Promise<TradeResult>>(fn: T) => async (...args: Parameters<T>): Promise<TradeResult> => {
     if (!userStore.isLoggedIn) {
       return { success: false, error: '请先登录' }
     }
     return fn(...args)
   }
 
-  // 获取仪表盘聚合数据
-  async function fetchDashboard() {
-    // 后端模式需要登录，前端模式不需要
+  function updateCalculatedValues() {
+    if (!dashboardData.value) {
+      cryptoAssetsValue.value = 0
+      usStockValue.value = 0
+      cashBalance.value = 0
+      totalAssetsValue.value = 0
+      unrealizedPL.value = 0
+      realizedPL.value = 0
+      totalPL.value = 0
+      unrealizedPLRate.value = 0
+      realizedPLRate.value = 0
+      cryptoValueChange24h.value = 0
+      return
+    }
+
+    cryptoAssetsValue.value = dashboardData.value.crypto_value || 0
+    usStockValue.value = dashboardData.value.us_stock_value || 0
+    cashBalance.value = dashboardData.value.cash_balance || 0
+    totalAssetsValue.value = cryptoAssetsValue.value + usStockValue.value + cashBalance.value
+
+    unrealizedPL.value = dashboardData.value.unrealized_profit_loss || 0
+    realizedPL.value = dashboardData.value.realized_profit_loss || 0
+    totalPL.value = unrealizedPL.value + realizedPL.value
+
+    unrealizedPLRate.value = dashboardData.value.unrealized_profit_loss_rate || 0
+    realizedPLRate.value = dashboardData.value.realized_profit_loss_rate || 0
+    cryptoValueChange24h.value = dashboardData.value.value_change_24h || 0
+  }
+
+  async function fetchDashboard(): Promise<TradeResult & { updatedAt?: number }> {
     if (config.isBackend && !userStore.isLoggedIn) {
       dashboardData.value = null
       trades.value = []
+      updateCalculatedValues()
       return { success: false, error: '请先登录' }
     }
 
@@ -70,6 +119,8 @@ export const usePortfolioStore = defineStore('portfolio', () => {
       dashboardData.value = dashboardRes.data
       trades.value = tradesRes.data.trades || []
 
+      updateCalculatedValues()
+
       return {
         success: true,
         updatedAt: dashboardRes.data.updated_at
@@ -83,8 +134,7 @@ export const usePortfolioStore = defineStore('portfolio', () => {
     }
   }
 
-  // 获取单个资产价格
-  async function fetchAssetPrice(symbol, assetType = 'crypto') {
+  async function fetchAssetPrice(symbol: string, assetType: 'crypto' | 'us_stock' = 'crypto'): Promise<TradeResult & { price?: number; updatedAt?: number }> {
     try {
       const response = await portfolioApi.getAssetPrice(symbol, assetType)
       if (dashboardData.value) {
@@ -111,8 +161,7 @@ export const usePortfolioStore = defineStore('portfolio', () => {
     }
   }
 
-  // 创建交易
-  async function _createTrade(trade) {
+  async function _createTrade(trade: CreateTradeParams): Promise<TradeResult> {
     isLoading.value = true
     error.value = null
 
@@ -127,8 +176,7 @@ export const usePortfolioStore = defineStore('portfolio', () => {
     }
   }
 
-  // 使用包装器包装 createTrade，支持自动刷新
-  const createTrade = async (trade, options = {}) => {
+  const createTrade = async (trade: CreateTradeParams, options: { refresh?: boolean } = {}): Promise<TradeResult> => {
     const result = await requireAuth(_createTrade)(trade)
     if (result.success && options.refresh !== false) {
       await fetchDashboard()
@@ -136,8 +184,7 @@ export const usePortfolioStore = defineStore('portfolio', () => {
     return result
   }
 
-  // 删除交易
-  async function _deleteTrade(id) {
+  async function _deleteTrade(id: string): Promise<TradeResult> {
     try {
       await portfolioApi.deleteTrade(id)
       return { success: true }
@@ -146,8 +193,7 @@ export const usePortfolioStore = defineStore('portfolio', () => {
     }
   }
 
-  // 清空所有交易
-  async function _clearAllTrades() {
+  async function _clearAllTrades(): Promise<TradeResult> {
     isLoading.value = true
     error.value = null
 
@@ -162,8 +208,7 @@ export const usePortfolioStore = defineStore('portfolio', () => {
     }
   }
 
-  // 导出数据
-  async function _exportData() {
+  async function _exportData(): Promise<TradeResult & { data?: unknown }> {
     error.value = null
 
     try {
@@ -175,8 +220,7 @@ export const usePortfolioStore = defineStore('portfolio', () => {
     }
   }
 
-  // 导入预览
-  async function _importPreview(data) {
+  async function _importPreview(data: unknown): Promise<TradeResult & { preview?: unknown }> {
     error.value = null
 
     try {
@@ -188,8 +232,7 @@ export const usePortfolioStore = defineStore('portfolio', () => {
     }
   }
 
-  // 确认导入
-  async function _importConfirm(data, conflictStrategy = 'skip') {
+  async function _importConfirm(data: unknown, conflictStrategy: string = 'skip'): Promise<TradeResult & { imported?: number; skipped?: number; overwritten?: number }> {
     isLoading.value = true
     error.value = null
 
@@ -209,8 +252,7 @@ export const usePortfolioStore = defineStore('portfolio', () => {
     }
   }
 
-  // 使用包装器包装需要登录和自动刷新的函数
-  const deleteTrade = async (id, options = {}) => {
+  const deleteTrade = async (id: string, options: { refresh?: boolean } = {}): Promise<TradeResult> => {
     const result = await requireAuth(_deleteTrade)(id)
     if (result.success && options.refresh !== false) {
       await fetchDashboard()
@@ -218,7 +260,7 @@ export const usePortfolioStore = defineStore('portfolio', () => {
     return result
   }
 
-  const clearAllTrades = async (options = {}) => {
+  const clearAllTrades = async (options: { refresh?: boolean } = {}): Promise<TradeResult> => {
     const result = await requireAuth(_clearAllTrades)()
     if (result.success && options.refresh !== false) {
       await fetchDashboard()
@@ -227,36 +269,29 @@ export const usePortfolioStore = defineStore('portfolio', () => {
   }
 
   const exportData = () => requireAuth(_exportData)()
-  const importPreview = (data) => requireAuth(_importPreview)(data)
-  const importConfirm = (data, conflictStrategy) => requireAuth(_importConfirm)(data, conflictStrategy)
+  const importPreview = (data: unknown) => requireAuth(_importPreview)(data)
+  const importConfirm = (data: unknown, conflictStrategy: string) => requireAuth(_importConfirm)(data, conflictStrategy)
 
   return {
-    // 状态
     dashboardData,
     trades,
     isLoading,
     error,
-    // 价格
     prices,
     usStockPrices,
     priceChanges,
     exchangeRates,
-    // 持仓组合
     portfolio,
-    // 资产价值
     cryptoAssetsValue,
     usStockValue,
     cashBalance,
     totalAssetsValue,
-    // 盈亏
     unrealizedPL,
     realizedPL,
     totalPL,
     unrealizedPLRate,
     realizedPLRate,
-    // 变化率
     cryptoValueChange24h,
-    // Actions
     fetchDashboard,
     fetchAssetPrice,
     createTrade,

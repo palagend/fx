@@ -1,28 +1,24 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { config, userApi, apiClient } from '../api'
+import type { User, UserSettings } from '../types'
 
 export const useUserStore = defineStore('user', () => {
-  // ========== 状态 ==========
-  const user = ref(null)
-  const accessToken = ref(localStorage.getItem('accessToken') || '')
-  const refreshToken = ref(localStorage.getItem('refreshToken') || '')
-  const isLoading = ref(false)
-  const error = ref(null)
-  const showLoginModal = ref(false)
+  const user = ref<User | null>(null)
+  const accessToken = ref<string>(localStorage.getItem('accessToken') || '')
+  const refreshToken = ref<string>(localStorage.getItem('refreshToken') || '')
+  const isLoading = ref<boolean>(false)
+  const error = ref<string | null>(null)
+  const showLoginModal = ref<boolean>(false)
 
-  // ========== 计算属性 ==========
   const isLoggedIn = computed(() => {
     if (config.isFrontend) {
-      // 前端模式下始终已登录
       return true
     }
     return !!accessToken.value && !!user.value
   })
 
-  // ========== 辅助函数 ==========
-  const setTokens = (tokens) => {
-    // 前端模式不设置 token
+  const setTokens = (tokens: { access_token: string; refresh_token: string }) => {
     if (config.isFrontend) {
       return
     }
@@ -40,8 +36,7 @@ export const useUserStore = defineStore('user', () => {
     localStorage.removeItem('refreshToken')
   }
 
-  // ========== 后端模式 API 调用 ==========
-  const backendRegister = async (username, email, password) => {
+  const backendRegister = async (username: string, email: string, password: string) => {
     const response = await apiClient.post('/auth/register', {
       username,
       email,
@@ -52,7 +47,7 @@ export const useUserStore = defineStore('user', () => {
     return { success: true }
   }
 
-  const backendLogin = async (username, password) => {
+  const backendLogin = async (username: string, password: string) => {
     const response = await apiClient.post('/auth/login', {
       username,
       password
@@ -87,7 +82,7 @@ export const useUserStore = defineStore('user', () => {
     return { success: true }
   }
 
-  const backendChangePassword = async (oldPassword, newPassword) => {
+  const backendChangePassword = async (oldPassword: string, newPassword: string) => {
     await apiClient.post('/auth/change-password', {
       old_password: oldPassword,
       new_password: newPassword
@@ -95,9 +90,7 @@ export const useUserStore = defineStore('user', () => {
     return { success: true }
   }
 
-  // ========== 统一的 Actions ==========
-  const register = async (username, email, password) => {
-    // 前端模式不支持注册
+  const register = async (username: string, email: string, password: string) => {
     if (config.isFrontend) {
       return { success: false, error: '前端模式不支持注册' }
     }
@@ -113,8 +106,7 @@ export const useUserStore = defineStore('user', () => {
     }
   }
 
-  const login = async (username, password) => {
-    // 前端模式不支持登录
+  const login = async (username: string, password: string) => {
     if (config.isFrontend) {
       return { success: false, error: '前端模式不支持登录' }
     }
@@ -134,11 +126,9 @@ export const useUserStore = defineStore('user', () => {
     if (config.isBackend) {
       await backendFetchUserInfo()
     }
-    // 前端模式不需要获取用户信息
   }
 
   const logout = async () => {
-    // 前端模式不支持登出
     if (config.isFrontend) {
       return
     }
@@ -146,7 +136,6 @@ export const useUserStore = defineStore('user', () => {
   }
 
   const logoutAll = async () => {
-    // 前端模式不支持登出
     if (config.isFrontend) {
       return { success: false, error: '前端模式不支持此操作' }
     }
@@ -157,8 +146,7 @@ export const useUserStore = defineStore('user', () => {
     }
   }
 
-  const changePassword = async (oldPassword, newPassword) => {
-    // 前端模式不支持修改密码
+  const changePassword = async (oldPassword: string, newPassword: string) => {
     if (config.isFrontend) {
       return { success: false, error: '前端模式不支持修改密码' }
     }
@@ -176,16 +164,13 @@ export const useUserStore = defineStore('user', () => {
 
   const init = async () => {
     if (config.isFrontend) {
-      // 前端模式：自动设置本地用户
       user.value = userApi.getUser()
     } else if (accessToken.value) {
-      // 后端模式：通过 token 获取用户信息
       await backendFetchUserInfo()
     }
   }
 
   const openLoginModal = () => {
-    // 前端模式不显示登录弹窗
     if (config.isFrontend) {
       return
     }

@@ -1,6 +1,3 @@
-// LocalStorage 版本的 Portfolio API（纯前端模式）
-// 参考后端 portfolio.go 的实现逻辑
-
 import axios from 'axios'
 
 const STORAGE_KEYS = {
@@ -12,15 +9,102 @@ const STORAGE_KEYS = {
   PRICE_UPDATED_AT: 'portfolio_price_updated_at'
 }
 
-// CoinCap API 配置
 const COINCAP_API_KEY = 'b617d9cf029dbb40f02b058a0e74919176b768cf36fd1ea6fae55a13a1610f41'
 const COINCAP_BASE_URL = 'https://rest.coincap.io/v3'
-
-// 腾讯财经API配置（股票价格）
 const TENCENT_STOCK_URL = 'https://qt.gtimg.cn'
 
-// 支持的加密货币列表（包含USDT）
-const supportedCryptos = {
+export type AssetType = 'crypto' | 'us_stock' | 'cash'
+export type TradeType = 'buy' | 'sell' | 'recharge'
+
+export interface Trade {
+  id: string
+  asset_type: AssetType
+  symbol: string
+  type: TradeType
+  amount: number
+  price: number
+  total: number
+  currency: string
+  created_at: string
+}
+
+export interface Holding {
+  id: string
+  asset_type: AssetType
+  symbol: string
+  amount: number
+  currency: string
+}
+
+export interface PortfolioItem {
+  asset_type: AssetType
+  symbol: string
+  amount: number
+  current_price: number
+  avg_cost: number
+  market_value: number
+  cost: number
+  profit_loss: number
+  pl_rate: number
+  realized_pl: number
+  realized_pl_rate: number
+  currency: string
+}
+
+export interface DashboardData {
+  prices: Record<string, number>
+  us_stock_prices: Record<string, number>
+  price_changes: Record<string, number>
+  crypto_updated_at: number
+  btc_price: number
+  portfolio: PortfolioItem[]
+  crypto_value: number
+  us_stock_value: number
+  cash_balance: number
+  total_assets_value: number
+  unrealized_profit_loss: number
+  unrealized_profit_loss_rate: number
+  realized_profit_loss: number
+  realized_profit_loss_rate: number
+  total_profit_loss: number
+  value_change_24h: number
+}
+
+export interface TradeRequest {
+  asset_type: AssetType
+  symbol: string
+  type: TradeType
+  amount: number
+  price: number
+}
+
+export interface AssetPriceResult {
+  price: number
+  updated_at: number
+}
+
+export interface AssetPriceResponse {
+  symbol: string
+  price: number
+  asset_type: string
+  currency: string
+  updated_at: string
+}
+
+export interface DeleteTradeResponse {
+  message: string
+  deleted_trade: {
+    id: string
+    asset_type: string
+    symbol: string
+    type: string
+    amount: number
+    price: number
+    created_at: string
+  }
+}
+
+const supportedCryptos: Record<string, boolean> = {
   'BTC': true,
   'ETH': true,
   'BNB': true,
@@ -34,8 +118,7 @@ const supportedCryptos = {
   'USDT': true
 }
 
-// 支持的美股列表
-const supportedUSStocks = {
+const supportedUSStocks: Record<string, boolean> = {
   'AAPL': true,
   'MSFT': true,
   'GOOG': true,
@@ -49,8 +132,7 @@ const supportedUSStocks = {
   'MSTR': true
 }
 
-// CoinCap ID 映射
-const symbolToCoinCapId = {
+const symbolToCoinCapId: Record<string, string> = {
   'BTC': 'bitcoin',
   'ETH': 'ethereum',
   'BNB': 'binance-coin',
@@ -64,9 +146,7 @@ const symbolToCoinCapId = {
   'USDT': 'tether'
 }
 
-// ========== 辅助函数 ==========
-
-function getStorageData(key, defaultValue = []) {
+function getStorageData<T>(key: string, defaultValue: T): T {
   try {
     const data = localStorage.getItem(key)
     return data ? JSON.parse(data) : defaultValue
@@ -75,19 +155,19 @@ function getStorageData(key, defaultValue = []) {
   }
 }
 
-function setStorageData(key, value) {
+function setStorageData(key: string, value: unknown): void {
   localStorage.setItem(key, JSON.stringify(value))
 }
 
-function generateId() {
+function generateId(): string {
   return Date.now().toString(36) + Math.random().toString(36).substr(2)
 }
 
-function abs(x) {
+function abs(x: number): number {
   return x < 0 ? -x : x
 }
 
-function getCurrencyByAssetType(assetType) {
+function getCurrencyByAssetType(assetType: AssetType): string {
   switch (assetType) {
     case 'crypto':
       return 'USDT'
@@ -100,9 +180,7 @@ function getCurrencyByAssetType(assetType) {
   }
 }
 
-// ========== 交易校验 ==========
-
-function validateTradeRequest(req) {
+function validateTradeRequest(req: TradeRequest): void {
   if (!req.asset_type) {
     throw new Error('资产类型不能为空')
   }
@@ -162,21 +240,17 @@ function validateTradeRequest(req) {
       }
       break
   }
-  return null
 }
 
-// ========== 持仓管理 ==========
-
-function getOrCreateHolding(holdings, symbol, assetType) {
-  const key = `${assetType}:${symbol}`
+function getOrCreateHolding(holdings: Holding[], symbol: string, assetType: AssetType): Holding {
   const existing = holdings.find(h => h.asset_type === assetType && h.symbol === symbol)
   if (existing) {
     return existing
   }
-  const newHolding = {
+  const newHolding: Holding = {
     id: generateId(),
     asset_type: assetType,
-    symbol: symbol,
+    symbol,
     amount: 0,
     currency: getCurrencyByAssetType(assetType)
   }
@@ -184,14 +258,14 @@ function getOrCreateHolding(holdings, symbol, assetType) {
   return newHolding
 }
 
-function updateHolding(holdings, holding, delta) {
+function updateHolding(holdings: Holding[], holding: Holding, delta: number): Holding {
   holding.amount += delta
   return holding
 }
 
-function recalcAllHoldings(trades) {
-  const holdings = []
-  const cashHolding = {
+function recalcAllHoldings(trades: Trade[]): Holding[] {
+  const holdings: Holding[] = []
+  const cashHolding: Holding = {
     id: generateId(),
     asset_type: 'cash',
     symbol: 'USD',
@@ -199,7 +273,7 @@ function recalcAllHoldings(trades) {
     currency: 'USD'
   }
 
-  const sortedTrades = [...trades].sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+  const sortedTrades = [...trades].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
 
   for (const t of sortedTrades) {
     if (t.type === 'recharge') {
@@ -230,9 +304,13 @@ function recalcAllHoldings(trades) {
   return validHoldings
 }
 
-// ========== 价格获取 ==========
+interface FetchCryptoPricesResult {
+  prices: Record<string, number>
+  priceChanges: Record<string, number>
+  updatedAt: number
+}
 
-async function fetchCryptoPrices() {
+async function fetchCryptoPrices(): Promise<FetchCryptoPricesResult> {
   const ids = Object.values(symbolToCoinCapId).join(',')
   const url = `${COINCAP_BASE_URL}/assets?ids=${ids}`
 
@@ -244,8 +322,8 @@ async function fetchCryptoPrices() {
       timeout: 10000
     })
 
-    const prices = { 'USDT': 1.0 }
-    const priceChanges = { 'USDT': 0 }
+    const prices: Record<string, number> = { 'USDT': 1.0 }
+    const priceChanges: Record<string, number> = { 'USDT': 0 }
     let updatedAt = Date.now()
 
     if (response.data && response.data.data) {
@@ -265,14 +343,14 @@ async function fetchCryptoPrices() {
     return { prices, priceChanges, updatedAt }
   } catch (error) {
     console.error('获取 CoinCap 价格失败:', error)
-    const cachedPrices = getStorageData(STORAGE_KEYS.PRICES, { 'USDT': 1.0 })
-    const cachedChanges = getStorageData(STORAGE_KEYS.PRICE_CHANGES, { 'USDT': 0 })
-    const cachedUpdatedAt = getStorageData(STORAGE_KEYS.PRICE_UPDATED_AT, Date.now())
+    const cachedPrices = getStorageData<Record<string, number>>(STORAGE_KEYS.PRICES, { 'USDT': 1.0 })
+    const cachedChanges = getStorageData<Record<string, number>>(STORAGE_KEYS.PRICE_CHANGES, { 'USDT': 0 })
+    const cachedUpdatedAt = getStorageData<number>(STORAGE_KEYS.PRICE_UPDATED_AT, Date.now())
     return { prices: cachedPrices, priceChanges: cachedChanges, updatedAt: cachedUpdatedAt }
   }
 }
 
-async function fetchUSStockPrice(symbol) {
+async function fetchUSStockPrice(symbol: string): Promise<AssetPriceResult> {
   const url = `${TENCENT_STOCK_URL}/q=us${symbol}`
 
   try {
@@ -298,12 +376,12 @@ async function fetchUSStockPrice(symbol) {
     throw new Error('解析股票价格失败')
   } catch (error) {
     console.error(`获取 ${symbol} 股票价格失败:`, error)
-    const cachedPrices = getStorageData(STORAGE_KEYS.US_STOCK_PRICES, {})
+    const cachedPrices = getStorageData<Record<string, number>>(STORAGE_KEYS.US_STOCK_PRICES, {})
     return { price: cachedPrices[symbol] || 0, updated_at: Date.now() }
   }
 }
 
-async function fetchUSStockPricesBatch() {
+async function fetchUSStockPricesBatch(): Promise<Record<string, number>> {
   const symbols = Object.keys(supportedUSStocks)
   const stockCodes = symbols.map(s => `us${s}`).join(',')
   const url = `${TENCENT_STOCK_URL}/q=${stockCodes}`
@@ -311,7 +389,7 @@ async function fetchUSStockPricesBatch() {
   try {
     const response = await axios.get(url, { timeout: 10000 })
     const text = response.data
-    const prices = {}
+    const prices: Record<string, number> = {}
 
     symbols.forEach(symbol => {
       const pattern = new RegExp(`v_us${symbol}="([^"]+)"`, 'i')
@@ -328,11 +406,11 @@ async function fetchUSStockPricesBatch() {
     return prices
   } catch (error) {
     console.error('批量获取美股价格失败:', error)
-    return getStorageData(STORAGE_KEYS.US_STOCK_PRICES, {})
+    return getStorageData<Record<string, number>>(STORAGE_KEYS.US_STOCK_PRICES, {})
   }
 }
 
-async function fetchAssetPrice(symbol, assetType = 'crypto') {
+async function fetchAssetPrice(symbol: string, assetType: AssetType = 'crypto'): Promise<AssetPriceResult> {
   if (!symbol) {
     throw new Error('币种代码不能为空')
   }
@@ -360,7 +438,7 @@ async function fetchAssetPrice(symbol, assetType = 'crypto') {
         throw new Error('价格数据为空')
       } catch (error) {
         console.error(`获取 ${symbol} 价格失败:`, error)
-        const cachedPrices = getStorageData(STORAGE_KEYS.PRICES, {})
+        const cachedPrices = getStorageData<Record<string, number>>(STORAGE_KEYS.PRICES, {})
         return { price: cachedPrices[symbol] || 0, updated_at: Date.now() }
       }
 
@@ -372,10 +450,34 @@ async function fetchAssetPrice(symbol, assetType = 'crypto') {
   }
 }
 
-// ========== 投资组合统计计算 ==========
+interface PortfolioStats {
+  portfolio: PortfolioItem[]
+  cryptoValue: number
+  usStockValue: number
+  cashBalance: number
+  totalAssetsValue: number
+  totalUnrealizedPL: number
+  totalUnrealizedPLRate: number
+  totalRealizedPL: number
+  totalRealizedPLRate: number
+  totalValueChange24h: number
+}
 
-function calculatePortfolioStats(holdings, cryptoPrices, cryptoChanges, usStockPrices, trades) {
-  const portfolio = []
+interface AssetDataEntry {
+  amount: number
+  cost: number
+  totalIn: number
+  realizedPL: number
+}
+
+function calculatePortfolioStats(
+  holdings: Holding[],
+  cryptoPrices: Record<string, number>,
+  cryptoChanges: Record<string, number>,
+  usStockPrices: Record<string, number>,
+  trades: Trade[]
+): PortfolioStats {
+  const portfolio: PortfolioItem[] = []
   let cryptoValue = 0
   let usStockValue = 0
   let cashBalance = 0
@@ -383,7 +485,7 @@ function calculatePortfolioStats(holdings, cryptoPrices, cryptoChanges, usStockP
   let totalRealizedPL = 0
   let totalHistoricalCost = 0
 
-  const assetData = {}
+  const assetData: Record<string, Record<string, AssetDataEntry>> = {}
 
   for (const t of trades) {
     if (t.type === 'recharge') continue
@@ -515,17 +617,17 @@ function calculatePortfolioStats(holdings, cryptoPrices, cryptoChanges, usStockP
   }
 }
 
-// ========== API 响应格式 ==========
+interface MockResponse<T> {
+  data: T
+}
 
-function mockResponse(data) {
+function mockResponse<T>(data: T): Promise<MockResponse<T>> {
   return Promise.resolve({ data })
 }
 
-// ========== 导出 API ==========
-
 export const localPortfolioApi = {
-  async getDashboard() {
-    const trades = getStorageData(STORAGE_KEYS.TRADES)
+  async getDashboard(): Promise<MockResponse<DashboardData>> {
+    const trades = getStorageData<Trade[]>(STORAGE_KEYS.TRADES, [])
     const [cryptoResult, usStockPrices] = await Promise.all([
       fetchCryptoPrices(),
       fetchUSStockPricesBatch()
@@ -555,22 +657,22 @@ export const localPortfolioApi = {
     })
   },
 
-  getTrades() {
-    const trades = getStorageData(STORAGE_KEYS.TRADES)
-    const sortedTrades = [...trades].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+  getTrades(): Promise<MockResponse<{ trades: Trade[] }>> {
+    const trades = getStorageData<Trade[]>(STORAGE_KEYS.TRADES, [])
+    const sortedTrades = [...trades].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
     return mockResponse({ trades: sortedTrades })
   },
 
-  createTrade(req) {
+  createTrade(req: TradeRequest): Promise<MockResponse<Trade>> {
     validateTradeRequest(req)
 
-    const trades = getStorageData(STORAGE_KEYS.TRADES)
+    const trades = getStorageData<Trade[]>(STORAGE_KEYS.TRADES, [])
     const total = req.amount * req.price
-    const holdings = getStorageData(STORAGE_KEYS.HOLDINGS, [])
+    const holdings = getStorageData<Holding[]>(STORAGE_KEYS.HOLDINGS, [])
 
     let cashHolding = holdings.find(h => h.asset_type === 'cash' && h.symbol === 'USD')
     if (!cashHolding) {
-      cashHolding = { asset_type: 'cash', symbol: 'USD', amount: 0 }
+      cashHolding = { asset_type: 'cash', symbol: 'USD', amount: 0, id: '', currency: 'USD' }
     }
 
     switch (req.type) {
@@ -592,7 +694,7 @@ export const localPortfolioApi = {
         break
     }
 
-    const newTrade = {
+    const newTrade: Trade = {
       id: generateId(),
       asset_type: req.asset_type,
       symbol: req.symbol,
@@ -608,21 +710,11 @@ export const localPortfolioApi = {
     setStorageData(STORAGE_KEYS.TRADES, trades)
     recalcAllHoldings(trades)
 
-    return mockResponse({
-      id: newTrade.id,
-      asset_type: newTrade.asset_type,
-      symbol: newTrade.symbol,
-      type: newTrade.type,
-      amount: newTrade.amount,
-      price: newTrade.price,
-      total: newTrade.total,
-      currency: newTrade.currency,
-      created_at: newTrade.created_at
-    })
+    return mockResponse(newTrade)
   },
 
-  deleteTrade(id) {
-    const trades = getStorageData(STORAGE_KEYS.TRADES)
+  deleteTrade(id: string): Promise<MockResponse<DeleteTradeResponse>> {
+    const trades = getStorageData<Trade[]>(STORAGE_KEYS.TRADES, [])
     const tradeIndex = trades.findIndex(t => t.id === id)
 
     if (tradeIndex === -1) {
@@ -632,7 +724,7 @@ export const localPortfolioApi = {
     const trade = trades[tradeIndex]
     const tradeTime = new Date(trade.created_at)
     const now = new Date()
-    if (now - tradeTime > 24 * 60 * 60 * 1000) {
+    if (now.getTime() - tradeTime.getTime() > 24 * 60 * 60 * 1000) {
       throw new Error('只能删除24小时内的交易记录')
     }
 
@@ -668,13 +760,13 @@ export const localPortfolioApi = {
     })
   },
 
-  clearTrades() {
+  clearTrades(): Promise<MockResponse<{ message: string }>> {
     setStorageData(STORAGE_KEYS.TRADES, [])
     setStorageData(STORAGE_KEYS.HOLDINGS, [])
     return mockResponse({ message: '所有数据已清空' })
   },
 
-  async getAssetPrice(symbol, assetType = 'crypto') {
+  async getAssetPrice(symbol: string, assetType: AssetType = 'crypto'): Promise<MockResponse<AssetPriceResponse>> {
     const result = await fetchAssetPrice(symbol, assetType)
     return mockResponse({
       symbol: symbol,
@@ -685,11 +777,11 @@ export const localPortfolioApi = {
     })
   },
 
-  exportData() {
-    const trades = getStorageData(STORAGE_KEYS.TRADES)
-    const sortedTrades = [...trades].sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+  exportData(): Promise<MockResponse<{ data: { version: string; exported: string; trades: Trade[] } }>> {
+    const trades = getStorageData<Trade[]>(STORAGE_KEYS.TRADES, [])
+    const sortedTrades = [...trades].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
 
-    const tradeExports = sortedTrades.map(t => ({
+    const tradeExports: Trade[] = sortedTrades.map(t => ({
       id: t.id,
       asset_type: t.asset_type,
       symbol: t.symbol,
@@ -710,13 +802,13 @@ export const localPortfolioApi = {
     })
   },
 
-  importPreview(data) {
+  importPreview(data: { version: string; trades: Trade[] }): Promise<MockResponse<{ preview: { total_trades: number; new_trades: number; conflicts: number; conflict_items: { trade: Trade; reason: string }[] } }>> {
     if (data.version !== '1.0') {
       throw new Error(`不支持的版本: ${data.version}`)
     }
 
-    const existingTrades = getStorageData(STORAGE_KEYS.TRADES)
-    const existingMap = new Set()
+    const existingTrades = getStorageData<Trade[]>(STORAGE_KEYS.TRADES, [])
+    const existingMap = new Set<string>()
 
     for (const t of existingTrades) {
       const key = `${t.asset_type}_${t.symbol}_${t.type}_${t.created_at}`
@@ -727,7 +819,7 @@ export const localPortfolioApi = {
       total_trades: data.trades.length,
       new_trades: 0,
       conflicts: 0,
-      conflict_items: []
+      conflict_items: [] as { trade: Trade; reason: string }[]
     }
 
     for (const trade of data.trades) {
@@ -746,7 +838,7 @@ export const localPortfolioApi = {
     return mockResponse({ preview })
   },
 
-  importConfirm(data, conflictStrategy = 'skip') {
+  importConfirm(data: { version: string; trades: Trade[] }, conflictStrategy: 'skip' | 'overwrite' = 'skip'): Promise<MockResponse<{ imported: number; skipped: number; overwritten: number }>> {
     if (data.version !== '1.0') {
       throw new Error(`不支持的版本: ${data.version}`)
     }
@@ -755,8 +847,8 @@ export const localPortfolioApi = {
       conflictStrategy = 'skip'
     }
 
-    const existingTrades = getStorageData(STORAGE_KEYS.TRADES)
-    const existingMap = new Map()
+    const existingTrades = getStorageData<Trade[]>(STORAGE_KEYS.TRADES, [])
+    const existingMap = new Map<string, string>()
 
     for (const t of existingTrades) {
       const key = `${t.asset_type}_${t.symbol}_${t.type}_${t.created_at}`
@@ -784,7 +876,7 @@ export const localPortfolioApi = {
         }
       }
 
-      const newTrade = {
+      const newTrade: Trade = {
         id: generateId(),
         asset_type: trade.asset_type,
         symbol: trade.symbol,
