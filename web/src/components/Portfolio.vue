@@ -90,9 +90,6 @@
               <div class="chart-header">
                 <h2 class="chart-title"><Icon icon="mdi:chart-pie" /> 资产分布</h2>
                 <div class="chart-actions">
-                  <span v-if="lastUpdateTime" class="update-time">
-                    更新于: {{ lastUpdateTime }}
-                  </span>
                   <button
                     class="btn-refresh"
                     @click="refreshPrices"
@@ -390,7 +387,7 @@
                       <th>当前价</th>
                       <th>总价值</th>
                       <th>浮动盈亏</th>
-                      <th>实现盈亏</th>
+                      <th class="realized-pl-col">实现盈亏</th>
                       <th>操作</th>
                     </tr>
                   </thead>
@@ -460,7 +457,7 @@
                           </div>
                         </template>
                       </td>
-                      <td class="asset-realized-profit" :class="{ 'positive': crypto.realized_pl > 0, 'negative': crypto.realized_pl < 0 }" v-if="crypto.symbol !== 'USDT'">
+                      <td class="asset-realized-profit realized-pl-col" :class="{ 'positive': crypto.realized_pl > 0, 'negative': crypto.realized_pl < 0 }" v-if="crypto.symbol !== 'USDT'">
                         <template v-if="crypto.realized_pl !== 0">
                           <div class="profit-value">
                             {{ crypto.realized_pl > 0 ? '+' : '-' }}{{ formatValue(Math.abs(crypto.realized_pl)) }}
@@ -533,7 +530,7 @@
                       <th>资产</th>
                       <th>类型</th>
                       <th>数量</th>
-                      <th>价格</th>
+                      <th class="trade-price-col">价格</th>
                       <th>总金额</th>
                       <th>操作</th>
                     </tr>
@@ -553,7 +550,7 @@
                         </span>
                       </td>
                       <td>{{ formatAmount(trade.amount) }}</td>
-                      <td>${{ formatAmount(trade.price) }}</td>
+                      <td class="trade-price-col">${{ formatAmount(trade.price) }}</td>
                       <td>${{ formatAmount(trade.total) }}</td>
                       <td>
                         <button class="btn-delete" @click="deleteTrade(trade.id)" :disabled="protectHistory || isSubmitting.delete" title="删除">
@@ -736,6 +733,13 @@
       <Icon icon="mdi:alert-circle" />
       <span>{{ errorMessage }}</span>
     </div>
+
+    <!-- 移动端浮动操作按钮 -->
+    <div class="fab-container" v-if="showFab">
+      <button class="fab-btn" @click="scrollToTradeSection" aria-label="快速交易">
+        <Icon icon="mdi:plus" />
+      </button>
+    </div>
   </div>
 </template>
 
@@ -800,7 +804,6 @@ const currentAssetType = ref('crypto') // 当前选中的资产类型
 const currentMarketPrice = ref(0) // 当前选中的币种市价
 const tradeFilter = ref('all')
 const refreshing = ref(false)
-const lastUpdateTime = ref('')
 const errorMessage = ref('')
 const autoRefresh = ref(false)
 const hoveredLegend = ref(null) // 当前hover的图例索引
@@ -851,6 +854,30 @@ const importError = ref('')
 
 // 防抖计时器
 let refreshDebounceTimer = null
+
+// FAB相关状态
+const showFab = ref(false)
+const lastScrollY = ref(0)
+
+// 滚动监听处理FAB显示/隐藏
+const handleScroll = () => {
+  const currentScrollY = window.scrollY
+  // 向下滚动隐藏，向上滚动显示
+  if (currentScrollY > lastScrollY.value && currentScrollY > 300) {
+    showFab.value = true
+  } else if (currentScrollY < lastScrollY.value - 50) {
+    showFab.value = false
+  }
+  lastScrollY.value = currentScrollY
+}
+
+// 滚动到交易区域
+const scrollToTradeSection = () => {
+  const tradingSection = document.querySelector('.trading-section')
+  if (tradingSection) {
+    tradingSection.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }
+}
 
 // 从store获取数据（后端已计算好）
 const dashboardData = computed(() => portfolioStore.dashboardData)
@@ -1272,9 +1299,7 @@ const refreshPrices = async () => {
   try {
     const result = await portfolioStore.fetchDashboard()
 
-    if (result.success) {
-      lastUpdateTime.value = formatDate(result.updatedAt)
-    } else {
+    if (!result.success) {
       errorMessage.value = result.error || '获取价格失败'
     }
   } catch (error) {
@@ -1528,6 +1553,8 @@ onMounted(() => {
   }
   // 监听页面可见性变化
   document.addEventListener('visibilitychange', handleVisibilityChange)
+  // 监听滚动事件（移动端）
+  window.addEventListener('scroll', handleScroll, { passive: true })
 })
 
 onUnmounted(() => {
@@ -1536,6 +1563,8 @@ onUnmounted(() => {
   }
   // 移除页面可见性监听
   document.removeEventListener('visibilitychange', handleVisibilityChange)
+  // 移除滚动监听
+  window.removeEventListener('scroll', handleScroll)
 })
 
 // ========== 导入/导出方法 ==========
@@ -1919,8 +1948,11 @@ watch(() => userStore.isLoggedIn, async (isLoggedIn) => {
 .mode-btn {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
-  padding: 8px 16px;
+  padding: 12px 20px;
+  min-width: 80px;
+  min-height: 44px;
   border: 1px solid var(--border-color);
   background: var(--bg-color);
   color: var(--text-secondary);
@@ -2011,15 +2043,6 @@ watch(() => userStore.isLoggedIn, async (isLoggedIn) => {
   display: flex;
   align-items: center;
   gap: 12px;
-}
-
-.update-time {
-  font-size: 12px;
-  color: #6b7280;
-}
-
-.dark .update-time {
-  color: #9ca3af;
 }
 
 .btn-refresh {
@@ -2145,19 +2168,20 @@ watch(() => userStore.isLoggedIn, async (isLoggedIn) => {
   width: 280px;
   height: 280px;
   padding: 10px;
+  touch-action: none;
 }
 
 @media (max-width: 768px) {
   .pie-chart-wrapper {
-    width: 240px;
-    height: 240px;
+    width: 220px;
+    height: 220px;
   }
 }
 
 @media (max-width: 480px) {
   .pie-chart-wrapper {
-    width: 200px;
-    height: 200px;
+    width: 180px;
+    height: 180px;
     padding: 8px;
   }
 }
@@ -2262,10 +2286,16 @@ watch(() => userStore.isLoggedIn, async (isLoggedIn) => {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 8px 12px;
+  padding: 10px 14px;
+  min-height: 44px;
   border-radius: 8px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
+  touch-action: manipulation;
+}
+
+.legend-item:active {
+  transform: scale(0.98);
 }
 
 .legend-item:hover,
@@ -2438,8 +2468,10 @@ watch(() => userStore.isLoggedIn, async (isLoggedIn) => {
 .type-tab {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
-  padding: 8px 16px;
+  padding: 10px 20px;
+  min-height: 44px;
   border: none;
   border-radius: 8px;
   font-size: 14px;
@@ -2508,14 +2540,21 @@ watch(() => userStore.isLoggedIn, async (isLoggedIn) => {
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: 4px;
   padding: 12px 8px;
+  min-height: 64px;
   background: #f9fafb;
   border: 2px solid transparent;
   border-radius: 12px;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 0.15s ease;
   color: #374151;
+  touch-action: manipulation;
+}
+
+.asset-btn:active {
+  transform: scale(0.98);
 }
 
 .dark .asset-btn {
@@ -2660,7 +2699,12 @@ watch(() => userStore.isLoggedIn, async (isLoggedIn) => {
   font-size: 16px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 0.15s ease;
+  touch-action: manipulation;
+}
+
+.btn-submit:active:not(:disabled) {
+  transform: scale(0.98);
 }
 
 .btn-submit.buy {
@@ -2955,6 +2999,26 @@ watch(() => userStore.isLoggedIn, async (isLoggedIn) => {
 
 .table-wrapper {
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
+
+.table-wrapper::-webkit-scrollbar {
+  height: 6px;
+}
+
+.table-wrapper::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 3px;
+}
+
+.table-wrapper::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+.table-wrapper::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
 }
 
 .portfolio-table,
@@ -3161,7 +3225,13 @@ watch(() => userStore.isLoggedIn, async (isLoggedIn) => {
   border: none;
   border-radius: 6px;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 0.15s ease;
+  touch-action: manipulation;
+}
+
+.btn-action:active,
+.btn-delete:active {
+  transform: scale(0.95);
 }
 
 .btn-sell {
@@ -3404,6 +3474,34 @@ watch(() => userStore.isLoggedIn, async (isLoggedIn) => {
   justify-content: center;
   align-items: center;
   z-index: 1000;
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(20px);
+  }
 }
 
 .modal {
@@ -3411,7 +3509,35 @@ watch(() => userStore.isLoggedIn, async (isLoggedIn) => {
   border-radius: 12px;
   width: 90%;
   max-width: 400px;
+  max-height: 90vh;
+  overflow-y: auto;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+  animation: slideUp 0.3s ease;
+}
+
+@media (max-width: 768px) {
+  .modal-overlay {
+    align-items: flex-end;
+  }
+
+  .modal {
+    width: 100%;
+    max-width: 100%;
+    max-height: 85vh;
+    border-radius: 20px 20px 0 0;
+    animation: slideUpFromBottom 0.3s ease;
+  }
+
+  @keyframes slideUpFromBottom {
+    from {
+      opacity: 0;
+      transform: translateY(100%);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
 }
 
 .dark .modal {
@@ -3562,7 +3688,7 @@ watch(() => userStore.isLoggedIn, async (isLoggedIn) => {
 
 .error-toast {
   position: fixed;
-  bottom: 24px;
+  bottom: 100px;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
@@ -3575,6 +3701,50 @@ watch(() => userStore.isLoggedIn, async (isLoggedIn) => {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   z-index: 1001;
   animation: slideUp 0.3s ease;
+}
+
+/* 移动端浮动操作按钮 */
+.fab-container {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .fab-container {
+    display: flex;
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 999;
+  }
+
+  .fab-btn {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+    color: white;
+    border: none;
+    box-shadow: 0 4px 16px rgba(99, 102, 241, 0.4);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    touch-action: manipulation;
+  }
+
+  .fab-btn svg {
+    font-size: 28px;
+  }
+
+  .fab-btn:hover {
+    transform: scale(1.1);
+    box-shadow: 0 6px 24px rgba(99, 102, 241, 0.5);
+  }
+
+  .fab-btn:active {
+    transform: scale(0.95);
+  }
 }
 
 .dark .error-toast {
@@ -3624,24 +3794,65 @@ watch(() => userStore.isLoggedIn, async (isLoggedIn) => {
   .portfolio-table,
   .trades-table {
     font-size: 12px;
+    min-width: 768px;
   }
 
   .portfolio-table th,
   .portfolio-table td,
   .trades-table th,
   .trades-table td {
-    padding: 8px;
+    padding: 10px 12px;
+    white-space: nowrap;
+  }
+
+  .portfolio-table .asset-info {
+    gap: 8px;
+  }
+
+  .portfolio-table .asset-info svg {
+    width: 24px;
+    height: 24px;
   }
 
   .action-cell {
     flex-direction: column;
-    gap: 4px;
+    gap: 6px;
   }
 
   .btn-action,
   .btn-delete {
-    width: 28px;
-    height: 28px;
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+  }
+
+  .btn-action svg,
+  .btn-delete svg {
+    font-size: 18px;
+  }
+}
+
+@media (max-width: 480px) {
+  .table-wrapper {
+    margin: 0 -16px;
+    padding: 0 16px;
+    width: calc(100% + 32px);
+  }
+
+  .portfolio-table th.realized-pl-col,
+  .portfolio-table td.realized-pl-col {
+    display: none;
+  }
+
+  .trades-table th.trade-price-col,
+  .trades-table td.trade-price-col {
+    display: none;
+  }
+
+  .btn-action,
+  .btn-delete {
+    width: 40px;
+    height: 40px;
   }
 }
 
@@ -3649,6 +3860,15 @@ watch(() => userStore.isLoggedIn, async (isLoggedIn) => {
 .import-modal {
   max-width: 560px;
   width: 90%;
+}
+
+@media (max-width: 768px) {
+  .import-modal {
+    width: 100%;
+    max-width: 100%;
+    max-height: 90vh;
+    border-radius: 20px 20px 0 0;
+  }
 }
 
 .import-step {

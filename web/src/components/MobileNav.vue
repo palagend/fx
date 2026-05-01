@@ -58,7 +58,8 @@ import { Icon } from '@iconify/vue'
   bottom: 0;
   left: 0;
   right: 0;
-  height: 56px;
+  min-height: 56px;
+  height: fit-content;
   background: rgba(255, 255, 255, 0.98);
   backdrop-filter: blur(20px);
   border-top: 1px solid rgba(0, 0, 0, 0.05);
@@ -82,7 +83,8 @@ import { Icon } from '@iconify/vue'
   align-items: center;
   justify-content: center;
   flex: 1;
-  height: 56px;
+  min-height: 56px;
+  padding: 8px 0;
   text-decoration: none;
   color: #999999;
   transition: all 0.2s ease;
