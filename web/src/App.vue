@@ -1,6 +1,6 @@
 <template>
-  <div id="app" :class="{ dark: isDark }">
-    <nav class="navbar">
+  <div id="app" :class="{ dark: isDark, mobile: isMobile }">
+    <nav class="navbar" v-if="!isMobile">
       <div class="nav-container">
         <div class="nav-left">
           <UserProfile v-if="config.isBackend" />
@@ -57,19 +57,29 @@
         </div>
       </div>
     </nav>
-    <div class="container">
+
+    <div class="container" :class="{ 'mobile-container': isMobile }">
       <router-view />
     </div>
+
+    <MobileNav v-if="isMobile" />
+
+    <Teleport to="body">
+      <div v-if="isMobile" class="mobile-overlay" :class="{ show: showMobileOverlay }" @click="closeMobileOverlay"></div>
+    </Teleport>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted, provide } from 'vue'
 import { Icon } from '@iconify/vue'
 import UserProfile from './components/UserProfile.vue'
+import MobileNav from './components/MobileNav.vue'
 import { config } from './config'
 
 const isDark = ref(false)
+const isMobile = ref(false)
+const showMobileOverlay = ref(false)
 
 const loadTheme = () => {
   const savedTheme = localStorage.getItem('theme')
@@ -84,6 +94,9 @@ const toggleTheme = () => {
   document.documentElement.classList.toggle('dark', isDark.value)
   localStorage.setItem('theme', isDark.value ? 'dark' : 'light')
 }
+
+provide('isDark', isDark)
+provide('toggleTheme', toggleTheme)
 
 const isMenuOpen = ref(false)
 
@@ -113,8 +126,28 @@ const closeMenu = () => {
   }
 }
 
+const checkMobile = () => {
+  const width = window.innerWidth
+  const wasMobile = isMobile.value
+  isMobile.value = width < 768
+  
+  if (isMobile.value && !wasMobile) {
+    closeMobileOverlay()
+  }
+}
+
+const closeMobileOverlay = () => {
+  showMobileOverlay.value = false
+}
+
 onMounted(() => {
   loadTheme()
+  checkMobile()
+  window.addEventListener('resize', checkMobile)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('resize', checkMobile)
 })
 </script>
 
@@ -289,6 +322,13 @@ body {
   max-width: 1400px;
   margin: 0 auto;
   padding: 2rem;
+}
+
+.mobile-container {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 0;
+  width: 100%;
 }
 
 .dark body {
@@ -603,43 +643,42 @@ body {
   }
 }
 
-@media (max-width: 576px) {
+@media (max-width: 768px) {
   .navbar {
-    padding: 0.8rem 0;
-  }
-
-  .nav-logo {
-    font-size: 1.1rem;
-  }
-
-  .nav-logo span {
-    display: inline;
-  }
-
-  .nav-menu {
-    gap: 0.3rem;
-  }
-
-  .nav-link i {
-    font-size: 1.1rem;
-  }
-
-  .theme-toggle {
-    width: 44px;
-    height: 26px;
-  }
-
-  .theme-toggle .toggle-circle {
-    width: 20px;
-    height: 20px;
-  }
-
-  .dark .theme-toggle .toggle-circle {
-    transform: translateX(18px);
+    display: none;
   }
 
   .container {
-    padding: 0.8rem;
+    padding: 0;
+    max-width: 480px;
+    margin: 0 auto;
+    width: 100%;
   }
+
+  body {
+    background: #f0f2f5;
+  }
+
+  .dark body {
+    background: #121212;
+  }
+}
+
+.mobile-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 998;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.3s ease;
+}
+
+.mobile-overlay.show {
+  opacity: 1;
+  visibility: visible;
 }
 </style>

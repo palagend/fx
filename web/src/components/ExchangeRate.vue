@@ -1105,57 +1105,125 @@ select::-ms-expand {
   height: 18px;
 }
 
-@media (max-width: 480px) {
+@media (max-width: 768px) {
   .exchange-rate-container {
     padding: 12px;
+    max-width: 480px;
+    margin: 0 auto;
   }
 
   .card {
     padding: 20px;
-    border-radius: 12px;
+    border-radius: 16px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
   }
 
   .page-title {
     font-size: 18px;
     gap: 8px;
+    margin-bottom: 20px;
   }
 
   .page-title svg {
-    width: 20px;
-    height: 20px;
+    width: 22px;
+    height: 22px;
+  }
+
+  .input-box {
+    margin-bottom: 14px;
+  }
+
+  .input-box label {
+    font-size: 13px;
+    margin-bottom: 6px;
+  }
+
+  input, select {
+    padding: 14px 16px;
+    font-size: 16px;
+    border-radius: 12px;
+  }
+
+  .quick-amounts {
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 10px;
+  }
+
+  .quick-label {
+    display: none;
+  }
+
+  .quick-btn {
+    padding: 8px 14px;
+    font-size: 13px;
+    border-radius: 8px;
   }
 
   .currency-row {
     flex-direction: column;
-    gap: 12px;
+    gap: 10px;
   }
 
   .currency-col {
     width: 100%;
   }
 
+  .currency-label {
+    font-size: 10px;
+    padding: 0 4px;
+  }
+
   .swap-btn {
     width: 100%;
-    height: 36px;
+    height: 40px;
+    border-radius: 10px;
+  }
+
+  .swap-btn svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .btn {
+    padding: 14px 20px;
+    font-size: 15px;
+    font-weight: 600;
+    border-radius: 12px;
+  }
+
+  .btn svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .result {
+    margin-top: 16px;
+    padding: 20px;
+    border-radius: 14px;
   }
 
   .result-header {
     flex-direction: column;
-    gap: 12px;
-    padding: 12px;
+    gap: 10px;
+    padding: 14px;
+    background: rgba(67, 97, 238, 0.05);
+    border-radius: 10px;
   }
 
   .result-header svg {
-    width: 20px;
-    height: 20px;
+    width: 22px;
+    height: 22px;
   }
 
   .result-equals {
-    font-size: 24px;
+    font-size: 22px;
+    font-weight: 700;
   }
 
   .result-header strong {
-    font-size: 26px;
+    font-size: 30px;
+    font-weight: 700;
   }
 
   .result-currency {
@@ -1164,53 +1232,94 @@ select::-ms-expand {
 
   .copy-btn {
     position: static;
-    margin-top: 8px;
-    transform: none;
+    margin-top: 10px;
     width: 100%;
+    padding: 10px;
+    border-radius: 10px;
   }
 
   .result-footer {
     flex-direction: column;
-    gap: 6px;
-    padding-top: 12px;
+    gap: 8px;
+    padding-top: 14px;
   }
 
   .rate-info {
-    font-size: 12px;
+    font-size: 13px;
+  }
+
+  .rate-info svg {
+    width: 14px;
+    height: 14px;
   }
 
   .source-info {
-    font-size: 10px;
+    font-size: 11px;
   }
 
-  .btn {
-    padding: 12px 16px;
+  .loss-section {
+    margin-top: 16px;
+  }
+
+  .section-subtitle {
     font-size: 15px;
+    margin-bottom: 14px;
+  }
+
+  .loss-item {
+    padding: 10px 0;
   }
 
   .loss-item.highlight {
-    margin: 8px -16px;
-    border-radius: 8px;
+    margin: 10px -20px -20px;
+    padding: 14px 20px;
+    border-radius: 0 0 14px 14px;
   }
 
-  .quick-amounts {
-    flex-direction: column;
-    align-items: flex-start;
+  .loss-item.highlight .loss-value {
+    font-size: 18px;
   }
 
-  .quick-btn {
-    width: 100%;
-    text-align: center;
+  .history-section {
+    margin-top: 20px;
+    padding-top: 16px;
   }
 
   .history-item {
+    padding: 12px 14px;
+    border-radius: 10px;
     flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .history-amount {
+    font-size: 15px;
+  }
+
+  .history-currency {
+    font-size: 13px;
   }
 
   .history-rate {
     margin-left: 0;
     width: 100%;
     text-align: right;
+    font-size: 13px;
+  }
+
+  .history-time {
+    display: none;
+  }
+
+  .toast {
+    bottom: 80px;
+    padding: 14px 24px;
+    border-radius: 10px;
+  }
+
+  .message {
+    padding: 10px 14px;
+    font-size: 13px;
   }
 }
 </style>

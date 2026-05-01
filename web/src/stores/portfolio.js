@@ -120,7 +120,7 @@ export const usePortfolioStore = defineStore('portfolio', () => {
       const response = await portfolioApi.createTrade(trade)
       return { success: true, data: response.data }
     } catch (err) {
-      error.value = err.response?.data?.error || '交易失败'
+      error.value = err.response?.data?.error || err.message || '交易失败'
       return { success: false, error: error.value }
     } finally {
       isLoading.value = false
