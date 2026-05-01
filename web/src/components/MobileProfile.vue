@@ -320,7 +320,7 @@ const clearCache = () => {
   right: 0;
   height: 120px;
   background: linear-gradient(135deg, #4361ee 0%, #7209b7 100%);
-  border-radius: 0 0 30px 30px;
+  border-radius: 0;
 }
 
 .profile-info {

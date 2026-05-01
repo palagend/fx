@@ -7,7 +7,7 @@
           <Icon :icon="config.isBackend ? 'mdi:server' : 'mdi:database-outline'" />
           <span>{{ config.isBackend ? '后端模式' : '本地模式' }}</span>
         </div>
-        <main class="main-content">
+        <main class="main-content mobile-main-content">
           <!-- 加载状态 - 骨架屏 -->
           <SkeletonLoader v-if="isLoading && !hasLoaded" />
           
@@ -28,7 +28,7 @@
               <!-- 移动端快速导航 - 首屏聚焦 -->
               <div class="mobile-quick-nav">
                 <button class="quick-nav-btn" @click="scrollToSection('trading')">
-                  <Icon icon="mdi:arrow-right-left" />
+                  <Icon icon="mdi:swap-horizontal" />
                   <span>快速交易</span>
                 </button>
                 <button class="quick-nav-btn" @click="scrollToSection('portfolio')">
@@ -39,10 +39,19 @@
                   <Icon icon="mdi:history" />
                   <span>交易记录</span>
                 </button>
+                <!-- 移动端紧凑版计价本位切换 -->
+                <button 
+                  class="quick-nav-btn value-mode-toggle"
+                  @click="toggleValueMode"
+                  :title="valueMode === 'usd' ? '切换为BTC本位' : '切换为USD本位'"
+                >
+                  <Icon :icon="valueMode === 'usd' ? 'mdi:currency-usd' : 'mdi:bitcoin'" />
+                  <span>{{ valueMode.toUpperCase() }}</span>
+                </button>
               </div>
 
-              <!-- 本位切换器 -->
-              <div class="value-mode-switcher">
+              <!-- 本位切换器（仅PC端显示） -->
+              <div class="value-mode-switcher desktop-only">
                 <span class="mode-label">计价本位:</span>
                 <button
                   class="mode-btn"
@@ -802,12 +811,7 @@
       <span>{{ errorMessage }}</span>
     </div>
 
-    <!-- 移动端浮动操作按钮 -->
-    <div class="fab-container" v-if="showFab">
-      <button class="fab-btn" @click="scrollToTradeSection" aria-label="快速交易">
-        <Icon icon="mdi:plus" />
-      </button>
-    </div>
+    
   </div>
 </template>
 
@@ -896,6 +900,11 @@ const hasLoaded = ref(false)
 const valueMode = ref('usd') // 'usd' 或 'btc'
 const btcPrice = computed(() => dashboardData.value?.btc_price || 0)
 
+// 切换本位模式（移动端使用）
+const toggleValueMode = () => {
+  valueMode.value = valueMode.value === 'usd' ? 'btc' : 'usd'
+}
+
 // 重复提交保护状态
 const isSubmitting = ref({
   trade: false,
@@ -930,21 +939,7 @@ const importError = ref('')
 // 防抖计时器
 let refreshDebounceTimer = null
 
-// FAB相关状态
-const showFab = ref(false)
-const lastScrollY = ref(0)
 
-// 滚动监听处理FAB显示/隐藏
-const handleScroll = () => {
-  const currentScrollY = window.scrollY
-  // 向下滚动隐藏，向上滚动显示
-  if (currentScrollY > lastScrollY.value && currentScrollY > 300) {
-    showFab.value = true
-  } else if (currentScrollY < lastScrollY.value - 50) {
-    showFab.value = false
-  }
-  lastScrollY.value = currentScrollY
-}
 
 // 滚动到指定区域
 const scrollToSection = (sectionId) => {
@@ -1336,6 +1331,8 @@ const setupQuickTrade = async (crypto, type, focusInput = false) => {
       }
     }
   }
+  // 滚动到交易区域
+  scrollToSection('trading')
   if (focusInput) {
     nextTick(() => {
       if (amountInput.value) {
@@ -1641,8 +1638,6 @@ onMounted(async () => {
   }
   // 监听页面可见性变化
   document.addEventListener('visibilitychange', handleVisibilityChange)
-  // 监听滚动事件（移动端）
-  window.addEventListener('scroll', handleScroll, { passive: true })
 })
 
 onUnmounted(() => {
@@ -1651,8 +1646,6 @@ onUnmounted(() => {
   }
   // 移除页面可见性监听
   document.removeEventListener('visibilitychange', handleVisibilityChange)
-  // 移除滚动监听
-  window.removeEventListener('scroll', handleScroll)
 })
 
 // ========== 导入/导出方法 ==========
@@ -3791,49 +3784,7 @@ watch(() => userStore.isLoggedIn, async (isLoggedIn) => {
   animation: slideUp 0.3s ease;
 }
 
-/* 移动端浮动操作按钮 */
-.fab-container {
-  display: none;
-}
 
-@media (max-width: 768px) {
-  .fab-container {
-    display: flex;
-    position: fixed;
-    bottom: 24px;
-    right: 24px;
-    z-index: 999;
-  }
-
-  .fab-btn {
-    width: 56px;
-    height: 56px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
-    color: white;
-    border: none;
-    box-shadow: 0 4px 16px rgba(99, 102, 241, 0.4);
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.3s ease;
-    touch-action: manipulation;
-  }
-
-  .fab-btn svg {
-    font-size: 28px;
-  }
-
-  .fab-btn:hover {
-    transform: scale(1.1);
-    box-shadow: 0 6px 24px rgba(99, 102, 241, 0.5);
-  }
-
-  .fab-btn:active {
-    transform: scale(0.95);
-  }
-}
 
 .dark .error-toast {
   background: rgba(239, 68, 68, 0.1);
@@ -4293,13 +4244,24 @@ watch(() => userStore.isLoggedIn, async (isLoggedIn) => {
 
 @media (max-width: 768px) {
   .mobile-quick-nav {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
     display: flex;
-    gap: 12px;
-    margin-bottom: 16px;
+    gap: 8px;
     padding: 12px;
-    background: var(--card-bg);
-    border-radius: 12px;
-    border: 1px solid var(--border-color);
+    padding-top: calc(12px + env(safe-area-inset-top));
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(20px);
+    border-radius: 0;
+    border-bottom: 1px solid var(--border-color);
+    box-shadow: 0 2px 20px rgba(0, 0, 0, 0.08);
+  }
+
+  .mobile-main-content {
+    padding-top: calc(80px + env(safe-area-inset-top));
   }
 
   .quick-nav-btn {
@@ -4308,21 +4270,22 @@ watch(() => userStore.isLoggedIn, async (isLoggedIn) => {
     flex-direction: column;
     align-items: center;
     gap: 4px;
-    padding: 12px 8px;
+    padding: 10px 6px;
     border: none;
     background: transparent;
     border-radius: 8px;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: all 0.15s ease;
     color: var(--text-secondary);
+    touch-action: manipulation;
   }
 
   .quick-nav-btn svg {
-    font-size: 20px;
+    font-size: 19px;
   }
 
   .quick-nav-btn span {
-    font-size: 11px;
+    font-size: 10px;
   }
 
   .quick-nav-btn:active {
@@ -4340,6 +4303,10 @@ watch(() => userStore.isLoggedIn, async (isLoggedIn) => {
   .mobile-view {
     display: none;
   }
+
+  .mobile-only {
+    display: none;
+  }
 }
 
 @media (max-width: 768px) {
@@ -4349,6 +4316,46 @@ watch(() => userStore.isLoggedIn, async (isLoggedIn) => {
 
   .mobile-view {
     display: block;
+  }
+
+  .desktop-only {
+    display: none;
+  }
+
+  /* 移动端隐藏模式标识 */
+  .mode-indicator {
+    display: none !important;
+  }
+}
+
+/* 本位切换按钮样式 */
+.value-mode-toggle {
+  background: rgba(67, 97, 238, 0.1);
+  color: #4361ee;
+}
+
+.value-mode-toggle:active {
+  background: rgba(67, 97, 238, 0.2);
+}
+
+.dark .value-mode-toggle {
+  background: rgba(74, 144, 230, 0.1);
+  color: #4a90e2;
+}
+
+.dark .value-mode-toggle:active {
+  background: rgba(74, 144, 230, 0.2);
+}
+
+/* 深色模式移动端导航 */
+@media (max-width: 768px) {
+  .dark .mobile-quick-nav {
+    background: rgba(30, 30, 30, 0.95);
+    border-bottom-color: rgba(255, 255, 255, 0.08);
+  }
+
+  .dark .quick-nav-btn:active {
+    background: rgba(255, 255, 255, 0.05);
   }
 }
 

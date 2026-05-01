@@ -101,7 +101,7 @@ import { Icon } from '@iconify/vue'
 .tools-header {
   background: linear-gradient(135deg, #4361ee 0%, #7209b7 100%);
   padding: 40px 20px 30px;
-  border-radius: 0 0 30px 30px;
+  border-radius: 0;
 }
 
 .tools-header h1 {
