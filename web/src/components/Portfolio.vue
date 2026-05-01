@@ -492,7 +492,7 @@
                   </thead>
                   <tbody>
                     <tr
-                      v-for="crypto in filteredHoldings"
+                      v-for="crypto in holdingsWithMeta"
                       :key="crypto.id"
                       class="asset-row"
                       :class="{ 'selected': selectedAsset === crypto.symbol, 'liquidated': crypto.amount === 0 }"
@@ -500,16 +500,16 @@
                     >
                       <td>
                         <div class="asset-info">
-                          <Icon width="32" height="32" :icon="getAssetIcon(crypto.asset_type, crypto.symbol)" :style="{ color: getAssetColor(crypto.asset_type, crypto.symbol) }" />
+                          <Icon width="32" height="32" :icon="crypto.icon" :style="{ color: crypto.color }" />
                           <div>
-                            <div class="asset-name">{{ getAssetName(crypto.asset_type, crypto.symbol) }}</div>
+                            <div class="asset-name">{{ crypto.name }}</div>
                             <div class="asset-symbol">{{ crypto.symbol }}</div>
                           </div>
                         </div>
                       </td>
-                      <td class="asset-amount">{{ formatAmount(crypto.amount) }}</td>
+                      <td class="asset-amount">{{ crypto.formattedAmount }}</td>
                       <td class="asset-price">
-                        <template v-if="crypto.avg_cost > 0">${{ formatAmount(crypto.avg_cost) }}</template>
+                        <template v-if="crypto.avg_cost > 0">${{ crypto.formattedCost }}</template>
                         <template v-else-if="crypto.avg_cost === 0">
                           <div class="cost-display">
                             <span class="cost-value">$0</span>
@@ -518,13 +518,13 @@
                         </template>
                         <template v-else>
                           <div class="cost-display">
-                            <span class="cost-value">${{ formatAmount(crypto.avg_cost) }}</span>
+                            <span class="cost-value">${{ crypto.formattedCost }}</span>
                             <span class="cost-badge negative">负成本</span>
                           </div>
                         </template>
                       </td>
                       <td class="asset-price">${{ formatAmount(crypto.current_price) }}</td>
-                      <td class="asset-value">{{ formatValue(crypto.market_value) }}</td>
+                      <td class="asset-value">{{ crypto.formattedMarketValue }}</td>
                       <td class="asset-profit" :class="getProfitClass(crypto)">
                         <template v-if="crypto.avg_cost > 0">
                           <div class="profit-value">
@@ -587,12 +587,12 @@
               <!-- 移动端卡片视图 -->
               <div class="mobile-asset-list mobile-view">
                 <MobileAssetCard
-                  v-for="crypto in filteredHoldings"
+                  v-for="crypto in holdingsWithMeta"
                   :key="crypto.id"
                   :symbol="crypto.symbol"
-                  :name="getAssetName(crypto.asset_type, crypto.symbol)"
-                  :icon="getAssetIcon(crypto.asset_type, crypto.symbol)"
-                  :color="getAssetColor(crypto.asset_type, crypto.symbol)"
+                  :name="crypto.name"
+                  :icon="crypto.icon"
+                  :color="crypto.color"
                   :amount="crypto.amount"
                   :avg-cost="crypto.avg_cost"
                   :current-price="crypto.current_price"
@@ -603,7 +603,7 @@
                   @buy="quickBuy"
                   @sell="quickSell"
                 />
-                <div v-if="filteredHoldings.length === 0" class="empty-state mobile-empty">
+                <div v-if="holdingsWithMeta.length === 0" class="empty-state mobile-empty">
                   <Icon icon="mdi:inbox" />
                   <p>暂无资产数据</p>
                   <span>充值USD后开始交易</span>
@@ -657,11 +657,11 @@
                     </tr>
                   </thead>
                   <tbody>
-                    <tr v-for="trade in filteredTrades" :key="trade.id" class="trade-row">
+                    <tr v-for="trade in tradesWithMeta" :key="trade.id" class="trade-row">
                       <td class="trade-time">{{ formatDate(trade.created_at || trade.timestamp) }}</td>
                       <td>
                         <div class="trade-asset">
-                          <Icon :icon="getAssetIcon(trade.asset_type, trade.symbol)" :style="{ color: getAssetColor(trade.asset_type, trade.symbol) }" />
+                          <Icon :icon="trade.icon" :style="{ color: trade.color }" />
                           <span>{{ trade.symbol }}</span>
                         </div>
                       </td>
@@ -670,8 +670,8 @@
                           {{ getTradeTypeText(trade.type) }}
                         </span>
                       </td>
-                      <td>{{ formatAmount(trade.amount) }}</td>
-                      <td class="trade-price-col">${{ formatAmount(trade.price) }}</td>
+                      <td>{{ trade.formattedAmount }}</td>
+                      <td class="trade-price-col">${{ trade.formattedPrice }}</td>
                       <td>${{ formatAmount(trade.total) }}</td>
                       <td>
                         <button class="btn-delete" @click="deleteTrade(trade.id)" :disabled="protectHistory || isSubmitting.delete" title="删除">
@@ -679,7 +679,7 @@
                         </button>
                       </td>
                     </tr>
-                    <tr v-if="filteredTrades.length === 0">
+                    <tr v-if="tradesWithMeta.length === 0">
                       <td colspan="7" class="empty-state">
                         <Icon icon="mdi:inbox" />
                         <p>暂无交易记录</p>
@@ -692,7 +692,7 @@
               <!-- 移动端卡片视图 -->
               <div class="mobile-trade-list mobile-view">
                 <MobileTradeCard
-                  v-for="trade in filteredTrades"
+                  v-for="trade in tradesWithMeta"
                   :key="trade.id"
                   :id="trade.id"
                   :symbol="trade.symbol"
@@ -701,13 +701,13 @@
                   :price="trade.price"
                   :total="trade.total"
                   :timestamp="trade.created_at || trade.timestamp"
-                  :icon="getAssetIcon(trade.asset_type, trade.symbol)"
-                  :color="getAssetColor(trade.asset_type, trade.symbol)"
+                  :icon="trade.icon"
+                  :color="trade.color"
                   :can-delete="!protectHistory"
                   :disabled="isSubmitting.delete"
                   @delete="deleteTrade"
                 />
-                <div v-if="filteredTrades.length === 0" class="empty-state mobile-empty">
+                <div v-if="tradesWithMeta.length === 0" class="empty-state mobile-empty">
                   <Icon icon="mdi:inbox" />
                   <p>暂无交易记录</p>
                 </div>
@@ -1520,6 +1520,33 @@ const filteredTrades = computed(() => {
   return filter === 'all' ? trades.value : trades.value?.filter(t => t.type === filter)
 })
 
+// 缓存资产元数据，避免模板中频繁调用函数
+const holdingsWithMeta = computed(() => {
+  return filteredHoldings.value.map(item => ({
+    ...item,
+    icon: getAssetIcon(item.asset_type, item.symbol),
+    color: getAssetColor(item.asset_type, item.symbol),
+    name: getAssetName(item.asset_type, item.symbol),
+    formattedAmount: formatAmount(item.amount),
+    formattedMarketValue: formatValue(item.market_value),
+    formattedCost: formatAmount(item.avg_cost),
+    formattedPL: formatAmount(item.realized_pl)
+  }))
+})
+
+// 缓存交易元数据
+const tradesWithMeta = computed(() => {
+  return filteredTrades.value.map(item => ({
+    ...item,
+    icon: getAssetIcon(item.asset_type, item.symbol),
+    color: getAssetColor(item.asset_type, item.symbol),
+    formattedAmount: formatAmount(item.amount),
+    formattedPrice: formatAmount(item.price),
+    formattedTotal: formatAmount(item.amount * item.price),
+    formattedFee: formatAmount(item.fee || 0)
+  }))
+})
+
 // 总资产净值 = 加密资产市值 + 美股市值 + USD现金余额
 const totalNetWorth = computed(() => cryptoAssetsValue.value + usStockValue.value + cashBalance.value)
 
@@ -1695,8 +1722,12 @@ const onLegendLeave = () => {
   hoveredLegend.value = null
 }
 
+let resizeTimer = null
 const checkMobile = () => {
-  isMobile.value = window.innerWidth <= 768
+  if (resizeTimer) clearTimeout(resizeTimer)
+  resizeTimer = setTimeout(() => {
+    isMobile.value = window.innerWidth <= 768
+  }, 250)
 }
 
 onMounted(async () => {
@@ -1720,6 +1751,7 @@ onMounted(async () => {
 
 onUnmounted(() => {
   window.removeEventListener('resize', checkMobile)
+  if (resizeTimer) clearTimeout(resizeTimer)
   if (refreshTimer) {
     clearInterval(refreshTimer)
   }
