@@ -8,37 +8,57 @@
           <span>{{ config.isBackend ? '后端模式' : '本地模式' }}</span>
         </div>
         <main class="main-content">
-          <!-- 未登录提示（仅后端模式显示） -->
-          <section v-if="config.isBackend && !userStore.isLoggedIn" class="login-prompt">
-            <div class="prompt-content">
-              <Icon icon="mdi:lock" class="prompt-icon" />
-              <h3>请先登录</h3>
-              <p>登录后可查看和管理您的资产组合</p>
-              <button class="btn-login" @click="userStore.openLoginModal">
-                <Icon icon="mdi:login" /> 立即登录
-              </button>
-            </div>
-          </section>
-
+          <!-- 加载状态 - 骨架屏 -->
+          <SkeletonLoader v-if="isLoading && !hasLoaded" />
+          
           <template v-else>
-            <!-- 本位切换器 -->
-            <div class="value-mode-switcher">
-              <span class="mode-label">计价本位:</span>
-              <button
-                class="mode-btn"
-                :class="{ active: valueMode === 'usd' }"
-                @click="valueMode = 'usd'"
-              >
-                <Icon icon="mdi:currency-usd" /> USD
-              </button>
-              <button
-                class="mode-btn"
-                :class="{ active: valueMode === 'btc' }"
-                @click="valueMode = 'btc'"
-              >
-                <Icon icon="mdi:bitcoin" /> BTC
-              </button>
-            </div>
+            <!-- 未登录提示（仅后端模式显示） -->
+            <section v-if="config.isBackend && !userStore.isLoggedIn" class="login-prompt">
+              <div class="prompt-content">
+                <Icon icon="mdi:lock" class="prompt-icon" />
+                <h3>请先登录</h3>
+                <p>登录后可查看和管理您的资产组合</p>
+                <button class="btn-login" @click="userStore.openLoginModal">
+                  <Icon icon="mdi:login" /> 立即登录
+                </button>
+              </div>
+            </section>
+
+            <template v-else>
+              <!-- 移动端快速导航 - 首屏聚焦 -->
+              <div class="mobile-quick-nav">
+                <button class="quick-nav-btn" @click="scrollToSection('trading')">
+                  <Icon icon="mdi:arrow-right-left" />
+                  <span>快速交易</span>
+                </button>
+                <button class="quick-nav-btn" @click="scrollToSection('portfolio')">
+                  <Icon icon="mdi:wallet" />
+                  <span>资产详情</span>
+                </button>
+                <button class="quick-nav-btn" @click="scrollToSection('trades')">
+                  <Icon icon="mdi:history" />
+                  <span>交易记录</span>
+                </button>
+              </div>
+
+              <!-- 本位切换器 -->
+              <div class="value-mode-switcher">
+                <span class="mode-label">计价本位:</span>
+                <button
+                  class="mode-btn"
+                  :class="{ active: valueMode === 'usd' }"
+                  @click="valueMode = 'usd'"
+                >
+                  <Icon icon="mdi:currency-usd" /> USD
+                </button>
+                <button
+                  class="mode-btn"
+                  :class="{ active: valueMode === 'btc' }"
+                  @click="valueMode = 'btc'"
+                >
+                  <Icon icon="mdi:bitcoin" /> BTC
+                </button>
+              </div>
 
             <section class="overview">
               <div class="overview-card total-card">
@@ -157,7 +177,7 @@
             </section>
 
             <!-- 交易区域 - 左右分栏布局 -->
-            <section class="trading-section">
+            <section id="trading" class="trading-section">
               <div class="trading-container">
                 <!-- 左侧：交易表单 -->
                 <div class="trading-form">
@@ -364,7 +384,7 @@
               </div>
             </section>
 
-            <section class="portfolio-section">
+            <section id="portfolio" class="portfolio-section">
               <div class="section-header">
                 <h2 class="section-title"><Icon icon="mdi:wallet-outline" /> 资产详情</h2>
                 <div class="filter-group">
@@ -377,7 +397,8 @@
                 </div>
               </div>
 
-              <div class="table-wrapper">
+              <!-- PC端表格视图 -->
+              <div class="table-wrapper desktop-view">
                 <table class="portfolio-table">
                   <thead>
                     <tr>
@@ -427,7 +448,6 @@
                       <td class="asset-price">${{ formatAmount(crypto.current_price) }}</td>
                       <td class="asset-value">{{ formatValue(crypto.market_value) }}</td>
                       <td class="asset-profit" :class="getProfitClass(crypto)">
-                        <!-- avg_cost > 0: 正常情况 -->
                         <template v-if="crypto.avg_cost > 0">
                           <div class="profit-value">
                             {{ (crypto.amount * (crypto.current_price - crypto.avg_cost)) >= 0 ? '+' : '-' }}{{ formatValue(Math.abs(crypto.amount * (crypto.current_price - crypto.avg_cost))) }}
@@ -436,8 +456,6 @@
                             {{ ((crypto.current_price - crypto.avg_cost) / crypto.avg_cost * 100) >= 0 ? '+' : '-' }}{{ Math.abs((crypto.current_price - crypto.avg_cost) / crypto.avg_cost * 100).toFixed(2) }}%
                           </div>
                         </template>
-
-                        <!-- avg_cost = 0: 投资全部收回 -->
                         <template v-else-if="crypto.avg_cost === 0">
                           <div class="profit-value positive">
                             +{{ formatValue(crypto.amount * crypto.current_price) }}
@@ -446,8 +464,6 @@
                             <span class="status-badge recovered">✓ 已回本</span>
                           </div>
                         </template>
-
-                        <!-- avg_cost < 0: 投资回报超过100% -->
                         <template v-else>
                           <div class="profit-value positive">
                             +{{ formatValue(crypto.amount * crypto.current_price - crypto.cost) }}
@@ -489,9 +505,35 @@
                   </tbody>
                 </table>
               </div>
+
+              <!-- 移动端卡片视图 -->
+              <div class="mobile-asset-list mobile-view">
+                <MobileAssetCard
+                  v-for="crypto in filteredHoldings"
+                  :key="crypto.id"
+                  :symbol="crypto.symbol"
+                  :name="getAssetName(crypto.asset_type, crypto.symbol)"
+                  :icon="getAssetIcon(crypto.asset_type, crypto.symbol)"
+                  :color="getAssetColor(crypto.asset_type, crypto.symbol)"
+                  :amount="crypto.amount"
+                  :avg-cost="crypto.avg_cost"
+                  :current-price="crypto.current_price"
+                  :market-value="crypto.market_value"
+                  :realized-pl="crypto.realized_pl"
+                  :selected="selectedAsset === crypto.symbol"
+                  @click="selectAsset"
+                  @buy="quickBuy"
+                  @sell="quickSell"
+                />
+                <div v-if="filteredHoldings.length === 0" class="empty-state mobile-empty">
+                  <Icon icon="mdi:inbox" />
+                  <p>暂无资产数据</p>
+                  <span>充值USD后开始交易</span>
+                </div>
+              </div>
             </section>
 
-            <section class="trades-section">
+            <section id="trades" class="trades-section">
               <div class="section-header">
                 <h2 class="section-title"><Icon icon="mdi:history" /> 交易历史</h2>
                 <div class="section-actions">
@@ -522,7 +564,8 @@
                 </div>
               </div>
 
-              <div class="table-wrapper">
+              <!-- PC端表格视图 -->
+              <div class="table-wrapper desktop-view">
                 <table class="trades-table">
                   <thead>
                     <tr>
@@ -567,7 +610,32 @@
                   </tbody>
                 </table>
               </div>
+
+              <!-- 移动端卡片视图 -->
+              <div class="mobile-trade-list mobile-view">
+                <MobileTradeCard
+                  v-for="trade in filteredTrades"
+                  :key="trade.id"
+                  :id="trade.id"
+                  :symbol="trade.symbol"
+                  :type="trade.type"
+                  :amount="trade.amount"
+                  :price="trade.price"
+                  :total="trade.total"
+                  :timestamp="trade.created_at || trade.timestamp"
+                  :icon="getAssetIcon(trade.asset_type, trade.symbol)"
+                  :color="getAssetColor(trade.asset_type, trade.symbol)"
+                  :can-delete="!protectHistory"
+                  :disabled="isSubmitting.delete"
+                  @delete="deleteTrade"
+                />
+                <div v-if="filteredTrades.length === 0" class="empty-state mobile-empty">
+                  <Icon icon="mdi:inbox" />
+                  <p>暂无交易记录</p>
+                </div>
+              </div>
             </section>
+            </template>
           </template>
         </main>
       </div>
@@ -753,6 +821,9 @@ import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js'
 import { Doughnut } from 'vue-chartjs'
 import { AVAILABLE_SYMBOLS, AVAILABLE_ASSETS, getAssetColor, getAssetIcon, getAssetName } from '../config/assets'
 import { formatAmount, formatCompactAmount, formatDateTime, getChangeClass } from '../utils/format'
+import MobileAssetCard from './MobileAssetCard.vue'
+import MobileTradeCard from './MobileTradeCard.vue'
+import SkeletonLoader from './SkeletonLoader.vue'
 
 ChartJS.register(ArcElement, Tooltip, Legend)
 
@@ -817,6 +888,10 @@ const rechargeAmount = ref(null)
 const protectHistory = ref(true)
 let refreshTimer = null
 
+// 加载状态
+const isLoading = ref(true)
+const hasLoaded = ref(false)
+
 // 本位模式（USD本位或BTC本位）
 const valueMode = ref('usd') // 'usd' 或 'btc'
 const btcPrice = computed(() => dashboardData.value?.btc_price || 0)
@@ -871,12 +946,17 @@ const handleScroll = () => {
   lastScrollY.value = currentScrollY
 }
 
-// 滚动到交易区域
-const scrollToTradeSection = () => {
-  const tradingSection = document.querySelector('.trading-section')
-  if (tradingSection) {
-    tradingSection.scrollIntoView({ behavior: 'smooth', block: 'center' })
+// 滚动到指定区域
+const scrollToSection = (sectionId) => {
+  const section = document.getElementById(sectionId)
+  if (section) {
+    section.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
+}
+
+// 滚动到交易区域（兼容旧调用）
+const scrollToTradeSection = () => {
+  scrollToSection('trading')
 }
 
 // 从store获取数据（后端已计算好）
@@ -1547,9 +1627,17 @@ const onLegendLeave = () => {
   hoveredLegend.value = null
 }
 
-onMounted(() => {
+onMounted(async () => {
   if (userStore.isLoggedIn) {
-    portfolioStore.fetchDashboard()
+    isLoading.value = true
+    try {
+      await portfolioStore.fetchDashboard()
+    } finally {
+      isLoading.value = false
+      hasLoaded.value = true
+    }
+  } else {
+    hasLoaded.value = true
   }
   // 监听页面可见性变化
   document.addEventListener('visibilitychange', handleVisibilityChange)
@@ -4196,5 +4284,86 @@ watch(() => userStore.isLoggedIn, async (isLoggedIn) => {
   .drop-zone {
     padding: 32px 20px;
   }
+}
+
+/* 移动端快速导航 */
+.mobile-quick-nav {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .mobile-quick-nav {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 16px;
+    padding: 12px;
+    background: var(--card-bg);
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+  }
+
+  .quick-nav-btn {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 12px 8px;
+    border: none;
+    background: transparent;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    color: var(--text-secondary);
+  }
+
+  .quick-nav-btn svg {
+    font-size: 20px;
+  }
+
+  .quick-nav-btn span {
+    font-size: 11px;
+  }
+
+  .quick-nav-btn:active {
+    background: rgba(0, 0, 0, 0.05);
+    transform: scale(0.98);
+  }
+
+  .dark .quick-nav-btn:active {
+    background: rgba(255, 255, 255, 0.05);
+  }
+}
+
+/* 视图切换：桌面端和移动端 */
+@media (min-width: 769px) {
+  .mobile-view {
+    display: none;
+  }
+}
+
+@media (max-width: 768px) {
+  .desktop-view {
+    display: none;
+  }
+
+  .mobile-view {
+    display: block;
+  }
+}
+
+/* 移动端资产列表 */
+.mobile-asset-list {
+  margin-top: 8px;
+}
+
+.mobile-empty {
+  padding: 32px 16px !important;
+}
+
+.mobile-empty span {
+  display: block;
+  font-size: 12px;
+  margin-top: 4px;
 }
 </style>
