@@ -25,6 +25,8 @@ interface GetPasswordsResponse {
     passwords: PasswordData[]
     total: number
   }
+  error?: string
+  status?: number
 }
 
 interface GetPasswordResponse {
@@ -79,6 +81,8 @@ interface GetTagsResponse {
   data: {
     tags: string[]
   }
+  error?: string
+  status?: number
 }
 
 interface ExportPasswordsResponse {
@@ -86,10 +90,14 @@ interface ExportPasswordsResponse {
     passwords: PasswordData[]
     exportAt: number
   }
+  error?: string
+  status?: number
 }
 
 interface ImportPasswordsResponse {
   data: { success: boolean }
+  error?: string
+  status?: number
 }
 
 interface GetSettingsResponse {
@@ -98,6 +106,8 @@ interface GetSettingsResponse {
     autoSave: boolean
     defaultTags: string[]
   }
+  error?: string
+  status?: number
 }
 
 interface SaveSettingsRequest {
@@ -112,6 +122,8 @@ interface SaveSettingsResponse {
     autoSave: boolean
     defaultTags: string[]
   }
+  error?: string
+  status?: number
 }
 
 const STORAGE_KEYS = {
@@ -337,9 +349,9 @@ export function exportPasswords(): ExportPasswordsResponse {
   }
 }
 
-export function importPasswords(passwords: PasswordData[], overwrite = false): ImportPasswordsResponse {
+export function importPasswords(passwordsData: PasswordData[], overwrite = false): ImportPasswordsResponse {
   if (overwrite) {
-    const encrypted = passwords.map(p => ({
+    const encrypted = passwordsData.map(p => ({
       ...p,
       password: encryptPassword(p.password),
       updatedAt: Date.now()
@@ -347,7 +359,7 @@ export function importPasswords(passwords: PasswordData[], overwrite = false): I
     setStorageData(STORAGE_KEYS.PASSWORDS, encrypted)
   } else {
     const existing = getStorageData<PasswordData[]>(STORAGE_KEYS.PASSWORDS, [])
-    const encrypted = passwords.map(p => ({
+    const encrypted = passwordsData.map(p => ({
       ...p,
       id: generateUUID(),
       password: encryptPassword(p.password),

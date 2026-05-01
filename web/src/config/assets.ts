@@ -205,7 +205,8 @@ export const AVAILABLE_ASSETS = {
 export const AVAILABLE_SYMBOLS = AVAILABLE_ASSETS.CRYPTO
 
 export const getAssetTypeConfig = (assetType?: string): AssetTypeConfig => {
-  return ASSET_TYPES[assetType?.toUpperCase()] || ASSET_TYPES.CRYPTO
+  const key = assetType?.toUpperCase()
+  return key ? ASSET_TYPES[key] || ASSET_TYPES.CRYPTO : ASSET_TYPES.CRYPTO
 }
 
 export interface AssetConfig {

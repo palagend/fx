@@ -18,9 +18,11 @@ export interface Trade {
   amount: number
   price: number
   total: number
-  fee: number
-  timestamp: number
+  fee?: number
+  timestamp?: number
   cost_price?: number
+  currency?: string
+  created_at?: string
 }
 
 export interface PortfolioAllocation {
@@ -34,7 +36,8 @@ export interface User {
   id: string
   username: string
   email: string
-  settings: UserSettings
+  settings?: UserSettings
+  created_at?: string
 }
 
 export interface UserSettings {
@@ -44,11 +47,17 @@ export interface UserSettings {
 
 export interface PasswordEntry {
   id: string
-  website: string
+  website?: string
+  title?: string
   username: string
   password: string
+  url?: string
+  tags?: string[]
   notes?: string
-  createdAt: number
+  createdAt?: number
+  updatedAt?: number
+  useCount?: number
+  lastUsedAt?: number
+  strength?: number
+  length?: number
 }
-
-export type TransactionType = 'buy' | 'sell'

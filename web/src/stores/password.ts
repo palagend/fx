@@ -140,14 +140,20 @@ export const usePasswordStore = defineStore('password', () => {
         return { success: false, error: response.error }
       }
 
-      const newPasswords = response.data.passwords || []
+      const newPasswords = response.data.passwords.map((p: { id: string; title: string; username: string; password: string }) => ({
+        id: p.id,
+        title: p.title,
+        username: p.username,
+        password: p.password
+      }))
       reconcilePasswords(newPasswords)
       updateCachedValues()
 
       return { success: true, data: response.data }
     } catch (err) {
-      error.value = err.message
-      return { success: false, error: err.message }
+      const message = (err as Error).message || '获取密码列表失败'
+      error.value = message
+      return { success: false, error: message }
     } finally {
       isLoading.value = false
     }
@@ -163,7 +169,7 @@ export const usePasswordStore = defineStore('password', () => {
 
       return { success: true, data: response.data }
     } catch (err) {
-      return { success: false, error: err.message }
+      return { success: false, error: (err as Error).message }
     }
   }
 
@@ -179,14 +185,22 @@ export const usePasswordStore = defineStore('password', () => {
         return { success: false, error: response.error }
       }
 
-      passwords.value.unshift(response.data)
+      if (response.data) {
+        passwords.value.unshift({
+          id: response.data.id,
+          title: response.data.title,
+          username: response.data.username,
+          password: response.data.password
+        })
+      }
       updateCachedValues()
       await fetchTags()
 
       return { success: true, data: response.data }
     } catch (err) {
-      error.value = err.message
-      return { success: false, error: err.message }
+      const message = (err as Error).message || '创建密码失败'
+      error.value = message
+      return { success: false, error: message }
     } finally {
       isLoading.value = false
     }
@@ -204,13 +218,20 @@ export const usePasswordStore = defineStore('password', () => {
         return { success: false, error: response.error }
       }
 
-      updatePasswordInPlace(id, response.data)
+      if (response.data) {
+        updatePasswordInPlace(id, {
+          title: response.data.title,
+          username: response.data.username,
+          password: response.data.password
+        })
+      }
       await fetchTags()
 
       return { success: true, data: response.data }
     } catch (err) {
-      error.value = err.message
-      return { success: false, error: err.message }
+      const message = (err as Error).message || '更新密码失败'
+      error.value = message
+      return { success: false, error: message }
     } finally {
       isLoading.value = false
     }
@@ -233,8 +254,9 @@ export const usePasswordStore = defineStore('password', () => {
 
       return { success: true }
     } catch (err) {
-      error.value = err.message
-      return { success: false, error: err.message }
+      const message = (err as Error).message || '删除密码失败'
+      error.value = message
+      return { success: false, error: message }
     } finally {
       isLoading.value = false
     }
@@ -255,7 +277,7 @@ export const usePasswordStore = defineStore('password', () => {
 
       return { success: true }
     } catch (err) {
-      return { success: false, error: err.message }
+      return { success: false, error: (err as Error).message }
     }
   }
 
@@ -275,7 +297,7 @@ export const usePasswordStore = defineStore('password', () => {
       
       return { success: true, data: response.data }
     } catch (err) {
-      return { success: false, error: err.message }
+      return { success: false, error: (err as Error).message }
     }
   }
 
@@ -300,7 +322,7 @@ export const usePasswordStore = defineStore('password', () => {
       Object.assign(settings.value, response.data)
       return { success: true, data: settings.value }
     } catch (err) {
-      return { success: false, error: err.message }
+      return { success: false, error: (err as Error).message }
     }
   }
 
@@ -315,7 +337,7 @@ export const usePasswordStore = defineStore('password', () => {
       Object.assign(settings.value, response.data)
       return { success: true, data: settings.value }
     } catch (err) {
-      return { success: false, error: err.message }
+      return { success: false, error: (err as Error).message }
     }
   }
 
@@ -341,7 +363,7 @@ export const usePasswordStore = defineStore('password', () => {
 
       return { success: true }
     } catch (err) {
-      return { success: false, error: err.message }
+      return { success: false, error: (err as Error).message }
     }
   }
 
@@ -357,7 +379,7 @@ export const usePasswordStore = defineStore('password', () => {
         throw new Error('无效的文件格式')
       }
 
-      const response = passwordApi.importPasswords(data.passwords, overwrite)
+      const response = passwordApi.importPasswords(data.passwords as [], overwrite)
 
       if (response.error) {
         error.value = response.error
@@ -369,8 +391,9 @@ export const usePasswordStore = defineStore('password', () => {
 
       return { success: true, count: data.passwords.length }
     } catch (err) {
-      error.value = err.message
-      return { success: false, error: err.message }
+      const message = (err as Error).message || '导入密码失败'
+      error.value = message
+      return { success: false, error: message }
     } finally {
       isLoading.value = false
     }
@@ -394,8 +417,9 @@ export const usePasswordStore = defineStore('password', () => {
 
       return { success: true }
     } catch (err) {
-      error.value = err.message
-      return { success: false, error: err.message }
+      const message = (err as Error).message || '清空密码失败'
+      error.value = message
+      return { success: false, error: message }
     } finally {
       isLoading.value = false
     }

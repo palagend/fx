@@ -1,5 +1,4 @@
-import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios'
-import { useUserStore } from '../stores/user'
+import axios, { AxiosInstance, AxiosResponse, InternalAxiosRequestConfig, AxiosHeaders } from 'axios'
 import { config } from '../config'
 
 const API_BASE_URL = '/api'
@@ -14,6 +13,25 @@ const apiClient: AxiosInstance = axios.create({
 
 let isRefreshing = false
 let refreshSubscribers: ((newToken: string) => void)[] = []
+let getAccessToken: (() => string | null) | null = null
+let getRefreshToken: (() => string | null) | null = null
+let setTokensCallback: ((tokens: { access_token: string; refresh_token: string }) => void) | null = null
+let clearTokensCallback: (() => void) | null = null
+let openLoginModalCallback: (() => void) | null = null
+
+export function setupAuthCallbacks(
+  getAccess: () => string | null,
+  getRefresh: () => string | null,
+  setTokens: (tokens: { access_token: string; refresh_token: string }) => void,
+  clearTokens: () => void,
+  openLoginModal: () => void
+): void {
+  getAccessToken = getAccess
+  getRefreshToken = getRefresh
+  setTokensCallback = setTokens
+  clearTokensCallback = clearTokens
+  openLoginModalCallback = openLoginModal
+}
 
 function subscribeTokenRefresh(callback: (newToken: string) => void): void {
   refreshSubscribers.push(callback)
@@ -25,14 +43,20 @@ function onTokenRefreshed(newToken: string): void {
 }
 
 apiClient.interceptors.request.use(
-  (requestConfig: AxiosRequestConfig): AxiosRequestConfig => {
+  (requestConfig: InternalAxiosRequestConfig): InternalAxiosRequestConfig => {
     if (config.isFrontend) {
       return requestConfig
     }
-    const userStore = useUserStore()
-    if (userStore.accessToken) {
+    
+    if (!getAccessToken) {
+      console.warn('Auth callbacks not initialized')
+      return requestConfig
+    }
+    
+    const accessToken = getAccessToken()
+    if (accessToken) {
       requestConfig.headers = requestConfig.headers || {}
-      requestConfig.headers.Authorization = `Bearer ${userStore.accessToken}`
+      requestConfig.headers.Authorization = `Bearer ${accessToken}`
     }
     return requestConfig
   },
@@ -46,7 +70,11 @@ apiClient.interceptors.response.use(
     return response
   },
   async (error: unknown): Promise<never> => {
-    const axiosError = error as { response?: { status?: number }; config?: AxiosRequestConfig }
+    const axiosError = error as { 
+      response?: { status?: number; data?: { error?: string } }; 
+      config?: InternalAxiosRequestConfig;
+      code?: string
+    }
     const originalRequest = axiosError.config
 
     if (config.isFrontend) {
@@ -57,20 +85,31 @@ apiClient.interceptors.response.use(
       return Promise.reject(error)
     }
 
-    const userStore = useUserStore()
+    if (!getRefreshToken || !clearTokensCallback || !openLoginModalCallback) {
+      console.warn('Auth callbacks not initialized')
+      return Promise.reject(error)
+    }
 
-    if (!userStore.refreshToken) {
-      userStore.clearTokens()
-      userStore.openLoginModal()
+    const refreshToken = getRefreshToken()
+    if (!refreshToken) {
+      clearTokensCallback()
+      openLoginModalCallback()
+      return Promise.reject(error)
+    }
+
+    if (originalRequest?.headers?.['X-Retry-Count']) {
+      clearTokensCallback()
+      openLoginModalCallback()
       return Promise.reject(error)
     }
 
     if (isRefreshing && originalRequest) {
       return new Promise((resolve) => {
         subscribeTokenRefresh((newToken: string) => {
-          if (originalRequest.headers) {
-            originalRequest.headers.Authorization = `Bearer ${newToken}`
+          if (!originalRequest.headers) {
+            originalRequest.headers = new AxiosHeaders()
           }
+          originalRequest.headers.Authorization = `Bearer ${newToken}`
           resolve(apiClient(originalRequest))
         })
       })
@@ -80,29 +119,46 @@ apiClient.interceptors.response.use(
 
     try {
       const response = await axios.post(`${API_BASE_URL}/auth/refresh`, {
-        refresh_token: userStore.refreshToken
+        refresh_token: refreshToken
+      }, {
+        headers: { 'Content-Type': 'application/json' }
       })
 
-      const newToken = response.data.tokens.access_token
-      const newRefreshToken = response.data.tokens.refresh_token
+      const responseData = response.data as { 
+        access_token?: string; 
+        refresh_token?: string;
+        tokens?: { access_token?: string; refresh_token?: string }
+      }
 
-      userStore.setTokens({
-        access_token: newToken,
-        refresh_token: newRefreshToken
-      })
+      const newToken = responseData.access_token || responseData.tokens?.access_token
+      const newRefreshToken = responseData.refresh_token || responseData.tokens?.refresh_token
+
+      if (!newToken) {
+        throw new Error('刷新令牌失败')
+      }
+
+      if (setTokensCallback) {
+        setTokensCallback({
+          access_token: newToken,
+          refresh_token: newRefreshToken || refreshToken
+        })
+      }
 
       onTokenRefreshed(newToken)
 
-      if (originalRequest?.headers) {
-        originalRequest.headers.Authorization = `Bearer ${newToken}`
-      }
       if (originalRequest) {
+        if (!originalRequest.headers) {
+          originalRequest.headers = new AxiosHeaders()
+        }
+        originalRequest.headers.Authorization = `Bearer ${newToken}`
+        originalRequest.headers.set('X-Retry-Count', '1')
+        
         return apiClient(originalRequest)
       }
       return Promise.reject(error)
     } catch (refreshError) {
-      userStore.clearTokens()
-      userStore.openLoginModal()
+      clearTokensCallback()
+      openLoginModalCallback()
       console.error('登录已过期，请重新登录')
       return Promise.reject(refreshError)
     } finally {

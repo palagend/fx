@@ -36,6 +36,11 @@ export interface TradeResult {
   data?: unknown
 }
 
+export interface ImportData {
+  version: string
+  trades: Trade[]
+}
+
 export const usePortfolioStore = defineStore('portfolio', () => {
   const userStore = useUserStore()
 
@@ -84,29 +89,8 @@ export const usePortfolioStore = defineStore('portfolio', () => {
   const realizedPLRate = computed(() => dashboardData.value.realized_profit_loss_rate)
   const cryptoValueChange24h = computed(() => dashboardData.value.value_change_24h)
 
-  const requireAuth = <T extends (...args: unknown[]) => Promise<TradeResult>>(fn: T) => async (...args: Parameters<T>): Promise<TradeResult> => {
-    if (!userStore.isLoggedIn) {
-      return { success: false, error: '请先登录' }
-    }
-    return fn(...args)
-  }
-
-  function mergeDashboardData(newData: DashboardData) {
+  function mergeDashboardData(newData: Partial<DashboardData>) {
     Object.assign(dashboardData.value, newData)
-  }
-
-  function mergePrices(newPrices: Record<string, number>) {
-    Object.assign(dashboardData.value.prices, newPrices)
-  }
-
-  function mergeUsStockPrices(newPrices: Record<string, number>) {
-    Object.assign(dashboardData.value.us_stock_prices, newPrices)
-  }
-
-  function updatePortfolioItem(index: number, updates: Partial<Asset>) {
-    if (dashboardData.value.portfolio[index]) {
-      Object.assign(dashboardData.value.portfolio[index], updates)
-    }
   }
 
   function addTrade(newTrade: Trade) {
@@ -135,19 +119,54 @@ export const usePortfolioStore = defineStore('portfolio', () => {
         portfolioApi.getTrades()
       ])
 
-      mergeDashboardData(dashboardRes.data)
+      const data = dashboardRes.data as unknown as Record<string, unknown>
+      const d = data as {
+        prices?: Record<string, number>
+        us_stock_prices?: Record<string, number>
+        price_changes?: Record<string, number>
+        exchange_rates?: Record<string, number>
+        portfolio?: Asset[]
+        crypto_value?: number
+        us_stock_value?: number
+        cash_balance?: number
+        unrealized_profit_loss?: number
+        realized_profit_loss?: number
+        unrealized_profit_loss_rate?: number
+        realized_profit_loss_rate?: number
+        value_change_24h?: number
+        updated_at?: number
+      }
+      mergeDashboardData({
+        prices: d.prices || {},
+        us_stock_prices: d.us_stock_prices || {},
+        price_changes: d.price_changes || {},
+        exchange_rates: d.exchange_rates || {},
+        portfolio: d.portfolio || [],
+        crypto_value: d.crypto_value || 0,
+        us_stock_value: d.us_stock_value || 0,
+        cash_balance: d.cash_balance || 0,
+        unrealized_profit_loss: d.unrealized_profit_loss || 0,
+        realized_profit_loss: d.realized_profit_loss || 0,
+        unrealized_profit_loss_rate: d.unrealized_profit_loss_rate || 0,
+        realized_profit_loss_rate: d.realized_profit_loss_rate || 0,
+        value_change_24h: d.value_change_24h || 0,
+        updated_at: d.updated_at || Date.now()
+      })
 
-      const newTrades = tradesRes.data.trades || []
+      const tradesData = tradesRes.data as unknown as { trades?: Trade[] }
+      const newTrades = tradesData.trades || []
       reconcileTrades(newTrades)
 
       return {
         success: true,
-        updatedAt: dashboardRes.data.updated_at
+        updatedAt: (data.updated_at as number) || Date.now()
       }
     } catch (err) {
-      error.value = err.response?.data?.error || '获取数据失败'
+      const e = err as { response?: { data?: { error?: string } } }
+      const errorMsg = e.response?.data?.error || '获取数据失败'
+      error.value = errorMsg
       console.error('获取仪表盘数据失败:', err)
-      return { success: false, error: error.value }
+      return { success: false, error: errorMsg }
     } finally {
       isLoading.value = false
     }
@@ -163,7 +182,11 @@ export const usePortfolioStore = defineStore('portfolio', () => {
     toRemove.forEach(t => removeTrade(t.id))
     toAdd.forEach(t => addTrade(t))
 
-    trades.value.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+    trades.value.sort((a, b) => {
+      const aTime = a.created_at ? new Date(a.created_at).getTime() : (a.timestamp || 0)
+      const bTime = b.created_at ? new Date(b.created_at).getTime() : (b.timestamp || 0)
+      return bTime - aTime
+    })
   }
 
   function resetDashboardData() {
@@ -199,14 +222,16 @@ export const usePortfolioStore = defineStore('portfolio', () => {
           [symbol]: response.data.price
         }
       }
+      const updatedAt = new Date(response.data.updated_at as string).getTime()
       return {
         success: true,
         price: response.data.price,
-        updatedAt: response.data.updated_at
+        updatedAt
       }
     } catch (err) {
+      const e = err as { response?: { data?: { error?: string } } }
       console.error(`获取${symbol}价格失败:`, err)
-      return { success: false, error: err.response?.data?.error || '获取价格失败' }
+      return { success: false, error: e.response?.data?.error || '获取价格失败' }
     }
   }
 
@@ -218,15 +243,17 @@ export const usePortfolioStore = defineStore('portfolio', () => {
       const response = await portfolioApi.createTrade(trade)
       return { success: true, data: response.data }
     } catch (err) {
-      error.value = err.response?.data?.error || err.message || '交易失败'
-      return { success: false, error: error.value }
+      const e = err as { response?: { data?: { error?: string } } }
+      const errorMsg = e.response?.data?.error || (err as Error).message || '交易失败'
+      error.value = errorMsg
+      return { success: false, error: errorMsg }
     } finally {
       isLoading.value = false
     }
   }
 
   const createTrade = async (trade: CreateTradeParams, options: { refresh?: boolean } = {}): Promise<TradeResult> => {
-    const result = await requireAuth(_createTrade)(trade)
+    const result = await _createTrade(trade)
     if (result.success && options.refresh !== false) {
       await fetchDashboard()
     }
@@ -238,12 +265,13 @@ export const usePortfolioStore = defineStore('portfolio', () => {
       await portfolioApi.deleteTrade(id)
       return { success: true }
     } catch (err) {
-      return { success: false, error: err.response?.data?.error || '删除失败' }
+      const e = err as { response?: { data?: { error?: string } } }
+      return { success: false, error: e.response?.data?.error || '删除失败' }
     }
   }
 
   const deleteTrade = async (id: string, options: { refresh?: boolean } = {}): Promise<TradeResult> => {
-    const result = await requireAuth(_deleteTrade)(id)
+    const result = await _deleteTrade(id)
     if (result.success) {
       if (options.refresh !== false) {
         await fetchDashboard()
@@ -262,15 +290,17 @@ export const usePortfolioStore = defineStore('portfolio', () => {
       await portfolioApi.clearTrades()
       return { success: true }
     } catch (err) {
-      error.value = err.response?.data?.error || '清空交易记录失败'
-      return { success: false, error: error.value }
+      const e = err as { response?: { data?: { error?: string } } }
+      const errorMsg = e.response?.data?.error || '清空交易记录失败'
+      error.value = errorMsg
+      return { success: false, error: errorMsg }
     } finally {
       isLoading.value = false
     }
   }
 
   const clearAllTrades = async (options: { refresh?: boolean } = {}): Promise<TradeResult> => {
-    const result = await requireAuth(_clearAllTrades)()
+    const result = await _clearAllTrades()
     if (result.success) {
       if (options.refresh !== false) {
         await fetchDashboard()
@@ -288,29 +318,36 @@ export const usePortfolioStore = defineStore('portfolio', () => {
       const response = await portfolioApi.exportData()
       return { success: true, data: response.data.data }
     } catch (err) {
-      error.value = err.response?.data?.error || '导出数据失败'
-      return { success: false, error: error.value }
+      const e = err as { response?: { data?: { error?: string } } }
+      const errorMsg = e.response?.data?.error || '导出数据失败'
+      error.value = errorMsg
+      return { success: false, error: errorMsg }
     }
   }
 
-  async function _importPreview(data: unknown): Promise<TradeResult & { preview?: unknown }> {
+  async function _importPreview(data: ImportData): Promise<TradeResult & { preview?: unknown }> {
     error.value = null
 
     try {
-      const response = await portfolioApi.importPreview(data)
+      const localData = data as unknown as { version: string; trades: { id: string; asset_type: 'crypto' | 'us_stock' | 'cash'; symbol: string; type: 'buy' | 'sell' | 'recharge'; amount: number; price: number; total: number; currency: string; created_at: string }[] }
+      const response = await portfolioApi.importPreview(localData)
       return { success: true, preview: response.data.preview }
     } catch (err) {
-      error.value = err.response?.data?.error || '预览导入数据失败'
-      return { success: false, error: error.value }
+      const e = err as { response?: { data?: { error?: string } } }
+      const errorMsg = e.response?.data?.error || '预览导入数据失败'
+      error.value = errorMsg
+      return { success: false, error: errorMsg }
     }
   }
 
-  async function _importConfirm(data: unknown, conflictStrategy: string = 'skip'): Promise<TradeResult & { imported?: number; skipped?: number; overwritten?: number }> {
+  async function _importConfirm(data: ImportData, conflictStrategy: string = 'skip'): Promise<TradeResult & { imported?: number; skipped?: number; overwritten?: number }> {
     isLoading.value = true
     error.value = null
 
     try {
-      const response = await portfolioApi.importConfirm(data, conflictStrategy)
+      const localData = data as unknown as { version: string; trades: { id: string; asset_type: 'crypto' | 'us_stock' | 'cash'; symbol: string; type: 'buy' | 'sell' | 'recharge'; amount: number; price: number; total: number; currency: string; created_at: string }[] }
+      const strategy = conflictStrategy === 'overwrite' ? 'overwrite' : 'skip'
+      const response = await portfolioApi.importConfirm(localData, strategy)
       return {
         success: true,
         imported: response.data.imported,
@@ -318,16 +355,18 @@ export const usePortfolioStore = defineStore('portfolio', () => {
         overwritten: response.data.overwritten
       }
     } catch (err) {
-      error.value = err.response?.data?.error || '导入数据失败'
-      return { success: false, error: error.value }
+      const e = err as { response?: { data?: { error?: string } } }
+      const errorMsg = e.response?.data?.error || '导入数据失败'
+      error.value = errorMsg
+      return { success: false, error: errorMsg }
     } finally {
       isLoading.value = false
     }
   }
 
-  const exportData = () => requireAuth(_exportData)()
-  const importPreview = (data: unknown) => requireAuth(_importPreview)(data)
-  const importConfirm = (data: unknown, conflictStrategy: string) => requireAuth(_importConfirm)(data, conflictStrategy)
+  const exportData = () => _exportData()
+  const importPreview = (data: ImportData) => _importPreview(data)
+  const importConfirm = (data: ImportData, conflictStrategy: string) => _importConfirm(data, conflictStrategy)
 
   return {
     dashboardData,
