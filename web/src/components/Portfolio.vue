@@ -125,40 +125,12 @@
 
               <!-- 图表内容 -->
               <div v-else class="chart-container">
-                <div class="chart">
-                  <div class="pie-chart-wrapper">
-                    <div class="pie-chart-container">
-                      <Doughnut
-                        v-if="chartData.labels.length > 0"
-                        :data="chartData"
-                        :options="chartOptions"
-                        class="pie-chart-canvas"
-                      />
-                    </div>
-                    <div class="pie-center">
-                      <span class="total-value">{{ formatValue(totalAssetsValue) }}</span>
-                      <span class="total-label">总资产</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div class="chart-legend">
-                  <div
-                    v-for="(item, index) in portfolioAllocation"
-                    :key="index"
-                    class="legend-item"
-                    :class="{ 'legend-highlight': hoveredLegend === index }"
-                    @mouseenter="onLegendHover(index)"
-                    @mouseleave="onLegendLeave"
-                  >
-                    <div class="legend-color" :style="{ backgroundColor: item.color }"></div>
-                    <div class="legend-info">
-                      <span class="legend-name">{{ item.name }}</span>
-                      <span class="legend-value">{{ formatValue(item.value) }}</span>
-                      <span class="legend-percent">{{ item.percentage }}%</span>
-                    </div>
-                  </div>
-                </div>
+                <PortfolioChart 
+                  :allocation="portfolioAllocation"
+                  :total-value="totalAssetsValue"
+                  :has-loaded="hasLoaded"
+                  :format-value="formatValue"
+                />
               </div>
             </section>
 
@@ -897,6 +869,7 @@ import { formatAmount, formatCompactAmount, formatDateTime, getChangeClass } fro
 import MobileAssetCard from './MobileAssetCard.vue'
 import MobileTradeCard from './MobileTradeCard.vue'
 import SkeletonLoader from './SkeletonLoader.vue'
+import PortfolioChart from './PortfolioChart.vue'
 
 ChartJS.register(ArcElement, Tooltip, Legend)
 
@@ -948,7 +921,6 @@ const refreshing = ref(false)
 const errorMessage = ref('')
 const autoRefresh = ref(false)
 const showPreviewDrawer = ref(false)
-const hoveredLegend = ref(null) // 当前hover的图例索引
 const isMobile = ref(false) // 是否为移动端模式
 const refreshInterval = ref(60)
 const selectedFilter = ref('all')
@@ -1646,82 +1618,6 @@ const portfolioAllocation = computed(() => {
   return itemsWithRemainder.sort((a, b) => b.value - a.value)
 })
 
-// Chart.js 图表数据
-const chartData = computed(() => {
-  const allocation = portfolioAllocation.value
-  return {
-    labels: allocation.map(item => item.name),
-    datasets: [{
-      data: allocation.map(item => item.value),
-      backgroundColor: allocation.map(item => item.color),
-      borderWidth: 2,
-      borderColor: '#ffffff',
-      hoverBorderWidth: 3,
-      hoverOffset: 8
-    }]
-  }
-})
-
-// Chart.js 图表配置
-const chartOptions = {
-  responsive: true,
-  maintainAspectRatio: false,
-  cutout: '55%',
-  layout: {
-    padding: 16
-  },
-  plugins: {
-    legend: {
-      display: false
-    },
-    tooltip: {
-      backgroundColor: 'rgba(30, 30, 30, 0.95)',
-      titleColor: '#fff',
-      bodyColor: '#fff',
-      padding: 12,
-      cornerRadius: 8,
-      displayColors: true,
-      boxPadding: 6,
-      titleFont: {
-        size: 14,
-        weight: 'bold'
-      },
-      bodyFont: {
-        size: 13
-      },
-      callbacks: {
-        title: (items) => items[0].label,
-        label: (context) => {
-          const value = context.raw
-          return ` 价值: ${formatValue(value)}`
-        },
-        afterLabel: (context) => {
-          const value = context.raw
-          const total = context.dataset.data.reduce((a, b) => a + b, 0)
-          const percentage = ((value / total) * 100).toFixed(1)
-          return ` 占比: ${percentage}%`
-        }
-      }
-    }
-  },
-  onHover: (event, elements) => {
-    if (elements && elements.length > 0) {
-      hoveredLegend.value = elements[0].index
-    } else {
-      hoveredLegend.value = null
-    }
-  }
-}
-
-// 图例悬停处理
-const onLegendHover = (index) => {
-  hoveredLegend.value = index
-}
-
-const onLegendLeave = () => {
-  hoveredLegend.value = null
-}
-
 let resizeTimer = null
 const checkMobile = () => {
   if (resizeTimer) clearTimeout(resizeTimer)
@@ -2291,217 +2187,7 @@ watch(() => userStore.isLoggedIn, async (isLoggedIn) => {
 
 /* 图表容器 */
 .chart-container {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 60px;
-}
-
-@media (max-width: 768px) {
-  .chart-container {
-    flex-direction: column;
-    align-items: center;
-    gap: 32px;
-  }
-}
-
-.chart {
-  flex: 0 0 auto;
-}
-
-.pie-chart-wrapper {
-  position: relative;
-  width: 280px;
-  height: 280px;
-  padding: 10px;
-  touch-action: none;
-}
-
-@media (max-width: 768px) {
-  .pie-chart-wrapper {
-    width: 220px;
-    height: 220px;
-  }
-}
-
-@media (max-width: 480px) {
-  .pie-chart-wrapper {
-    width: 180px;
-    height: 180px;
-    padding: 8px;
-  }
-}
-
-.pie-chart-container {
-  position: relative;
   width: 100%;
-  height: 100%;
-  z-index: 2;
-}
-
-.pie-chart-canvas {
-  width: 100% !important;
-  height: 100% !important;
-}
-
-.pie-center {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  text-align: center;
-  background: white;
-  border-radius: 50%;
-  width: 120px;
-  height: 120px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  pointer-events: none;
-  z-index: 1;
-}
-
-@media (max-width: 480px) {
-  .pie-center {
-    width: 100px;
-    height: 100px;
-  }
-}
-
-.dark .pie-center {
-  background: #1e1e1e;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-}
-
-.pie-center .total-value {
-  font-size: 20px;
-  font-weight: 700;
-  color: #1f2937;
-  white-space: nowrap;
-}
-
-@media (max-width: 768px) {
-  .pie-center .total-value {
-    font-size: 18px;
-  }
-}
-
-@media (max-width: 480px) {
-  .pie-center .total-value {
-    font-size: 16px;
-  }
-}
-
-.dark .pie-center .total-value {
-  color: #f3f4f6;
-}
-
-.pie-center .total-label {
-  font-size: 12px;
-  color: #6b7280;
-  margin-top: 4px;
-}
-
-.dark .pie-center .total-label {
-  color: #9ca3af;
-}
-
-/* 图例样式 */
-.chart-legend {
-  flex: 0 0 280px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  max-height: 320px;
-  overflow-y: auto;
-  padding-right: 8px;
-}
-
-@media (max-width: 768px) {
-  .chart-legend {
-    flex: 0 0 auto;
-    width: 100%;
-    max-width: 400px;
-    max-height: 240px;
-  }
-}
-
-.legend-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 14px;
-  min-height: 44px;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  touch-action: manipulation;
-}
-
-.legend-item:active {
-  transform: scale(0.98);
-}
-
-.legend-item:hover,
-.legend-item.legend-highlight {
-  background-color: #f3f4f6;
-}
-
-.dark .legend-item:hover,
-.dark .legend-item.legend-highlight {
-  background-color: #374151;
-}
-
-.dark .legend-item {
-  color: #d1d5db;
-}
-
-.legend-color {
-  width: 16px;
-  height: 16px;
-  border-radius: 4px;
-  flex-shrink: 0;
-}
-
-.legend-info {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex: 1;
-  min-width: 0;
-}
-
-.legend-name {
-  font-weight: 500;
-  color: #1f2937;
-  min-width: 50px;
-}
-
-.dark .legend-name {
-  color: #f3f4f6;
-}
-
-.legend-value {
-  color: #6b7280;
-  font-size: 13px;
-}
-
-.dark .legend-value {
-  color: #9ca3af;
-}
-
-.legend-percent {
-  margin-left: auto;
-  font-weight: 600;
-  color: #6366f1;
-  min-width: 45px;
-  text-align: right;
-}
-
-.dark .legend-percent {
-  color: #818cf8;
 }
 
 .section-header {
@@ -3966,14 +3652,6 @@ watch(() => userStore.isLoggedIn, async (isLoggedIn) => {
   .chart-container {
     flex-direction: column;
     align-items: center;
-  }
-
-  .chart {
-    flex: 0 0 auto;
-  }
-
-  .chart-legend {
-    width: 100%;
   }
 
   .portfolio-table,
