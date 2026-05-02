@@ -25,27 +25,22 @@
             </section>
 
             <template v-else>
-              <!-- 移动端快速导航 - 首屏聚焦 -->
-              <div class="mobile-quick-nav">
-                <button class="quick-nav-btn" @click="scrollToSection('overview')">
-                  <Icon icon="mdi:view-dashboard" />
-                  <span>概览</span>
-                </button>
-                <button class="quick-nav-btn" @click="scrollToSection('portfolio')">
-                  <Icon icon="mdi:wallet" />
-                  <span>资产详情</span>
-                </button>
-                <button class="quick-nav-btn" @click="scrollToSection('trades')">
-                  <Icon icon="mdi:history" />
-                  <span>交易记录</span>
-                </button>
-                <button class="quick-nav-btn" @click="scrollToSection('trading')">
-                  <Icon icon="mdi:swap-horizontal" />
-                  <span>快速交易</span>
+              <!-- 移动端顶部导航栏 -->
+              <div class="mobile-top-nav">
+                <button
+                  v-for="tab in mobileTabs"
+                  :key="tab.id"
+                  class="top-nav-btn"
+                  :class="{ active: activeTab === tab.id }"
+                  @click="activeTab = tab.id"
+                >
+                  <Icon :icon="tab.icon" />
+                  <span>{{ tab.name }}</span>
                 </button>
               </div>
 
-              <section id="overview" class="overview">
+              <!-- 概览标签页 -->
+            <section id="overview" class="overview tab-content" :class="{ 'mobile-hidden': isMobile && activeTab !== 'overview' }">
               <div class="overview-card total-card">
                 <div class="card-header-row">
                   <h3><Icon icon="mdi:wallet" /> 总资产</h3>
@@ -92,7 +87,8 @@
               </div>
             </section>
 
-            <section class="chart-section">
+            <!-- 资产分布标签页 -->
+            <section class="chart-section tab-content" :class="{ 'mobile-hidden': isMobile && activeTab !== 'distribution' }">
               <div class="chart-header">
                 <h2 class="chart-title"><Icon icon="mdi:chart-pie" /> 资产分布</h2>
                 <div class="chart-actions">
@@ -125,7 +121,7 @@
 
               <!-- 图表内容 -->
               <div v-else class="chart-container">
-                <PortfolioChart 
+                <PortfolioChart
                   :allocation="portfolioAllocation"
                   :total-value="totalAssetsValue"
                   :has-loaded="hasLoaded"
@@ -134,22 +130,22 @@
               </div>
             </section>
 
-            <!-- 交易区域 - 左右分栏布局 -->
-            <section id="trading" class="trading-section">
+            <!-- 交易区域 - 左右分栏布局 (仅PC端显示，移动端通过FAB调出) -->
+            <section id="trading" class="trading-section desktop-only">
               <div class="trading-container">
                 <!-- 左侧：交易表单 -->
                 <div class="trading-form">
                   <div class="form-header">
                     <h3><Icon icon="mdi:swap-horizontal" /> 快速交易</h3>
                     <div class="trade-type-tabs">
-                      <button 
-                        :class="['type-tab', { active: newTrade.type === 'buy' }]" 
+                      <button
+                        :class="['type-tab', { active: newTrade.type === 'buy' }]"
                         @click="newTrade.type = 'buy'"
                       >
                         <Icon icon="mdi:arrow-down-circle" /> 买入
                       </button>
-                      <button 
-                        :class="['type-tab', { active: newTrade.type === 'sell' }]" 
+                      <button
+                        :class="['type-tab', { active: newTrade.type === 'sell' }]"
                         @click="newTrade.type = 'sell'"
                       >
                         <Icon icon="mdi:arrow-up-circle" /> 卖出
@@ -161,14 +157,14 @@
                   <div class="asset-type-selector">
                     <label class="field-label">资产类型</label>
                     <div class="asset-type-tabs">
-                      <button 
-                        :class="['type-tab', { active: currentAssetType === 'crypto' }]" 
+                      <button
+                        :class="['type-tab', { active: currentAssetType === 'crypto' }]"
                         @click.stop="switchAssetType('crypto')"
                       >
                         <Icon icon="cryptocurrency:btc" /> 加密货币
                       </button>
-                      <button 
-                        :class="['type-tab', { active: currentAssetType === 'us_stock' }]" 
+                      <button
+                        :class="['type-tab', { active: currentAssetType === 'us_stock' }]"
                         @click.stop="switchAssetType('us_stock')"
                       >
                         <Icon icon="mdi:chart-line" /> 美股
@@ -249,8 +245,8 @@
                           step="0.00001"
                           class="mobile-number-input"
                         >
-                        <button 
-                          class="btn-use-market" 
+                        <button
+                          class="btn-use-market"
                           @click="newTrade.price = currentMarketPrice"
                           v-if="currentMarketPrice > 0"
                         >
@@ -262,9 +258,9 @@
 
                   <!-- 交易按钮 -->
                   <div class="trade-submit" v-if="newTrade.symbol">
-                    <button 
-                      class="btn-submit" 
-                      @click="addTrade" 
+                    <button
+                      class="btn-submit"
+                      @click="addTrade"
                       :disabled="!isFormValid || portfolioStore.isLoading || isSubmitting.trade"
                       :class="newTrade.type"
                     >
@@ -274,8 +270,8 @@
                         ${{ formatAmount(newTrade.amount * newTrade.price) }}
                       </span>
                     </button>
-                    <button 
-                      class="btn-preview" 
+                    <button
+                      class="btn-preview"
                       @click="showPreviewDrawer = true"
                       v-if="isMobile && newTrade.amount && newTrade.price"
                       title="查看交易预览"
@@ -293,7 +289,7 @@
                   <div class="preview-header">
                     <h4><Icon icon="mdi:eye" /> 交易预览</h4>
                   </div>
-                  
+
                   <div class="preview-content">
                     <div class="preview-main">
                       <div class="preview-item total">
@@ -434,7 +430,8 @@
               </div>
             </div>
 
-            <section id="portfolio" class="portfolio-section">
+            <!-- 资产详情标签页 -->
+            <section id="portfolio" class="portfolio-section tab-content" :class="{ 'mobile-hidden': isMobile && activeTab !== 'portfolio' }">
               <div class="section-header">
                 <h2 class="section-title"><Icon icon="mdi:wallet-outline" /> 资产详情</h2>
                 <div class="filter-group">
@@ -459,7 +456,6 @@
                       <th>总价值</th>
                       <th>浮动盈亏</th>
                       <th class="realized-pl-col">实现盈亏</th>
-                      <th>操作</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -537,17 +533,9 @@
                         </template>
                       </td>
                       <td v-else>-</td>
-                      <td class="action-cell">
-                        <button class="btn-action btn-sell" @click.stop="quickSell(crypto)" title="快速卖出">
-                          <Icon icon="mdi:shopping-cart-arrow-up" />
-                        </button>
-                        <button class="btn-action btn-buy" @click.stop="quickBuy(crypto)" title="快速买入">
-                          <Icon icon="mdi:shopping-cart-arrow-down" />
-                        </button>
-                      </td>
                     </tr>
                     <tr v-if="filteredHoldings.length === 0">
-                      <td colspan="8" class="empty-state">
+                      <td colspan="7" class="empty-state">
                         <Icon icon="mdi:inbox" />
                         <p>暂无资产数据，请充值USD后开始交易</p>
                       </td>
@@ -572,8 +560,6 @@
                   :realized-pl="crypto.realized_pl"
                   :selected="selectedAsset === crypto.symbol"
                   @click="selectAsset"
-                  @buy="quickBuy"
-                  @sell="quickSell"
                 />
                 <div v-if="holdingsWithMeta.length === 0" class="empty-state mobile-empty">
                   <Icon icon="mdi:inbox" />
@@ -583,7 +569,8 @@
               </div>
             </section>
 
-            <section id="trades" class="trades-section">
+            <!-- 历史标签页 -->
+            <section id="trades" class="trades-section tab-content" :class="{ 'mobile-hidden': isMobile && activeTab !== 'history' }">
               <div class="section-header">
                 <h2 class="section-title"><Icon icon="mdi:history" /> 交易历史</h2>
                 <div class="section-actions">
@@ -852,7 +839,227 @@
       <span>{{ errorMessage }}</span>
     </div>
 
-    
+    <!-- 移动端FAB按钮 -->
+    <button
+      v-if="isMobile"
+      class="fab-btn"
+      @click="showTradeModal = true"
+      title="快速交易"
+    >
+      <Icon icon="mdi:swap-horizontal" />
+    </button>
+
+    <!-- 移动端交易弹窗 -->
+    <div v-if="isMobile && showTradeModal" class="trade-modal-overlay" @click="showTradeModal = false">
+      <div class="trade-modal" @click.stop>
+        <div class="trade-modal-header">
+          <h3><Icon icon="mdi:swap-horizontal" /> 快速交易</h3>
+          <button class="trade-modal-close" @click="showTradeModal = false">
+            <Icon icon="mdi:close" />
+          </button>
+        </div>
+        <div class="trade-modal-body">
+          <!-- 交易类型切换 -->
+          <div class="trade-type-tabs">
+            <button
+              :class="['type-tab', { active: newTrade.type === 'buy' }]"
+              @click="newTrade.type = 'buy'"
+            >
+              <Icon icon="mdi:arrow-down-circle" /> 买入
+            </button>
+            <button
+              :class="['type-tab', { active: newTrade.type === 'sell' }]"
+              @click="newTrade.type = 'sell'"
+            >
+              <Icon icon="mdi:arrow-up-circle" /> 卖出
+            </button>
+          </div>
+
+          <!-- 资产类型选择 -->
+          <div class="asset-type-selector">
+            <label class="field-label">资产类型</label>
+            <div class="asset-type-tabs">
+              <button
+                :class="['type-tab', { active: currentAssetType === 'crypto' }]"
+                @click.stop="switchAssetType('crypto')"
+              >
+                <Icon icon="cryptocurrency:btc" /> 加密货币
+              </button>
+              <button
+                :class="['type-tab', { active: currentAssetType === 'us_stock' }]"
+                @click.stop="switchAssetType('us_stock')"
+              >
+                <Icon icon="mdi:chart-line" /> 美股
+              </button>
+            </div>
+          </div>
+
+          <!-- 币种选择网格 -->
+          <div class="asset-selector">
+            <label class="field-label">选择资产</label>
+            <div class="asset-grid">
+              <button
+                v-for="symbol in currentAvailableSymbols"
+                :key="symbol"
+                :class="['asset-btn', { active: newTrade.symbol === symbol }]"
+                @click.stop="selectSymbol(symbol)"
+              >
+                <Icon :icon="getAssetIcon(currentAssetType, symbol)" :style="{ color: getAssetColor(currentAssetType, symbol) }" />
+                <span class="asset-code">{{ symbol }}</span>
+                <span class="asset-price" v-if="getCurrentPrice(symbol)">
+                  ${{ formatAmount(getCurrentPrice(symbol)) }}
+                </span>
+              </button>
+            </div>
+          </div>
+
+          <!-- 交易输入区 -->
+          <div class="trade-inputs" v-if="newTrade.symbol">
+            <div class="input-field">
+              <label class="field-label">
+                数量
+                <span class="field-hint" v-if="newTrade.type === 'sell'">
+                  可卖: {{ formatAmount(getHoldingAmount(newTrade.symbol)) }}
+                </span>
+              </label>
+              <div class="input-with-controls">
+                <input
+                  type="number"
+                  inputmode="decimal"
+                  v-model.number="newTrade.amount"
+                  placeholder="0.00"
+                  min="0.00001"
+                  step="0.00001"
+                  ref="amountInput"
+                  class="mobile-number-input"
+                >
+                <span class="input-unit">{{ newTrade.symbol }}</span>
+              </div>
+              <!-- 快捷输入按钮 -->
+              <div class="quick-amount-buttons" v-if="newTrade.type === 'sell' && getHoldingAmount(newTrade.symbol) > 0">
+                <button class="quick-btn primary" @click="setQuickAmount(100)">100%</button>
+                <button class="quick-btn" @click="setQuickAmount(75)">75%</button>
+                <button class="quick-btn" @click="setQuickAmount(50)">50%</button>
+                <button class="quick-btn" @click="setQuickAmount(25)">25%</button>
+              </div>
+              <div class="quick-amount-buttons" v-else-if="newTrade.type === 'buy' && cashBalance > 0">
+                <button class="quick-btn primary" @click="setQuickBuyAmount(100)">100%</button>
+                <button class="quick-btn" @click="setQuickBuyAmount(75)">75%</button>
+                <button class="quick-btn" @click="setQuickBuyAmount(50)">50%</button>
+                <button class="quick-btn" @click="setQuickBuyAmount(25)">25%</button>
+              </div>
+            </div>
+
+            <div class="input-field">
+              <label class="field-label">
+                价格
+                <span class="field-hint" v-if="currentMarketPrice > 0">
+                  市价: ${{ formatAmount(currentMarketPrice) }}
+                </span>
+              </label>
+              <div class="input-with-controls">
+                <input
+                  type="number"
+                  inputmode="decimal"
+                  v-model.number="newTrade.price"
+                  placeholder="0.00"
+                  min="0.00001"
+                  step="0.00001"
+                  class="mobile-number-input"
+                >
+                <button
+                  class="btn-use-market"
+                  @click="newTrade.price = currentMarketPrice"
+                  v-if="currentMarketPrice > 0"
+                >
+                  使用市价
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- 交易预览 -->
+          <div class="trade-preview-mobile" v-if="newTrade.symbol && newTrade.amount && newTrade.price">
+            <div class="preview-main">
+              <div class="preview-item total">
+                <span class="label">交易总额</span>
+                <span class="value">${{ formatAmount(newTrade.amount * newTrade.price) }}</span>
+              </div>
+            </div>
+
+            <div class="preview-divider"></div>
+
+            <div class="preview-details">
+              <!-- 买入预览 -->
+              <template v-if="newTrade.type === 'buy'">
+                <div class="preview-item" v-if="getHoldingAmount(newTrade.symbol) > 0">
+                  <span class="label">当前持仓</span>
+                  <span class="value">{{ formatAmount(getHoldingAmount(newTrade.symbol)) }}</span>
+                </div>
+                <div class="preview-item" v-if="getHoldingAmount(newTrade.symbol) > 0">
+                  <span class="label">买入后持仓</span>
+                  <span class="value highlight">{{ formatAmount(getHoldingAmount(newTrade.symbol) + newTrade.amount) }}</span>
+                </div>
+                <div class="preview-item" v-if="getHoldingAmount(newTrade.symbol) > 0">
+                  <span class="label">买入后成本价</span>
+                  <span class="value">${{ formatAmount(calculateNewAvgCost()) }}</span>
+                </div>
+                <div class="preview-item impact">
+                  <span class="label">USD支出</span>
+                  <span class="value negative">-${{ formatAmount(newTrade.amount * newTrade.price) }}</span>
+                </div>
+              </template>
+
+              <!-- 卖出预览 -->
+              <template v-if="newTrade.type === 'sell'">
+                <div class="preview-item">
+                  <span class="label">当前持仓</span>
+                  <span class="value">{{ formatAmount(getHoldingAmount(newTrade.symbol)) }}</span>
+                </div>
+                <div class="preview-item">
+                  <span class="label">卖出后持仓</span>
+                  <span class="value">{{ formatAmount(Math.max(0, getHoldingAmount(newTrade.symbol) - newTrade.amount)) }}</span>
+                </div>
+                <div class="preview-item" v-if="newTrade.amount < getHoldingAmount(newTrade.symbol)">
+                  <span class="label">卖出后成本价</span>
+                  <span class="value highlight">${{ formatAmount(calculateNewAvgCost()) }}</span>
+                </div>
+                <div class="preview-item" v-if="calculateEstimatedRealizedPL() !== 0">
+                  <span class="label">预估盈亏</span>
+                  <span :class="['value', calculateEstimatedRealizedPL() >= 0 ? 'positive' : 'negative']">
+                    {{ calculateEstimatedRealizedPL() >= 0 ? '+' : '-' }}${{ formatAmount(Math.abs(calculateEstimatedRealizedPL())) }}
+                  </span>
+                </div>
+                <div class="preview-item impact">
+                  <span class="label">USD收入</span>
+                  <span class="value positive">+${{ formatAmount(newTrade.amount * newTrade.price) }}</span>
+                </div>
+              </template>
+            </div>
+          </div>
+
+          <!-- 交易按钮 -->
+          <div class="trade-submit" v-if="newTrade.symbol">
+            <button
+              class="btn-submit"
+              @click="handleTradeSubmit"
+              :disabled="!isFormValid || portfolioStore.isLoading || isSubmitting.trade"
+              :class="newTrade.type"
+            >
+              <Icon :icon="newTrade.type === 'buy' ? 'mdi:arrow-down' : 'mdi:arrow-up'" />
+              {{ newTrade.type === 'buy' ? '确认买入' : '确认卖出' }}
+              <span class="submit-total" v-if="newTrade.amount && newTrade.price">
+                ${{ formatAmount(newTrade.amount * newTrade.price) }}
+              </span>
+            </button>
+            <button class="btn-reset" @click="clearForm">
+              <Icon icon="mdi:close" /> 重置
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
   </div>
 </template>
 
@@ -941,6 +1148,28 @@ const savedValueMode = localStorage.getItem('portfolio_value_mode') || 'usd'
 const valueMode = ref(savedValueMode) // 'usd' 或 'btc'
 const btcPrice = computed(() => dashboardData.value?.btc_price || 0)
 
+// 移动端标签页配置
+const mobileTabs = [
+  { id: 'overview', name: '概览', icon: 'mdi:view-dashboard' },
+  { id: 'distribution', name: '资产分布', icon: 'mdi:chart-pie' },
+  { id: 'portfolio', name: '资产详情', icon: 'mdi:wallet' },
+  { id: 'history', name: '历史', icon: 'mdi:history' }
+]
+
+// 当前激活的标签页
+const activeTab = ref('overview')
+
+// 移动端交易弹窗显示状态
+const showTradeModal = ref(false)
+
+// 处理交易提交（移动端弹窗中使用）
+const handleTradeSubmit = async () => {
+  await addTrade()
+  if (!errorMessage.value) {
+    showTradeModal.value = false
+  }
+}
+
 // 切换本位模式（移动端使用）
 const toggleValueMode = () => {
   valueMode.value = valueMode.value === 'usd' ? 'btc' : 'usd'
@@ -983,19 +1212,6 @@ const importError = ref('')
 let refreshDebounceTimer = null
 
 
-
-// 滚动到指定区域
-const scrollToSection = (sectionId) => {
-  const section = document.getElementById(sectionId)
-  if (section) {
-    section.scrollIntoView({ behavior: 'smooth', block: 'start' })
-  }
-}
-
-// 滚动到交易区域（兼容旧调用）
-const scrollToTradeSection = () => {
-  scrollToSection('trading')
-}
 
 // 从store获取数据（后端已计算好）
 const dashboardData = computed(() => portfolioStore.dashboardData)
@@ -1331,52 +1547,6 @@ const selectAsset = (symbol) => {
     selectedAsset.value = symbol
     selectedFilter.value = symbol
   }
-}
-
-// 快速设置交易（买入/卖出）
-const setupQuickTrade = async (crypto, type, focusInput = false) => {
-  newTrade.value.symbol = crypto.symbol
-  newTrade.value.type = type
-  if (type === 'sell') {
-    newTrade.value.amount = crypto.amount
-  }
-  // 优先使用传入的当前价格，避免额外请求
-  if (crypto.currentPrice) {
-    newTrade.value.price = crypto.currentPrice
-    currentMarketPrice.value = crypto.currentPrice
-  } else {
-    // 回退到缓存或请求
-    const cachedPrice = portfolioStore.prices[crypto.symbol]
-    if (cachedPrice) {
-      newTrade.value.price = cachedPrice
-      currentMarketPrice.value = cachedPrice
-    } else {
-      const result = await portfolioStore.fetchAssetPrice(crypto.symbol)
-      if (result.success) {
-        newTrade.value.price = result.price
-        currentMarketPrice.value = result.price
-      } else {
-        newTrade.value.price = crypto.avg_cost || crypto.price
-      }
-    }
-  }
-  // 滚动到交易区域
-  scrollToSection('trading')
-  if (focusInput) {
-    nextTick(() => {
-      if (amountInput.value) {
-        amountInput.value.focus()
-      }
-    })
-  }
-}
-
-const quickSell = async (crypto) => {
-  await setupQuickTrade(crypto, 'sell', true)
-}
-
-const quickBuy = async (crypto) => {
-  await setupQuickTrade(crypto, 'buy', true)
 }
 
 // 快捷设置卖出数量（百分比）
@@ -3123,12 +3293,6 @@ watch(() => userStore.isLoggedIn, async (isLoggedIn) => {
   font-weight: 500;
 }
 
-.action-cell {
-  display: flex;
-  gap: 8px;
-}
-
-.btn-action,
 .btn-delete {
   display: flex;
   align-items: center;
@@ -3140,42 +3304,12 @@ watch(() => userStore.isLoggedIn, async (isLoggedIn) => {
   cursor: pointer;
   transition: all 0.15s ease;
   touch-action: manipulation;
-}
-
-.btn-action:active,
-.btn-delete:active {
-  transform: scale(0.95);
-}
-
-.btn-sell {
-  background: #fef2f2;
-  color: #ef4444;
-}
-
-.dark .btn-sell {
-  background: rgba(239, 68, 68, 0.1);
-}
-
-.btn-sell:hover {
-  background: #fecaca;
-}
-
-.btn-buy {
-  background: #ecfdf5;
-  color: #10b981;
-}
-
-.dark .btn-buy {
-  background: rgba(16, 185, 129, 0.1);
-}
-
-.btn-buy:hover {
-  background: #a7f3d0;
-}
-
-.btn-delete {
   background: transparent;
   color: #9ca3af;
+}
+
+.btn-delete:active {
+  transform: scale(0.95);
 }
 
 .btn-delete:hover:not(:disabled) {
@@ -3677,19 +3811,12 @@ watch(() => userStore.isLoggedIn, async (isLoggedIn) => {
     height: 24px;
   }
 
-  .action-cell {
-    flex-direction: column;
-    gap: 6px;
-  }
-
-  .btn-action,
   .btn-delete {
     width: 36px;
     height: 36px;
     border-radius: 10px;
   }
 
-  .btn-action svg,
   .btn-delete svg {
     font-size: 18px;
   }
@@ -4233,15 +4360,96 @@ watch(() => userStore.isLoggedIn, async (isLoggedIn) => {
   align-items: center;
 }
 
+/* 移动端顶部导航栏 */
+.mobile-top-nav {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .mobile-top-nav {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    display: flex;
+    gap: 4px;
+    padding: 8px 12px;
+    padding-top: calc(8px + env(safe-area-inset-top));
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border-color);
+    box-shadow: 0 2px 20px rgba(0, 0, 0, 0.08);
+  }
+
+  .top-nav-btn {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 8px 4px;
+    border: none;
+    background: transparent;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    color: var(--text-secondary);
+    touch-action: manipulation;
+  }
+
+  .top-nav-btn svg {
+    font-size: 18px;
+  }
+
+  .top-nav-btn span {
+    font-size: 10px;
+    white-space: nowrap;
+  }
+
+  .top-nav-btn:active {
+    background: rgba(0, 0, 0, 0.05);
+    transform: scale(0.98);
+  }
+
+  .top-nav-btn.active {
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    color: white;
+  }
+
+  .mobile-main-content {
+    padding-top: calc(70px + env(safe-area-inset-top));
+  }
+
+  /* 移动端隐藏标签内容 */
+  .tab-content.mobile-hidden {
+    display: none;
+  }
+
+  /* 标签内容区域 */
+  .tab-content {
+    min-height: calc(100vh - 70px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  }
+}
+
 /* 深色模式移动端导航 */
 @media (max-width: 768px) {
-  .dark .mobile-quick-nav {
+  .dark .mobile-top-nav {
     background: rgba(30, 30, 30, 0.95);
     border-bottom-color: rgba(255, 255, 255, 0.08);
   }
 
-  .dark .quick-nav-btn:active {
+  .dark .top-nav-btn {
+    color: #9ca3af;
+  }
+
+  .dark .top-nav-btn:active {
     background: rgba(255, 255, 255, 0.05);
+  }
+
+  .dark .top-nav-btn.active {
+    background: linear-gradient(135deg, #4a90e2, #6a5acd);
+    color: white;
   }
 }
 
@@ -4408,5 +4616,265 @@ watch(() => userStore.isLoggedIn, async (isLoggedIn) => {
   padding: 20px 24px;
   max-height: calc(70vh - 70px);
   overflow-y: auto;
+}
+
+/* FAB按钮 */
+.fab-btn {
+  position: fixed;
+  right: 20px;
+  bottom: calc(80px + env(safe-area-inset-bottom));
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  color: white;
+  border: none;
+  box-shadow: 0 4px 20px rgba(99, 102, 241, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  z-index: 200;
+  touch-action: manipulation;
+}
+
+.fab-btn svg {
+  font-size: 28px;
+}
+
+.fab-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 24px rgba(99, 102, 241, 0.5);
+}
+
+.fab-btn:active {
+  transform: scale(0.95);
+}
+
+.dark .fab-btn {
+  background: linear-gradient(135deg, #4a90e2 0%, #6a5acd 100%);
+  box-shadow: 0 4px 20px rgba(74, 144, 226, 0.4);
+}
+
+/* 移动端交易弹窗 */
+.trade-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: fadeIn 0.2s ease;
+}
+
+.dark .trade-modal-overlay {
+  background: rgba(0, 0, 0, 0.8);
+}
+
+.trade-modal {
+  background: white;
+  width: 100%;
+  max-width: 420px;
+  max-height: 85vh;
+  border-radius: 20px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  animation: scaleIn 0.2s ease;
+}
+
+.dark .trade-modal {
+  background: #1e1e1e;
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.trade-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid #e5e7eb;
+  background: white;
+  flex-shrink: 0;
+}
+
+.dark .trade-modal-header {
+  background: #1e1e1e;
+  border-bottom-color: #404040;
+}
+
+.trade-modal-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #1f2937;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dark .trade-modal-header h3 {
+  color: #f3f4f6;
+}
+
+.trade-modal-close {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+  background: #f3f4f6;
+  color: #6b7280;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  touch-action: manipulation;
+}
+
+.trade-modal-close:hover {
+  background: #e5e7eb;
+}
+
+.dark .trade-modal-close {
+  background: #404040;
+  color: #9ca3af;
+}
+
+.dark .trade-modal-close:hover {
+  background: #525252;
+}
+
+.trade-modal-body {
+  padding: 20px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+/* 移动端交易预览 */
+.trade-preview-mobile {
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border-radius: 12px;
+  padding: 16px;
+  margin: 16px 0;
+}
+
+.dark .trade-preview-mobile {
+  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+}
+
+.trade-preview-mobile .preview-item.total {
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 0;
+  text-align: center;
+}
+
+.trade-preview-mobile .preview-item.total .label {
+  font-size: 13px;
+  color: #6b7280;
+}
+
+.dark .trade-preview-mobile .preview-item.total .label {
+  color: #9ca3af;
+}
+
+.trade-preview-mobile .preview-item.total .value {
+  font-size: 24px;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.dark .trade-preview-mobile .preview-item.total .value {
+  color: #f3f4f6;
+}
+
+.trade-preview-mobile .preview-divider {
+  height: 1px;
+  background: #e2e8f0;
+  margin: 12px 0;
+}
+
+.dark .trade-preview-mobile .preview-divider {
+  background: #334155;
+}
+
+.trade-preview-mobile .preview-details {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.trade-preview-mobile .preview-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+}
+
+.trade-preview-mobile .preview-item .label {
+  font-size: 13px;
+  color: #64748b;
+}
+
+.dark .trade-preview-mobile .preview-item .label {
+  color: #94a3b8;
+}
+
+.trade-preview-mobile .preview-item .value {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.dark .trade-preview-mobile .preview-item .value {
+  color: #f3f4f6;
+}
+
+.trade-preview-mobile .preview-item .value.highlight {
+  color: #6366f1;
+}
+
+.trade-preview-mobile .preview-item .value.positive {
+  color: #10b981;
+}
+
+.trade-preview-mobile .preview-item .value.negative {
+  color: #ef4444;
+}
+
+.trade-preview-mobile .preview-item.impact {
+  margin-top: 8px;
+  padding-top: 12px;
+  border-top: 1px dashed #cbd5e1;
+}
+
+.dark .trade-preview-mobile .preview-item.impact {
+  border-top-color: #475569;
+}
+
+.trade-preview-mobile .preview-item.impact .label {
+  font-weight: 600;
+  color: #475569;
+}
+
+.dark .trade-preview-mobile .preview-item.impact .label {
+  color: #94a3b8;
 }
 </style>

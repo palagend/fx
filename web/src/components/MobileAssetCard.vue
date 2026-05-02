@@ -8,16 +8,11 @@
         <div class="asset-name">{{ name }}</div>
         <div class="asset-symbol">{{ symbol }}</div>
       </div>
-      <div class="quick-actions">
-        <button class="action-btn btn-buy" @click.stop="handleBuy" title="买入">
-          <Icon icon="mdi:arrow-down-circle" />
-        </button>
-        <button class="action-btn btn-sell" @click.stop="handleSell" title="卖出">
-          <Icon icon="mdi:arrow-up-circle" />
-        </button>
+      <div class="asset-value-badge">
+        {{ formatCompactAmount(marketValue) }}
       </div>
     </div>
-    
+
     <div class="card-body">
       <div class="row">
         <div class="label">持有量</div>
@@ -30,10 +25,6 @@
       <div class="row">
         <div class="label">当前价</div>
         <div class="value price">${{ formatAmount(currentPrice) }}</div>
-      </div>
-      <div class="row highlight">
-        <div class="label">总价值</div>
-        <div class="value">{{ formatCompactAmount(marketValue) }}</div>
       </div>
       <div class="row profit-row" :class="profitClass">
         <div class="label">浮动盈亏</div>
@@ -70,7 +61,7 @@ const props = defineProps({
   selected: Boolean
 })
 
-const emit = defineEmits(['click', 'buy', 'sell'])
+const emit = defineEmits(['click'])
 
 const profit = computed(() => {
   if (props.avgCost === 0) return props.amount * props.currentPrice
@@ -94,14 +85,6 @@ const profitClass = computed(() => {
 
 const handleClick = () => {
   emit('click', props.symbol)
-}
-
-const handleBuy = () => {
-  emit('buy', props)
-}
-
-const handleSell = () => {
-  emit('sell', props)
 }
 </script>
 
@@ -165,137 +148,78 @@ const handleSell = () => {
   margin-top: 2px;
 }
 
-.quick-actions {
-  display: flex;
-  gap: 8px;
-}
-
-.action-btn {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-  border: none;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.15s ease;
-  touch-action: manipulation;
-}
-
-.action-btn:active {
-  transform: scale(0.95);
-}
-
-.action-btn.btn-buy {
-  background: rgba(16, 185, 129, 0.1);
-  color: #10b981;
-}
-
-.action-btn.btn-buy:hover {
-  background: rgba(16, 185, 129, 0.2);
-}
-
-.action-btn.btn-sell {
-  background: rgba(239, 68, 68, 0.1);
-  color: #ef4444;
-}
-
-.action-btn.btn-sell:hover {
-  background: rgba(239, 68, 68, 0.2);
-}
-
-.action-btn svg {
-  width: 18px;
-  height: 18px;
+.asset-value-badge {
+  font-size: 14px;
+  font-weight: 600;
+  color: #6366f1;
+  background: rgba(99, 102, 241, 0.1);
+  padding: 6px 12px;
+  border-radius: 20px;
 }
 
 .card-body {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
 }
 
 .row {
   display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.row.profit-row {
+  grid-column: 1 / -1;
+  flex-direction: row;
   justify-content: space-between;
   align-items: center;
-}
-
-.row.highlight {
-  padding-top: 10px;
-  border-top: 1px dashed rgba(0, 0, 0, 0.08);
-}
-
-.row.profit-row .value {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
 }
 
 .label {
-  font-size: 13px;
+  font-size: 12px;
   color: var(--text-secondary, #6b7280);
 }
 
 .value {
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 500;
   color: var(--text-primary, #1f2937);
-  font-family: 'Courier New', monospace;
 }
 
 .value.price {
-  color: var(--primary-color, #4361ee);
-}
-
-.value.positive {
-  color: #10b981;
-}
-
-.value.negative {
-  color: #ef4444;
+  color: #6366f1;
 }
 
 .profit-value {
-  font-size: 15px;
+  font-weight: 600;
 }
 
 .profit-rate {
   font-size: 12px;
+  margin-left: 8px;
   opacity: 0.8;
 }
 
-.dark .mobile-asset-card {
-  background: rgba(30, 30, 30, 0.98);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+.positive {
+  color: #10b981;
 }
 
-.dark .mobile-asset-card.selected {
-  background: rgba(74, 144, 226, 0.1);
+.negative {
+  color: #ef4444;
 }
 
-.dark .asset-icon-wrapper {
-  background: rgba(255, 255, 255, 0.05);
-}
+/* 深色模式适配 */
+@media (prefers-color-scheme: dark) {
+  .asset-value-badge {
+    background: rgba(74, 144, 226, 0.2);
+    color: #4a90e2;
+  }
 
-.dark .asset-name {
-  color: var(--text-primary, #f3f4f6);
-}
-
-.dark .asset-symbol {
-  color: var(--text-secondary, #9ca3af);
-}
-
-.dark .label {
-  color: var(--text-secondary, #9ca3af);
-}
-
-.dark .value {
-  color: var(--text-primary, #f3f4f6);
-}
-
-.dark .row.highlight {
-  border-top-color: rgba(255, 255, 255, 0.08);
+  .row.profit-row {
+    border-top-color: rgba(255, 255, 255, 0.06);
+  }
 }
 </style>
