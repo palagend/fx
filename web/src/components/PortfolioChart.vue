@@ -211,9 +211,13 @@ const handleLegendLeave = () => {
 .dark .legend-item.active { background: rgba(99, 102, 241, 0.15); }
 
 @media (max-width: 768px) {
-  .portfolio-chart { flex-direction: column; align-items: center; }
-  .chart-wrapper { width: 180px; height: 180px; }
+  .portfolio-chart { flex-direction: column; align-items: center; gap: 20px; }
+  .chart-wrapper { width: 200px; height: 200px; }
   .total-value { font-size: 20px; }
-  .chart-legend { width: 100%; max-height: 200px; }
+  .chart-legend { 
+    width: 100%; 
+    max-height: none;
+    overflow-y: visible;
+  }
 }
 </style>

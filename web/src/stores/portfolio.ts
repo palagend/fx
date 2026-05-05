@@ -18,6 +18,7 @@ export interface DashboardData {
   unrealized_profit_loss_rate: number
   realized_profit_loss_rate: number
   value_change_24h: number
+  btc_price: number
   updated_at?: number
 }
 
@@ -57,7 +58,8 @@ export const usePortfolioStore = defineStore('portfolio', () => {
     realized_profit_loss: 0,
     unrealized_profit_loss_rate: 0,
     realized_profit_loss_rate: 0,
-    value_change_24h: 0
+    value_change_24h: 0,
+    btc_price: 0
   })
   const trades = ref<Trade[]>([])
   const isLoading = ref<boolean>(false)
@@ -134,6 +136,7 @@ export const usePortfolioStore = defineStore('portfolio', () => {
         unrealized_profit_loss_rate?: number
         realized_profit_loss_rate?: number
         value_change_24h?: number
+        btc_price?: number
         updated_at?: number
       }
       mergeDashboardData({
@@ -150,6 +153,7 @@ export const usePortfolioStore = defineStore('portfolio', () => {
         unrealized_profit_loss_rate: d.unrealized_profit_loss_rate || 0,
         realized_profit_loss_rate: d.realized_profit_loss_rate || 0,
         value_change_24h: d.value_change_24h || 0,
+        btc_price: d.btc_price || 0,
         updated_at: d.updated_at || Date.now()
       })
 
@@ -203,7 +207,8 @@ export const usePortfolioStore = defineStore('portfolio', () => {
       realized_profit_loss: 0,
       unrealized_profit_loss_rate: 0,
       realized_profit_loss_rate: 0,
-      value_change_24h: 0
+      value_change_24h: 0,
+      btc_price: 0
     }
     trades.value = []
   }

@@ -9,7 +9,7 @@
         <div class="asset-symbol">{{ symbol }}</div>
       </div>
       <div class="asset-value-badge">
-        {{ formatCompactAmount(marketValue) }}
+        {{ formatValueFn(marketValue) }}
       </div>
     </div>
 
@@ -29,14 +29,8 @@
       <div class="row profit-row" :class="profitClass">
         <div class="label">浮动盈亏</div>
         <div class="value">
-          <span class="profit-value">{{ profitSign }}{{ formatCompactAmount(Math.abs(profit)) }}</span>
+          <span class="profit-value">{{ profitSign }}{{ formatValueFn(Math.abs(profit)) }}</span>
           <span class="profit-rate" v-if="profitRate">{{ profitRateSign }}{{ Math.abs(profitRate).toFixed(2) }}%</span>
-        </div>
-      </div>
-      <div v-if="realizedPL !== 0" class="row">
-        <div class="label">实现盈亏</div>
-        <div class="value" :class="realizedPL >= 0 ? 'positive' : 'negative'">
-          {{ realizedPL >= 0 ? '+' : '-' }}{{ formatCompactAmount(Math.abs(realizedPL)) }}
         </div>
       </div>
     </div>
@@ -58,7 +52,11 @@ const props = defineProps({
   currentPrice: Number,
   marketValue: Number,
   realizedPL: Number,
-  selected: Boolean
+  selected: Boolean,
+  formatValueFn: {
+    type: Function,
+    default: formatCompactAmount
+  }
 })
 
 const emit = defineEmits(['click'])

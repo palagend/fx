@@ -45,13 +45,22 @@
                 <div class="card-header-row">
                   <h3><Icon icon="mdi:wallet" /> 总资产</h3>
                   <!-- 价值本位切换开关 -->
-                  <div class="value-switch" :class="{ active: valueMode === 'btc' }" @click="toggleValueMode">
-                    <span class="switch-label usd">USD</span>
-                    <div class="switch-track">
-                      <div class="switch-thumb"></div>
-                    </div>
-                    <span class="switch-label btc">BTC</span>
-                  </div>
+                  <button 
+                    class="value-mode-toggle" 
+                    :class="valueMode"
+                    @click="toggleValueMode"
+                    :title="valueMode === 'usd' ? '切换到BTC本位' : '切换到USD本位'"
+                  >
+                    <span class="mode-option" :class="{ active: valueMode === 'usd' }">
+                      <Icon icon="mdi:currency-usd" />
+                      <span>USD</span>
+                    </span>
+                    <span class="toggle-divider"></span>
+                    <span class="mode-option" :class="{ active: valueMode === 'btc' }">
+                      <Icon icon="mdi:currency-btc" />
+                      <span>BTC</span>
+                    </span>
+                  </button>
                 </div>
                 <div class="value">{{ formatValue(totalAssetsValue) }}</div>
                 <div class="sub-value">
@@ -59,6 +68,13 @@
                   美股: {{ formatValue(usStockValue) }} |
                   现金: {{ formatValue(cashBalance) }}
                 </div>
+              </div>
+              <div class="overview-card cash-card">
+                <h3><Icon icon="mdi:cash-usd" /> USD现金</h3>
+                <div class="value">{{ formatValue(cashBalance) }}</div>
+                <button class="btn-recharge" @click="showRechargeModal = true">
+                  <Icon icon="mdi:plus" /> 充值
+                </button>
               </div>
               <div class="overview-card">
                 <h3><Icon icon="mdi:trending-up" /> 浮动盈亏</h3>
@@ -77,13 +93,6 @@
                 <div class="change" :class="displayRealizedPL.class">
                   {{ displayRealizedPL.rate }}
                 </div>
-              </div>
-              <div class="overview-card cash-card">
-                <h3><Icon icon="mdi:cash-usd" /> USD现金</h3>
-                <div class="value">{{ formatValue(cashBalance) }}</div>
-                <button class="btn-recharge" @click="showRechargeModal = true">
-                  <Icon icon="mdi:plus" /> 充值
-                </button>
               </div>
             </section>
 
@@ -455,7 +464,6 @@
                       <th>当前价</th>
                       <th>总价值</th>
                       <th>浮动盈亏</th>
-                      <th class="realized-pl-col">实现盈亏</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -519,23 +527,9 @@
                           </div>
                         </template>
                       </td>
-                      <td class="asset-realized-profit realized-pl-col" :class="{ 'positive': crypto.realized_pl > 0, 'negative': crypto.realized_pl < 0 }" v-if="crypto.symbol !== 'USDT'">
-                        <template v-if="crypto.realized_pl !== 0">
-                          <div class="profit-value">
-                            {{ crypto.realized_pl > 0 ? '+' : '-' }}{{ formatValue(Math.abs(crypto.realized_pl)) }}
-                          </div>
-                          <div class="profit-rate">
-                            {{ crypto.realized_pl > 0 ? '+' : '-' }}{{ Math.abs(crypto.realized_pl_rate).toFixed(2) }}%
-                          </div>
-                        </template>
-                        <template v-else>
-                          <span class="no-data">-</span>
-                        </template>
-                      </td>
-                      <td v-else>-</td>
                     </tr>
                     <tr v-if="filteredHoldings.length === 0">
-                      <td colspan="7" class="empty-state">
+                      <td colspan="6" class="empty-state">
                         <Icon icon="mdi:inbox" />
                         <p>暂无资产数据，请充值USD后开始交易</p>
                       </td>
@@ -559,6 +553,7 @@
                   :market-value="crypto.market_value"
                   :realized-pl="crypto.realized_pl"
                   :selected="selectedAsset === crypto.symbol"
+                  :format-value-fn="formatValue"
                   @click="selectAsset"
                 />
                 <div v-if="holdingsWithMeta.length === 0" class="empty-state mobile-empty">
@@ -1144,9 +1139,16 @@ const isLoading = ref(true)
 const hasLoaded = ref(false)
 
 // 本位模式（USD本位或BTC本位）- 从localStorage读取或默认USD
-const savedValueMode = localStorage.getItem('portfolio_value_mode') || 'usd'
-const valueMode = ref(savedValueMode) // 'usd' 或 'btc'
+const valueMode = ref('usd') // 'usd' 或 'btc'
 const btcPrice = computed(() => dashboardData.value?.btc_price || 0)
+
+// 在挂载时从localStorage读取
+onMounted(() => {
+  const savedMode = localStorage.getItem('portfolio_value_mode')
+  if (savedMode === 'btc' || savedMode === 'usd') {
+    valueMode.value = savedMode
+  }
+})
 
 // 移动端标签页配置
 const mobileTabs = [
@@ -1703,7 +1705,7 @@ const portfolioAllocation = computed(() => {
   // 构建资产分布列表（先按价值降序排列，确保颜色分配顺序正确）
   const allocation = []
 
-  // 添加加密资产（从portfolio中获取）
+  // 添加加密资产和美股（从portfolio中获取）
   portfolioItems.forEach((portfolioItem) => {
     const marketValue = portfolioItem.market_value
     if (marketValue > 0) {
@@ -1715,6 +1717,16 @@ const portfolioAllocation = computed(() => {
       })
     }
   })
+
+  // 添加现金
+  if (cashBalance.value > 0) {
+    allocation.push({
+      name: 'USD',
+      rawPercentage: (cashBalance.value / total) * 100,
+      value: cashBalance.value,
+      color: '#10b981' // 绿色表示现金
+    })
+  }
 
   // 按价值降序排列（确保饼图扇区和图例顺序一致）
   allocation.sort((a, b) => b.value - a.value)
@@ -4279,78 +4291,87 @@ watch(() => userStore.isLoggedIn, async (isLoggedIn) => {
   }
 }
 
-/* 价值本位切换开关 */
-.value-switch {
+/* 价值本位切换开关 - 新设计 */
+.value-mode-toggle {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 2px;
+  padding: 4px;
+  background: #f1f5f9;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
   cursor: pointer;
-  user-select: none;
+  transition: all 0.2s ease;
   touch-action: manipulation;
-}
-
-.switch-label {
   font-size: 12px;
-  font-weight: 500;
-  color: #999;
-  transition: color 0.3s ease;
-}
-
-.value-switch.active .switch-label.btc,
-.value-switch:not(.active) .switch-label.usd {
-  color: #4361ee;
   font-weight: 600;
 }
 
-.switch-track {
-  width: 48px;
-  height: 26px;
-  background: #e8e8e8;
-  border-radius: 13px;
-  position: relative;
-  transition: background 0.3s ease;
+.value-mode-toggle:hover {
+  background: #e2e8f0;
+  transform: translateY(-1px);
 }
 
-.value-switch.active .switch-track {
-  background: linear-gradient(135deg, #4361ee, #7209b7);
+.value-mode-toggle:active {
+  transform: scale(0.98);
 }
 
-.switch-thumb {
-  position: absolute;
-  top: 3px;
-  left: 3px;
-  width: 20px;
-  height: 20px;
+.mode-option {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  color: #64748b;
+}
+
+.mode-option svg {
+  font-size: 14px;
+}
+
+.mode-option.active {
   background: white;
-  border-radius: 50%;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
-  transition: transform 0.3s ease;
+  color: #4361ee;
+  box-shadow: 0 2px 8px rgba(67, 97, 238, 0.15);
 }
 
-.value-switch.active .switch-thumb {
-  transform: translateX(22px);
+.value-mode-toggle.btc .mode-option.active {
+  color: #f7931a;
+  box-shadow: 0 2px 8px rgba(247, 147, 26, 0.15);
+}
+
+.toggle-divider {
+  width: 1px;
+  height: 16px;
+  background: #cbd5e1;
 }
 
 /* 深色模式价值切换开关 */
-.dark .switch-label {
-  color: #6c757d;
+.dark .value-mode-toggle {
+  background: #2d3748;
+  border-color: #4a5568;
 }
 
-.dark .value-switch.active .switch-label.btc,
-.dark .value-switch:not(.active) .switch-label.usd {
-  color: #4a90e2;
+.dark .value-mode-toggle:hover {
+  background: #374151;
 }
 
-.dark .switch-track {
-  background: #3d3d3d;
+.dark .mode-option {
+  color: #9ca3af;
 }
 
-.dark .value-switch.active .switch-track {
-  background: linear-gradient(135deg, #4a90e2, #6a5acd);
+.dark .mode-option.active {
+  background: #1e293b;
+  color: #60a5fa;
 }
 
-.dark .switch-thumb {
-  background: #e9ecef;
+.dark .value-mode-toggle.btc .mode-option.active {
+  color: #fbbf24;
+}
+
+.dark .toggle-divider {
+  background: #4b5563;
 }
 
 /* 卡片头部行 */
