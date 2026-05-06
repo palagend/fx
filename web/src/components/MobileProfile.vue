@@ -191,7 +191,7 @@
                 <h2>工具集合</h2>
                 <p>高效、便捷的实用工具平台</p>
                 <div class="version-info">
-                  <span>版本 1.0.0</span>
+                  <span>版本 {{ packageJson.version }}</span>
                 </div>
               </div>
             </div>
@@ -208,6 +208,7 @@ import { Icon } from '@iconify/vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '../stores/user'
 import { config } from '../config'
+import packageJson from '../../package.json'
 
 const router = useRouter()
 const userStore = useUserStore()
