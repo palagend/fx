@@ -13,6 +13,61 @@ const COINCAP_API_KEY = 'b617d9cf029dbb40f02b058a0e74919176b768cf36fd1ea6fae55a1
 const COINCAP_BASE_URL = 'https://rest.coincap.io/v3'
 const TENCENT_STOCK_URL = 'https://qt.gtimg.cn'
 
+// 价格缓存配置
+const PRICE_CACHE_TTL = 5 * 60 * 1000 // 5分钟缓存
+
+interface PriceCache {
+  prices: Record<string, number>
+  priceChanges: Record<string, number>
+  usStockPrices: Record<string, number>
+  updatedAt: number
+}
+
+// 内存中的价格缓存
+let memoryPriceCache: PriceCache | null = null
+
+/**
+ * 获取缓存的价格数据
+ */
+function getCachedPrices(): PriceCache | null {
+  // 优先使用内存缓存
+  if (memoryPriceCache && Date.now() - memoryPriceCache.updatedAt < PRICE_CACHE_TTL) {
+    return memoryPriceCache
+  }
+
+  // 回退到 localStorage 缓存
+  const cachedUpdatedAt = getStorageData<number>(STORAGE_KEYS.PRICE_UPDATED_AT, 0)
+  if (Date.now() - cachedUpdatedAt < PRICE_CACHE_TTL) {
+    const prices = getStorageData<Record<string, number>>(STORAGE_KEYS.PRICES, { 'USDT': 1.0 })
+    const priceChanges = getStorageData<Record<string, number>>(STORAGE_KEYS.PRICE_CHANGES, { 'USDT': 0 })
+    const usStockPrices = getStorageData<Record<string, number>>(STORAGE_KEYS.US_STOCK_PRICES, {})
+
+    memoryPriceCache = { prices, priceChanges, usStockPrices, updatedAt: cachedUpdatedAt }
+    return memoryPriceCache
+  }
+
+  return null
+}
+
+/**
+ * 更新价格缓存
+ */
+function updatePriceCache(cache: PriceCache): void {
+  memoryPriceCache = cache
+  setStorageData(STORAGE_KEYS.PRICES, cache.prices)
+  setStorageData(STORAGE_KEYS.PRICE_CHANGES, cache.priceChanges)
+  setStorageData(STORAGE_KEYS.US_STOCK_PRICES, cache.usStockPrices)
+  setStorageData(STORAGE_KEYS.PRICE_UPDATED_AT, cache.updatedAt)
+}
+
+/**
+ * 检查缓存是否有效
+ */
+function isCacheValid(): boolean {
+  const cache = getCachedPrices()
+  return cache !== null
+}
+
 export type AssetType = 'crypto' | 'us_stock' | 'cash'
 export type TradeType = 'buy' | 'sell' | 'recharge'
 
@@ -626,14 +681,37 @@ function mockResponse<T>(data: T): Promise<MockResponse<T>> {
 }
 
 export const localPortfolioApi = {
-  async getDashboard(): Promise<MockResponse<DashboardData>> {
+  async getDashboard(useCache: boolean = true): Promise<MockResponse<DashboardData>> {
     const trades = getStorageData<Trade[]>(STORAGE_KEYS.TRADES, [])
-    const [cryptoResult, usStockPrices] = await Promise.all([
-      fetchCryptoPrices(),
-      fetchUSStockPricesBatch()
-    ])
 
-    const { prices, priceChanges, updatedAt } = cryptoResult
+    let prices: Record<string, number>
+    let priceChanges: Record<string, number>
+    let usStockPrices: Record<string, number>
+    let updatedAt: number
+
+    // 优先使用缓存
+    if (useCache && isCacheValid()) {
+      const cache = getCachedPrices()!
+      prices = cache.prices
+      priceChanges = cache.priceChanges
+      usStockPrices = cache.usStockPrices
+      updatedAt = cache.updatedAt
+    } else {
+      // 缓存无效，从 API 获取
+      const [cryptoResult, stockPrices] = await Promise.all([
+        fetchCryptoPrices(),
+        fetchUSStockPricesBatch()
+      ])
+
+      prices = cryptoResult.prices
+      priceChanges = cryptoResult.priceChanges
+      usStockPrices = stockPrices
+      updatedAt = cryptoResult.updatedAt
+
+      // 更新缓存
+      updatePriceCache({ prices, priceChanges, usStockPrices, updatedAt })
+    }
+
     const holdings = recalcAllHoldings(trades)
     const stats = calculatePortfolioStats(holdings, prices, priceChanges, usStockPrices, trades)
 
@@ -655,6 +733,13 @@ export const localPortfolioApi = {
       total_profit_loss: stats.totalUnrealizedPL + stats.totalRealizedPL,
       value_change_24h: stats.totalValueChange24h
     })
+  },
+
+  /**
+   * 强制刷新价格数据（忽略缓存）
+   */
+  async refreshPrices(): Promise<MockResponse<DashboardData>> {
+    return this.getDashboard(false)
   },
 
   getTrades(): Promise<MockResponse<{ trades: Trade[] }>> {

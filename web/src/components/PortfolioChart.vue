@@ -10,7 +10,7 @@
       />
       <div class="pie-center">
         <span class="total-value">{{ formatValue(totalValue) }}</span>
-        <span class="total-label">总资产</span>
+        <span class="total-label">{{ centerLabel }}</span>
       </div>
     </div>
 
@@ -45,7 +45,8 @@ const props = defineProps({
   allocation: { type: Array, required: true },
   totalValue: { type: Number, required: true },
   hasLoaded: { type: Boolean, default: false },
-  formatValue: { type: Function, required: true }
+  formatValue: { type: Function, required: true },
+  centerLabel: { type: String, default: '总资产' }
 })
 
 const chartRef = ref(null)

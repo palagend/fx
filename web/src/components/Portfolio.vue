@@ -101,6 +101,20 @@
               <div class="chart-header">
                 <h2 class="chart-title"><Icon icon="mdi:chart-pie" /> 资产分布</h2>
                 <div class="chart-actions">
+                  <!-- 视图切换按钮组 -->
+                  <div class="view-toggle">
+                    <button
+                      v-for="view in chartViews"
+                      :key="view.id"
+                      class="view-toggle-btn"
+                      :class="{ active: currentChartView === view.id }"
+                      @click="currentChartView = view.id"
+                      :title="view.name"
+                    >
+                      <Icon :icon="view.icon" />
+                      <span class="view-label">{{ view.name }}</span>
+                    </button>
+                  </div>
                   <button
                     class="btn-refresh"
                     @click="refreshPrices"
@@ -114,7 +128,7 @@
               </div>
 
               <!-- 加载状态 -->
-              <div v-if="refreshing && portfolioAllocation.length === 0" class="chart-loading">
+              <div v-if="refreshing && currentAllocation.length === 0" class="chart-loading">
                 <div class="loading-spinner">
                   <Icon icon="mdi:loading" class="spin-icon" />
                 </div>
@@ -122,7 +136,7 @@
               </div>
 
               <!-- 空状态 -->
-              <div v-else-if="portfolioAllocation.length === 0" class="chart-empty">
+              <div v-else-if="currentAllocation.length === 0" class="chart-empty">
                 <Icon icon="mdi:chart-pie-outline" class="empty-icon" />
                 <p>暂无资产数据</p>
                 <span>开始交易后将显示资产分布</span>
@@ -131,10 +145,11 @@
               <!-- 图表内容 -->
               <div v-else class="chart-container">
                 <PortfolioChart
-                  :allocation="portfolioAllocation"
-                  :total-value="totalAssetsValue"
+                  :allocation="currentAllocation"
+                  :total-value="currentTotalValue"
                   :has-loaded="hasLoaded"
                   :format-value="formatValue"
+                  :center-label="currentChartCenterLabel"
                 />
               </div>
             </section>
@@ -295,65 +310,45 @@
 
                 <!-- 右侧：交易预览（仅PC端显示） -->
                 <div class="trading-preview" v-if="!isMobile && newTrade.symbol && newTrade.amount && newTrade.price">
-                  <div class="preview-header">
-                    <h4><Icon icon="mdi:eye" /> 交易预览</h4>
+                  <div class="preview-header-row">
+                    <span class="preview-title">交易预览</span>
+                    <span class="preview-total-value">${{ formatAmount(newTrade.amount * newTrade.price) }}</span>
                   </div>
-
-                  <div class="preview-content">
-                    <div class="preview-main">
-                      <div class="preview-item total">
-                        <span class="label">交易总额</span>
-                        <span class="value">${{ formatAmount(newTrade.amount * newTrade.price) }}</span>
-                      </div>
-                    </div>
-
+                  <div class="preview-details-full">
+                    <!-- 买入预览 -->
                     <template v-if="newTrade.type === 'buy'">
-                      <div class="preview-divider"></div>
-                      <div class="preview-details">
-                        <div class="preview-item" v-if="getHoldingAmount(newTrade.symbol) > 0">
-                          <span class="label">当前持仓</span>
-                          <span class="value">{{ formatAmount(getHoldingAmount(newTrade.symbol)) }}</span>
-                        </div>
-                        <div class="preview-item" v-if="getHoldingAmount(newTrade.symbol) > 0">
-                          <span class="label">买入后持仓</span>
-                          <span class="value highlight">{{ formatAmount(getHoldingAmount(newTrade.symbol) + newTrade.amount) }}</span>
-                        </div>
-                        <div class="preview-item" v-if="getHoldingAmount(newTrade.symbol) > 0">
-                          <span class="label">买入后成本价</span>
-                          <span class="value">${{ formatAmount(calculateNewAvgCost()) }}</span>
-                        </div>
-                        <div class="preview-item impact">
-                          <span class="label">USD支出</span>
-                          <span class="value negative">-${{ formatAmount(newTrade.amount * newTrade.price) }}</span>
-                        </div>
+                      <div class="preview-detail-row" v-if="getHoldingAmount(newTrade.symbol) > 0">
+                        <span class="detail-label">当前持仓</span>
+                        <span class="detail-value">{{ formatAmount(getHoldingAmount(newTrade.symbol)) }}</span>
+                      </div>
+                      <div class="preview-detail-row" v-if="getHoldingAmount(newTrade.symbol) > 0">
+                        <span class="detail-label">买入后持仓</span>
+                        <span class="detail-value highlight">{{ formatAmount(getHoldingAmount(newTrade.symbol) + newTrade.amount) }}</span>
+                      </div>
+                      <div class="preview-detail-row impact">
+                        <span class="detail-label">USD支出</span>
+                        <span class="detail-value negative">-${{ formatAmount(newTrade.amount * newTrade.price) }}</span>
                       </div>
                     </template>
-
+                    <!-- 卖出预览 -->
                     <template v-if="newTrade.type === 'sell'">
-                      <div class="preview-divider"></div>
-                      <div class="preview-details">
-                        <div class="preview-item">
-                          <span class="label">当前持仓</span>
-                          <span class="value">{{ formatAmount(getHoldingAmount(newTrade.symbol)) }}</span>
-                        </div>
-                        <div class="preview-item">
-                          <span class="label">卖出后持仓</span>
-                          <span class="value">{{ formatAmount(Math.max(0, getHoldingAmount(newTrade.symbol) - newTrade.amount)) }}</span>
-                        </div>
-                        <div class="preview-item" v-if="newTrade.amount < getHoldingAmount(newTrade.symbol)">
-                          <span class="label">卖出后成本价</span>
-                          <span class="value highlight">${{ formatAmount(calculateNewAvgCost()) }}</span>
-                        </div>
-                        <div class="preview-item" v-if="calculateEstimatedRealizedPL() !== 0">
-                          <span class="label">预估盈亏</span>
-                          <span :class="['value', calculateEstimatedRealizedPL() >= 0 ? 'positive' : 'negative']">
-                            {{ calculateEstimatedRealizedPL() >= 0 ? '+' : '-' }}${{ formatAmount(Math.abs(calculateEstimatedRealizedPL())) }}
-                          </span>
-                        </div>
-                        <div class="preview-item impact">
-                          <span class="label">USD收入</span>
-                          <span class="value positive">+${{ formatAmount(newTrade.amount * newTrade.price) }}</span>
-                        </div>
+                      <div class="preview-detail-row">
+                        <span class="detail-label">当前持仓</span>
+                        <span class="detail-value">{{ formatAmount(getHoldingAmount(newTrade.symbol)) }}</span>
+                      </div>
+                      <div class="preview-detail-row">
+                        <span class="detail-label">卖出后持仓</span>
+                        <span class="detail-value">{{ formatAmount(Math.max(0, getHoldingAmount(newTrade.symbol) - newTrade.amount)) }}</span>
+                      </div>
+                      <div class="preview-detail-row" v-if="calculateEstimatedRealizedPL() !== 0">
+                        <span class="detail-label">预估盈亏</span>
+                        <span :class="['detail-value', calculateEstimatedRealizedPL() >= 0 ? 'positive' : 'negative']">
+                          {{ calculateEstimatedRealizedPL() >= 0 ? '+' : '-' }}${{ formatAmount(Math.abs(calculateEstimatedRealizedPL())) }}
+                        </span>
+                      </div>
+                      <div class="preview-detail-row impact">
+                        <span class="detail-label">USD收入</span>
+                        <span class="detail-value positive">+${{ formatAmount(newTrade.amount * newTrade.price) }}</span>
                       </div>
                     </template>
                   </div>
@@ -889,9 +884,18 @@
             </div>
           </div>
 
-          <!-- 币种选择网格 -->
-          <div class="asset-selector">
-            <label class="field-label">选择资产</label>
+          <!-- 币种选择网格 - 仅在未选择资产或点击更改时显示 -->
+          <div class="asset-selector" v-if="!newTrade.symbol || showAssetSelector">
+            <div class="asset-selector-header">
+              <label class="field-label">选择资产</label>
+              <button 
+                v-if="newTrade.symbol" 
+                class="btn-back-to-input"
+                @click="showAssetSelector = false"
+              >
+                <Icon icon="mdi:arrow-left" /> 返回
+              </button>
+            </div>
             <div class="asset-grid">
               <button
                 v-for="symbol in currentAvailableSymbols"
@@ -908,8 +912,68 @@
             </div>
           </div>
 
+          <!-- 已选择资产显示 & 更改按钮 -->
+          <div class="selected-asset-display" v-if="newTrade.symbol && !showAssetSelector">
+            <div class="selected-asset-info">
+              <Icon :icon="getAssetIcon(currentAssetType, newTrade.symbol)" :style="{ color: getAssetColor(currentAssetType, newTrade.symbol) }" />
+              <span class="selected-asset-name">{{ newTrade.symbol }}</span>
+              <span class="selected-asset-price" v-if="getCurrentPrice(newTrade.symbol)">
+                ${{ formatAmount(getCurrentPrice(newTrade.symbol)) }}
+              </span>
+            </div>
+            <button class="btn-change-asset" @click="showAssetSelector = true">
+              <Icon icon="mdi:swap-horizontal" /> 更改
+            </button>
+          </div>
+
+          <!-- 交易预览 - 完整显示，在选择资产和输入框之间 -->
+          <div class="trade-preview-full" v-if="newTrade.symbol && newTrade.amount && newTrade.price && !showAssetSelector">
+            <div class="preview-header-row">
+              <span class="preview-title">交易预览</span>
+              <span class="preview-total-value">${{ formatAmount(newTrade.amount * newTrade.price) }}</span>
+            </div>
+            <div class="preview-details-full">
+              <!-- 买入预览 -->
+              <template v-if="newTrade.type === 'buy'">
+                <div class="preview-detail-row" v-if="getHoldingAmount(newTrade.symbol) > 0">
+                  <span class="detail-label">当前持仓</span>
+                  <span class="detail-value">{{ formatAmount(getHoldingAmount(newTrade.symbol)) }}</span>
+                </div>
+                <div class="preview-detail-row" v-if="getHoldingAmount(newTrade.symbol) > 0">
+                  <span class="detail-label">买入后持仓</span>
+                  <span class="detail-value highlight">{{ formatAmount(getHoldingAmount(newTrade.symbol) + newTrade.amount) }}</span>
+                </div>
+                <div class="preview-detail-row impact">
+                  <span class="detail-label">USD支出</span>
+                  <span class="detail-value negative">-${{ formatAmount(newTrade.amount * newTrade.price) }}</span>
+                </div>
+              </template>
+              <!-- 卖出预览 -->
+              <template v-if="newTrade.type === 'sell'">
+                <div class="preview-detail-row">
+                  <span class="detail-label">当前持仓</span>
+                  <span class="detail-value">{{ formatAmount(getHoldingAmount(newTrade.symbol)) }}</span>
+                </div>
+                <div class="preview-detail-row">
+                  <span class="detail-label">卖出后持仓</span>
+                  <span class="detail-value">{{ formatAmount(Math.max(0, getHoldingAmount(newTrade.symbol) - newTrade.amount)) }}</span>
+                </div>
+                <div class="preview-detail-row" v-if="calculateEstimatedRealizedPL() !== 0">
+                  <span class="detail-label">预估盈亏</span>
+                  <span :class="['detail-value', calculateEstimatedRealizedPL() >= 0 ? 'positive' : 'negative']">
+                    {{ calculateEstimatedRealizedPL() >= 0 ? '+' : '-' }}${{ formatAmount(Math.abs(calculateEstimatedRealizedPL())) }}
+                  </span>
+                </div>
+                <div class="preview-detail-row impact">
+                  <span class="detail-label">USD收入</span>
+                  <span class="detail-value positive">+${{ formatAmount(newTrade.amount * newTrade.price) }}</span>
+                </div>
+              </template>
+            </div>
+          </div>
+
           <!-- 交易输入区 -->
-          <div class="trade-inputs" v-if="newTrade.symbol">
+          <div class="trade-inputs" v-if="newTrade.symbol && !showAssetSelector">
             <div class="input-field">
               <label class="field-label">
                 数量
@@ -973,84 +1037,25 @@
             </div>
           </div>
 
-          <!-- 交易预览 -->
-          <div class="trade-preview-mobile" v-if="newTrade.symbol && newTrade.amount && newTrade.price">
-            <div class="preview-main">
-              <div class="preview-item total">
-                <span class="label">交易总额</span>
-                <span class="value">${{ formatAmount(newTrade.amount * newTrade.price) }}</span>
-              </div>
-            </div>
+        </div>
 
-            <div class="preview-divider"></div>
-
-            <div class="preview-details">
-              <!-- 买入预览 -->
-              <template v-if="newTrade.type === 'buy'">
-                <div class="preview-item" v-if="getHoldingAmount(newTrade.symbol) > 0">
-                  <span class="label">当前持仓</span>
-                  <span class="value">{{ formatAmount(getHoldingAmount(newTrade.symbol)) }}</span>
-                </div>
-                <div class="preview-item" v-if="getHoldingAmount(newTrade.symbol) > 0">
-                  <span class="label">买入后持仓</span>
-                  <span class="value highlight">{{ formatAmount(getHoldingAmount(newTrade.symbol) + newTrade.amount) }}</span>
-                </div>
-                <div class="preview-item" v-if="getHoldingAmount(newTrade.symbol) > 0">
-                  <span class="label">买入后成本价</span>
-                  <span class="value">${{ formatAmount(calculateNewAvgCost()) }}</span>
-                </div>
-                <div class="preview-item impact">
-                  <span class="label">USD支出</span>
-                  <span class="value negative">-${{ formatAmount(newTrade.amount * newTrade.price) }}</span>
-                </div>
-              </template>
-
-              <!-- 卖出预览 -->
-              <template v-if="newTrade.type === 'sell'">
-                <div class="preview-item">
-                  <span class="label">当前持仓</span>
-                  <span class="value">{{ formatAmount(getHoldingAmount(newTrade.symbol)) }}</span>
-                </div>
-                <div class="preview-item">
-                  <span class="label">卖出后持仓</span>
-                  <span class="value">{{ formatAmount(Math.max(0, getHoldingAmount(newTrade.symbol) - newTrade.amount)) }}</span>
-                </div>
-                <div class="preview-item" v-if="newTrade.amount < getHoldingAmount(newTrade.symbol)">
-                  <span class="label">卖出后成本价</span>
-                  <span class="value highlight">${{ formatAmount(calculateNewAvgCost()) }}</span>
-                </div>
-                <div class="preview-item" v-if="calculateEstimatedRealizedPL() !== 0">
-                  <span class="label">预估盈亏</span>
-                  <span :class="['value', calculateEstimatedRealizedPL() >= 0 ? 'positive' : 'negative']">
-                    {{ calculateEstimatedRealizedPL() >= 0 ? '+' : '-' }}${{ formatAmount(Math.abs(calculateEstimatedRealizedPL())) }}
-                  </span>
-                </div>
-                <div class="preview-item impact">
-                  <span class="label">USD收入</span>
-                  <span class="value positive">+${{ formatAmount(newTrade.amount * newTrade.price) }}</span>
-                </div>
-              </template>
-            </div>
-          </div>
-
-          <!-- 交易按钮 -->
-          <div class="trade-submit" v-if="newTrade.symbol">
-            <button
-              class="btn-submit"
-              @click="handleTradeSubmit"
-              :disabled="!isFormValid || portfolioStore.isLoading || isSubmitting.trade"
-              :class="newTrade.type"
-            >
-              <Icon :icon="newTrade.type === 'buy' ? 'mdi:arrow-down' : 'mdi:arrow-up'" />
-              {{ newTrade.type === 'buy' ? '确认买入' : '确认卖出' }}
-              <span class="submit-total" v-if="newTrade.amount && newTrade.price">
-                ${{ formatAmount(newTrade.amount * newTrade.price) }}
-              </span>
-            </button>
-            <button class="btn-reset" @click="clearForm">
-              <Icon icon="mdi:close" /> 重置
-            </button>
-          </div>
+        <!-- 交易按钮 - 固定在底部 -->
+        <div class="trade-modal-footer" v-if="newTrade.symbol">
+          <button
+            class="btn-submit"
+            @click="handleTradeSubmit"
+            :disabled="!isFormValid || portfolioStore.isLoading || isSubmitting.trade"
+            :class="newTrade.type"
+          >
+            <Icon :icon="newTrade.type === 'buy' ? 'mdi:arrow-down' : 'mdi:arrow-up'" />
+            {{ newTrade.type === 'buy' ? '确认买入' : '确认卖出' }}
+            <span class="submit-total" v-if="newTrade.amount && newTrade.price">
+              ${{ formatAmount(newTrade.amount * newTrade.price) }}
+            </span>
+          </button>
+          <button class="btn-reset" @click="clearForm">
+            <Icon icon="mdi:close" /> 重置
+          </button>
         </div>
       </div>
     </div>
@@ -1059,7 +1064,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick, watch, defineAsyncComponent } from 'vue'
 import { Icon } from '@iconify/vue'
 import { usePortfolioStore } from '../stores/portfolio'
 import { useUserStore } from '../stores/user'
@@ -1071,7 +1076,9 @@ import { formatAmount, formatCompactAmount, formatDateTime, getChangeClass } fro
 import MobileAssetCard from './MobileAssetCard.vue'
 import MobileTradeCard from './MobileTradeCard.vue'
 import SkeletonLoader from './SkeletonLoader.vue'
-import PortfolioChart from './PortfolioChart.vue'
+
+// 延迟加载非关键组件
+const PortfolioChart = defineAsyncComponent(() => import('./PortfolioChart.vue'))
 
 ChartJS.register(ArcElement, Tooltip, Legend)
 
@@ -1123,6 +1130,8 @@ const refreshing = ref(false)
 const errorMessage = ref('')
 const autoRefresh = ref(false)
 const showPreviewDrawer = ref(false)
+const showDetailedPreview = ref(false) // 移动端交易预览详情展开状态
+const showAssetSelector = ref(false) // 移动端资产选择器显示状态
 const isMobile = ref(false) // 是否为移动端模式
 const refreshInterval = ref(60)
 const selectedFilter = ref('all')
@@ -1213,7 +1222,20 @@ const importError = ref('')
 // 防抖计时器
 let refreshDebounceTimer = null
 
+// 图表视图选项
+const chartViews = [
+  { id: 'total', name: '总资产', icon: 'mdi:chart-pie' },
+  { id: 'non_cash', name: '非现金', icon: 'mdi:chart-donut' },
+  { id: 'crypto', name: '加密资产', icon: 'mdi:bitcoin' },
+  { id: 'us_stock', name: '美股', icon: 'mdi:chart-line' }
+]
+const currentChartView = ref('total')
 
+// 当前图表中心标签
+const currentChartCenterLabel = computed(() => {
+  const view = chartViews.find(v => v.id === currentChartView.value)
+  return view ? view.name : '总资产'
+})
 
 // 从store获取数据（后端已计算好）
 const dashboardData = computed(() => portfolioStore.dashboardData)
@@ -1525,14 +1547,15 @@ const clearTrades = async () => {
 }
 
 const clearForm = () => {
-  const currentSymbol = newTrade.value.symbol
   const currentType = newTrade.value.type
   newTrade.value = {
-    symbol: currentSymbol,
+    assetType: currentAssetType.value,
+    symbol: '',
     type: currentType,
     amount: null,
     price: null
   }
+  showAssetSelector.value = false
   nextTick(() => {
     if (symbolSelect.value) {
       symbolSelect.value.focus()
@@ -1572,24 +1595,25 @@ const REFRESH_DEBOUNCE_MS = 5000 // 5秒内禁止重复刷新
 
 const refreshPrices = async () => {
   if (refreshing.value) return
-  
+
   // 防抖检查
   if (refreshDebounceTimer) {
     errorMessage.value = '刷新过于频繁，请稍后再试'
     setTimeout(() => errorMessage.value = '', 2000)
     return
   }
-  
+
   // 设置防抖计时器
   refreshDebounceTimer = setTimeout(() => {
     refreshDebounceTimer = null
   }, REFRESH_DEBOUNCE_MS)
-  
+
   refreshing.value = true
   errorMessage.value = ''
 
   try {
-    const result = await portfolioStore.fetchDashboard()
+    // 强制刷新，忽略缓存
+    const result = await portfolioStore.fetchDashboard({ useCache: false })
 
     if (!result.success) {
       errorMessage.value = result.error || '获取价格失败'
@@ -1664,8 +1688,30 @@ const filteredTrades = computed(() => {
   return filter === 'all' ? trades.value : trades.value?.filter(t => t.type === filter)
 })
 
+// 计算属性缓存工具
+function createComputedCache() {
+  let cache = null
+  let lastKey = ''
+
+  return {
+    get: (key, compute) => {
+      if (key !== lastKey || cache === null) {
+        cache = compute()
+        lastKey = key
+      }
+      return cache
+    },
+    clear: () => {
+      cache = null
+      lastKey = ''
+    }
+  }
+}
+
 // 缓存资产元数据，避免模板中频繁调用函数
-const holdingsWithMeta = computed(() => {
+const holdingsWithMetaCache = createComputedCache()
+
+function computeHoldingsWithMeta() {
   return filteredHoldings.value.map(item => ({
     ...item,
     icon: getAssetIcon(item.asset_type, item.symbol),
@@ -1676,10 +1722,17 @@ const holdingsWithMeta = computed(() => {
     formattedCost: formatAmount(item.avg_cost),
     formattedPL: formatAmount(item.realized_pl)
   }))
+}
+
+const holdingsWithMeta = computed(() => {
+  const cacheKey = `${selectedFilter.value}-${portfolio.value?.length || 0}-${valueMode.value}`
+  return holdingsWithMetaCache.get(cacheKey, computeHoldingsWithMeta)
 })
 
 // 缓存交易元数据
-const tradesWithMeta = computed(() => {
+const tradesWithMetaCache = createComputedCache()
+
+function computeTradesWithMeta() {
   return filteredTrades.value.map(item => ({
     ...item,
     icon: getAssetIcon(item.asset_type, item.symbol),
@@ -1689,73 +1742,38 @@ const tradesWithMeta = computed(() => {
     formattedTotal: formatAmount(item.amount * item.price),
     formattedFee: formatAmount(item.fee || 0)
   }))
+}
+
+const tradesWithMeta = computed(() => {
+  const cacheKey = `${tradeFilter.value}-${trades.value?.length || 0}`
+  return tradesWithMetaCache.get(cacheKey, computeTradesWithMeta)
 })
 
 // 总资产净值 = 加密资产市值 + 美股市值 + USD现金余额
 const totalNetWorth = computed(() => cryptoAssetsValue.value + usStockValue.value + cashBalance.value)
 
-// 投资组合分布（包含加密资产、美股和现金）
-const portfolioAllocation = computed(() => {
-  const portfolioItems = portfolio.value || []
-  if (portfolioItems.length === 0 && cashBalance.value <= 0) return []
+// 非现金资产总值
+const nonCashAssetsValue = computed(() => cryptoAssetsValue.value + usStockValue.value)
 
-  const total = totalNetWorth.value
-  if (total <= 0) return []
+// 为没有预定义颜色的资产分配颜色（使用 HSL 生成和谐配色）
+const generateColor = (index, total) => {
+  // 使用黄金角 (~137.5°) 生成均匀分布的色相
+  const goldenAngle = 137.508
+  const hue = (index * goldenAngle) % 360
+  // 饱和度和亮度保持在舒适范围
+  const saturation = 65 + (index % 3) * 10 // 65%-85%
+  const lightness = 50 + (index % 2) * 10  // 50%-60%
+  return `hsl(${hue}, ${saturation}%, ${lightness}%)`
+}
 
-  // 构建资产分布列表（先按价值降序排列，确保颜色分配顺序正确）
-  const allocation = []
-
-  // 添加加密资产和美股（从portfolio中获取）
-  portfolioItems.forEach((portfolioItem) => {
-    const marketValue = portfolioItem.market_value
-    if (marketValue > 0) {
-      allocation.push({
-        name: portfolioItem.symbol,
-        rawPercentage: (marketValue / total) * 100,
-        value: marketValue,
-        color: getAssetColor(portfolioItem.asset_type, portfolioItem.symbol)
-      })
-    }
-  })
-
-  // 添加现金
-  if (cashBalance.value > 0) {
-    allocation.push({
-      name: 'USD',
-      rawPercentage: (cashBalance.value / total) * 100,
-      value: cashBalance.value,
-      color: '#10b981' // 绿色表示现金
-    })
-  }
-
-  // 按价值降序排列（确保饼图扇区和图例顺序一致）
-  allocation.sort((a, b) => b.value - a.value)
-
-  // 为没有预定义颜色的资产分配颜色（使用 HSL 生成和谐配色）
-  const generateColor = (index, total) => {
-    // 使用黄金角 (~137.5°) 生成均匀分布的色相
-    const goldenAngle = 137.508
-    const hue = (index * goldenAngle) % 360
-    // 饱和度和亮度保持在舒适范围
-    const saturation = 65 + (index % 3) * 10 // 65%-85%
-    const lightness = 50 + (index % 2) * 10  // 50%-60%
-    return `hsl(${hue}, ${saturation}%, ${lightness}%)`
-  }
-
-  allocation.forEach((alloc, index) => {
-    if (!alloc.color) {
-      alloc.color = generateColor(index, allocation.length)
-    }
-  })
-
-  // 合并低于5%的资产为"其他"
-  const MIN_PERCENTAGE = 5
+// 合并低于5%的资产为"其他"
+const mergeSmallItems = (allocation, minPercentage = 5) => {
   const significantItems = []
   let otherValue = 0
   let otherRawPercentage = 0
 
   allocation.forEach((item) => {
-    if (item.rawPercentage >= MIN_PERCENTAGE) {
+    if (item.rawPercentage >= minPercentage) {
       significantItems.push(item)
     } else {
       otherValue += item.value
@@ -1773,11 +1791,15 @@ const portfolioAllocation = computed(() => {
     })
   }
 
-  // 使用最大余数法确保百分比总和为100%
+  return significantItems
+}
+
+// 使用最大余数法确保百分比总和为100%
+const normalizePercentages = (items) => {
   let remainingPercentage = 100
 
   // 先向下取整并计算余数
-  const itemsWithRemainder = significantItems.map(alloc => {
+  const itemsWithRemainder = items.map(alloc => {
     const floorPercentage = Math.floor(alloc.rawPercentage)
     const remainder = alloc.rawPercentage - floorPercentage
     remainingPercentage -= floorPercentage
@@ -1798,6 +1820,116 @@ const portfolioAllocation = computed(() => {
 
   // 恢复原始排序（按价值降序），保持颜色与资产对应
   return itemsWithRemainder.sort((a, b) => b.value - a.value)
+}
+
+// 构建资产分布列表的通用函数
+const buildAllocation = (items, total, includeCash = false, cashValue = 0) => {
+  if (total <= 0) return []
+
+  const allocation = []
+
+  // 添加资产项
+  items.forEach((item) => {
+    const marketValue = item.market_value
+    if (marketValue > 0) {
+      allocation.push({
+        name: item.symbol,
+        rawPercentage: (marketValue / total) * 100,
+        value: marketValue,
+        color: getAssetColor(item.asset_type, item.symbol)
+      })
+    }
+  })
+
+  // 添加现金
+  if (includeCash && cashValue > 0) {
+    allocation.push({
+      name: 'USD',
+      rawPercentage: (cashValue / total) * 100,
+      value: cashValue,
+      color: '#10b981' // 绿色表示现金
+    })
+  }
+
+  // 按价值降序排列
+  allocation.sort((a, b) => b.value - a.value)
+
+  // 为没有预定义颜色的资产分配颜色
+  allocation.forEach((alloc, index) => {
+    if (!alloc.color) {
+      alloc.color = generateColor(index, allocation.length)
+    }
+  })
+
+  // 合并小额资产并标准化百分比
+  const significantItems = mergeSmallItems(allocation)
+  return normalizePercentages(significantItems)
+}
+
+// 总资产分布（包含加密资产、美股和现金）
+const portfolioAllocation = computed(() => {
+  const portfolioItems = portfolio.value || []
+  if (portfolioItems.length === 0 && cashBalance.value <= 0) return []
+
+  return buildAllocation(portfolioItems, totalNetWorth.value, true, cashBalance.value)
+})
+
+// 非现金资产分布（仅加密资产和美股）
+const nonCashAllocation = computed(() => {
+  const portfolioItems = portfolio.value || []
+  if (portfolioItems.length === 0) return []
+
+  return buildAllocation(portfolioItems, nonCashAssetsValue.value, false, 0)
+})
+
+// 加密资产分布
+const cryptoAllocation = computed(() => {
+  const portfolioItems = portfolio.value || []
+  const cryptoItems = portfolioItems.filter(item => item.asset_type === 'crypto')
+
+  if (cryptoItems.length === 0) return []
+
+  return buildAllocation(cryptoItems, cryptoAssetsValue.value, false, 0)
+})
+
+// 美股资产分布
+const usStockAllocation = computed(() => {
+  const portfolioItems = portfolio.value || []
+  const stockItems = portfolioItems.filter(item => item.asset_type === 'us_stock')
+
+  if (stockItems.length === 0) return []
+
+  return buildAllocation(stockItems, usStockValue.value, false, 0)
+})
+
+// 当前显示的资产分布
+const currentAllocation = computed(() => {
+  switch (currentChartView.value) {
+    case 'non_cash':
+      return nonCashAllocation.value
+    case 'crypto':
+      return cryptoAllocation.value
+    case 'us_stock':
+      return usStockAllocation.value
+    case 'total':
+    default:
+      return portfolioAllocation.value
+  }
+})
+
+// 当前显示的总值
+const currentTotalValue = computed(() => {
+  switch (currentChartView.value) {
+    case 'non_cash':
+      return nonCashAssetsValue.value
+    case 'crypto':
+      return cryptoAssetsValue.value
+    case 'us_stock':
+      return usStockValue.value
+    case 'total':
+    default:
+      return totalAssetsValue.value
+  }
 })
 
 let resizeTimer = null
@@ -1811,11 +1943,12 @@ const checkMobile = () => {
 onMounted(async () => {
   checkMobile()
   window.addEventListener('resize', checkMobile)
-  
+
   if (userStore.isLoggedIn) {
     isLoading.value = true
     try {
-      await portfolioStore.fetchDashboard()
+      // 使用分阶段加载：先显示缓存数据，再后台刷新
+      await portfolioStore.fetchDashboardStaged()
     } finally {
       isLoading.value = false
       hasLoaded.value = true
@@ -2267,6 +2400,89 @@ watch(() => userStore.isLoggedIn, async (isLoggedIn) => {
   display: flex;
   align-items: center;
   gap: 12px;
+}
+
+/* 视图切换按钮组 */
+.view-toggle {
+  display: flex;
+  align-items: center;
+  background: #f3f4f6;
+  border-radius: 10px;
+  padding: 4px;
+  gap: 2px;
+}
+
+.dark .view-toggle {
+  background: #374151;
+}
+
+.view-toggle-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: #6b7280;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.dark .view-toggle-btn {
+  color: #9ca3af;
+}
+
+.view-toggle-btn:hover {
+  color: #4b5563;
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.dark .view-toggle-btn:hover {
+  color: #e5e7eb;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.view-toggle-btn.active {
+  background: white;
+  color: #6366f1;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.dark .view-toggle-btn.active {
+  background: #4b5563;
+  color: #818cf8;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.view-toggle-btn svg {
+  font-size: 16px;
+}
+
+.view-label {
+  white-space: nowrap;
+}
+
+/* 移动端适配 */
+@media (max-width: 768px) {
+  .view-toggle {
+    padding: 3px;
+  }
+
+  .view-toggle-btn {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+
+  .view-toggle-btn .view-label {
+    display: none;
+  }
+
+  .view-toggle-btn svg {
+    font-size: 18px;
+  }
 }
 
 .btn-refresh {
@@ -2870,13 +3086,14 @@ watch(() => userStore.isLoggedIn, async (isLoggedIn) => {
 }
 
 /* 右侧预览区域 */
+/* PC端交易预览 - 使用与移动端相同的样式 */
 .trading-preview {
   background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-  border-radius: 16px;
-  padding: 20px;
+  border-radius: 12px;
+  padding: 16px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
 }
 
 .dark .trading-preview {
@@ -2889,27 +3106,101 @@ watch(() => userStore.isLoggedIn, async (isLoggedIn) => {
   min-height: 200px;
 }
 
-.preview-header {
+.trading-preview .preview-header-row {
   display: flex;
+  justify-content: space-between;
   align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  font-weight: 600;
-  color: #64748b;
-  margin-bottom: 4px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #e2e8f0;
 }
 
-.dark .preview-header {
+.dark .trading-preview .preview-header-row {
+  border-bottom-color: #334155;
+}
+
+.trading-preview .preview-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.dark .trading-preview .preview-title {
+  color: #d1d5db;
+}
+
+.trading-preview .preview-total-value {
+  font-size: 20px;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.dark .trading-preview .preview-total-value {
+  color: #f3f4f6;
+}
+
+.trading-preview .preview-details-full {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.trading-preview .preview-detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.trading-preview .detail-label {
+  font-size: 13px;
+  color: #64748b;
+}
+
+.dark .trading-preview .detail-label {
   color: #94a3b8;
 }
 
-.preview-header h4 {
-  margin: 0;
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.trading-preview .detail-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1f2937;
 }
 
+.dark .trading-preview .detail-value {
+  color: #f3f4f6;
+}
+
+.trading-preview .detail-value.highlight {
+  color: #6366f1;
+}
+
+.trading-preview .detail-value.positive {
+  color: #10b981;
+}
+
+.trading-preview .detail-value.negative {
+  color: #ef4444;
+}
+
+.trading-preview .preview-detail-row.impact {
+  margin-top: 4px;
+  padding-top: 10px;
+  border-top: 1px dashed #cbd5e1;
+}
+
+.dark .trading-preview .preview-detail-row.impact {
+  border-top-color: #475569;
+}
+
+.trading-preview .preview-detail-row.impact .detail-label {
+  font-weight: 600;
+  color: #475569;
+}
+
+.dark .trading-preview .preview-detail-row.impact .detail-label {
+  color: #94a3b8;
+}
+
+/* 空状态 */
 .preview-placeholder {
   display: flex;
   flex-direction: column;
@@ -2927,105 +3218,6 @@ watch(() => userStore.isLoggedIn, async (isLoggedIn) => {
 .preview-placeholder p {
   margin: 0;
   font-size: 14px;
-}
-
-/* 预览内容 */
-.preview-content {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.preview-main {
-  background: white;
-  border-radius: 12px;
-  padding: 16px;
-  text-align: center;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-}
-
-.dark .preview-main {
-  background: #1e1e1e;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-}
-
-.preview-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 10px 0;
-}
-
-.preview-item.total {
-  flex-direction: column;
-  gap: 8px;
-  padding: 8px 0;
-}
-
-.preview-item.total .label {
-  font-size: 13px;
-  color: #6b7280;
-}
-
-.dark .preview-item.total .label {
-  color: #9ca3af;
-}
-
-.preview-item.total .value {
-  font-size: 28px;
-  font-weight: 700;
-  color: #1f2937;
-}
-
-.dark .preview-item.total .value {
-  color: #f3f4f6;
-}
-
-.preview-divider {
-  height: 1px;
-  background: #e2e8f0;
-  margin: 4px 0;
-}
-
-.dark .preview-divider {
-  background: #334155;
-}
-
-.preview-details {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.preview-details .preview-item {
-  padding: 8px 0;
-}
-
-.preview-details .label {
-  font-size: 13px;
-  color: #64748b;
-}
-
-.dark .preview-details .label {
-  color: #94a3b8;
-}
-
-.preview-details .value {
-  font-size: 14px;
-  font-weight: 600;
-  color: #1f2937;
-}
-
-.dark .preview-details .value {
-  color: #f3f4f6;
-}
-
-.preview-details .value.highlight {
-  color: #6366f1;
-}
-
-.preview-details .value.positive {
-  color: #10b981;
 }
 
 .preview-details .value.negative {
@@ -4708,6 +4900,7 @@ watch(() => userStore.isLoggedIn, async (isLoggedIn) => {
   display: flex;
   flex-direction: column;
   animation: scaleIn 0.2s ease;
+  position: relative;
 }
 
 .dark .trade-modal {
@@ -4786,9 +4979,210 @@ watch(() => userStore.isLoggedIn, async (isLoggedIn) => {
   padding: 20px;
   overflow-y: auto;
   flex: 1;
+  padding-bottom: 100px;
 }
 
-/* 移动端交易预览 */
+/* 移动端交易预览 - 简化版 */
+.trade-preview-compact {
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border-radius: 12px;
+  padding: 12px 16px;
+  margin: 12px 0;
+}
+
+.dark .trade-preview-compact {
+  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+}
+
+.preview-total-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.preview-total-label {
+  font-size: 14px;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.dark .preview-total-label {
+  color: #9ca3af;
+}
+
+.preview-total-value {
+  font-size: 20px;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.dark .preview-total-value {
+  color: #f3f4f6;
+}
+
+.btn-toggle-preview {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 8px;
+  border: none;
+  background: rgba(99, 102, 241, 0.1);
+  color: #6366f1;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.dark .btn-toggle-preview {
+  background: rgba(99, 102, 241, 0.2);
+  color: #818cf8;
+}
+
+.btn-toggle-preview:active {
+  transform: scale(0.98);
+}
+
+.preview-details-compact {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dark .preview-details-compact {
+  border-top-color: #334155;
+}
+
+.preview-detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+}
+
+.preview-detail-row span:first-child {
+  color: #64748b;
+}
+
+.dark .preview-detail-row span:first-child {
+  color: #94a3b8;
+}
+
+.preview-detail-row span:last-child {
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.dark .preview-detail-row span:last-child {
+  color: #f3f4f6;
+}
+
+.preview-detail-row .highlight {
+  color: #6366f1;
+}
+
+.preview-detail-row .positive {
+  color: #10b981;
+}
+
+.preview-detail-row .negative {
+  color: #ef4444;
+}
+
+/* 移动端交易弹窗底部固定按钮 */
+.trade-modal-footer {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: white;
+  border-top: 1px solid #e5e7eb;
+  padding: 16px 20px;
+  padding-bottom: calc(16px + env(safe-area-inset-bottom));
+  display: flex;
+  gap: 12px;
+  z-index: 10;
+}
+
+.dark .trade-modal-footer {
+  background: #1e1e1e;
+  border-top-color: #404040;
+}
+
+.trade-modal-footer .btn-submit {
+  flex: 1;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 20px;
+  border: none;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  touch-action: manipulation;
+}
+
+.trade-modal-footer .btn-submit.buy {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+}
+
+.trade-modal-footer .btn-submit.sell {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: white;
+}
+
+.trade-modal-footer .btn-submit:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.trade-modal-footer .btn-submit:not(:disabled):active {
+  transform: scale(0.98);
+}
+
+.trade-modal-footer .btn-reset {
+  width: 80px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 16px;
+  border: 1px solid #e5e7eb;
+  background: white;
+  color: #6b7280;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  touch-action: manipulation;
+}
+
+.dark .trade-modal-footer .btn-reset {
+  background: #2d2d2d;
+  border-color: #404040;
+  color: #9ca3af;
+}
+
+.trade-modal-footer .btn-reset:active {
+  transform: scale(0.98);
+  background: #f3f4f6;
+}
+
+/* 保留旧的样式以兼容 */
 .trade-preview-mobile {
   background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
   border-radius: 12px;
@@ -4897,5 +5291,219 @@ watch(() => userStore.isLoggedIn, async (isLoggedIn) => {
 
 .dark .trade-preview-mobile .preview-item.impact .label {
   color: #94a3b8;
+}
+
+/* 资产选择器头部 */
+.asset-selector-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.btn-back-to-input {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  border: none;
+  background: rgba(99, 102, 241, 0.1);
+  color: #6366f1;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.dark .btn-back-to-input {
+  background: rgba(99, 102, 241, 0.2);
+  color: #818cf8;
+}
+
+.btn-back-to-input:active {
+  transform: scale(0.98);
+}
+
+/* 已选择资产显示 */
+.selected-asset-display {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border-radius: 12px;
+  padding: 12px 16px;
+  margin: 12px 0;
+}
+
+.dark .selected-asset-display {
+  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+}
+
+.selected-asset-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.selected-asset-info .iconify {
+  font-size: 24px;
+}
+
+.selected-asset-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.dark .selected-asset-name {
+  color: #f3f4f6;
+}
+
+.selected-asset-price {
+  font-size: 13px;
+  color: #6b7280;
+  background: rgba(0, 0, 0, 0.05);
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+
+.dark .selected-asset-price {
+  color: #9ca3af;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.btn-change-asset {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 14px;
+  border: 1px solid #e5e7eb;
+  background: white;
+  color: #6366f1;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.dark .btn-change-asset {
+  background: #2d2d2d;
+  border-color: #404040;
+  color: #818cf8;
+}
+
+.btn-change-asset:active {
+  transform: scale(0.98);
+  background: #f3f4f6;
+}
+
+/* 交易预览 - 完整版 */
+.trade-preview-full {
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border-radius: 12px;
+  padding: 16px;
+  margin: 12px 0;
+}
+
+.dark .trade-preview-full {
+  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+}
+
+.preview-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.dark .preview-header-row {
+  border-bottom-color: #334155;
+}
+
+.preview-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.dark .preview-title {
+  color: #d1d5db;
+}
+
+.preview-details-full {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.preview-details-full .preview-detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.preview-details-full .detail-label {
+  font-size: 13px;
+  color: #64748b;
+}
+
+.dark .preview-details-full .detail-label {
+  color: #94a3b8;
+}
+
+.preview-details-full .detail-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.dark .preview-details-full .detail-value {
+  color: #f3f4f6;
+}
+
+.preview-details-full .detail-value.highlight {
+  color: #6366f1;
+}
+
+.preview-details-full .detail-value.positive {
+  color: #10b981;
+}
+
+.preview-details-full .detail-value.negative {
+  color: #ef4444;
+}
+
+.preview-details-full .preview-detail-row.impact {
+  margin-top: 4px;
+  padding-top: 10px;
+  border-top: 1px dashed #cbd5e1;
+}
+
+.dark .preview-details-full .preview-detail-row.impact {
+  border-top-color: #475569;
+}
+
+.preview-details-full .preview-detail-row.impact .detail-label {
+  font-weight: 600;
+  color: #475569;
+}
+
+.dark .preview-details-full .preview-detail-row.impact .detail-label {
+  color: #94a3b8;
+}
+
+/* 移动端资产列表底部安全区域 */
+@media (max-width: 768px) {
+  .assets-list {
+    padding-bottom: calc(80px + env(safe-area-inset-bottom));
+  }
+
+  .mobile-trades-list {
+    padding-bottom: calc(80px + env(safe-area-inset-bottom));
+  }
 }
 </style>

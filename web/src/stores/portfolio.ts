@@ -106,18 +106,22 @@ export const usePortfolioStore = defineStore('portfolio', () => {
     }
   }
 
-  async function fetchDashboard(): Promise<TradeResult & { updatedAt?: number }> {
+  async function fetchDashboard(options: { useCache?: boolean; silent?: boolean } = {}): Promise<TradeResult & { updatedAt?: number }> {
     if (config.isBackend && !userStore.isLoggedIn) {
       resetDashboardData()
       return { success: false, error: '请先登录' }
     }
 
-    isLoading.value = true
+    const { useCache = true, silent = false } = options
+
+    if (!silent) {
+      isLoading.value = true
+    }
     error.value = null
 
     try {
       const [dashboardRes, tradesRes] = await Promise.all([
-        portfolioApi.getDashboard(),
+        portfolioApi.getDashboard(useCache),
         portfolioApi.getTrades()
       ])
 
@@ -172,8 +176,23 @@ export const usePortfolioStore = defineStore('portfolio', () => {
       console.error('获取仪表盘数据失败:', err)
       return { success: false, error: errorMsg }
     } finally {
-      isLoading.value = false
+      if (!silent) {
+        isLoading.value = false
+      }
     }
+  }
+
+  /**
+   * 分阶段加载：先使用缓存快速显示，再后台刷新最新数据
+   */
+  async function fetchDashboardStaged(): Promise<void> {
+    // 第一阶段：使用缓存快速显示（如果有缓存）
+    await fetchDashboard({ useCache: true, silent: true })
+
+    // 第二阶段：后台刷新最新数据
+    setTimeout(async () => {
+      await fetchDashboard({ useCache: false, silent: true })
+    }, 100)
   }
 
   function reconcileTrades(newTrades: Trade[]) {
@@ -394,6 +413,7 @@ export const usePortfolioStore = defineStore('portfolio', () => {
     realizedPLRate,
     cryptoValueChange24h,
     fetchDashboard,
+    fetchDashboardStaged,
     fetchAssetPrice,
     createTrade,
     deleteTrade,
