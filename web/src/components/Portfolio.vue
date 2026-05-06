@@ -288,8 +288,8 @@
                       :disabled="!isFormValid || portfolioStore.isLoading || isSubmitting.trade"
                       :class="newTrade.type"
                     >
-                      <Icon :icon="newTrade.type === 'buy' ? 'mdi:arrow-down' : 'mdi:arrow-up'" />
-                      {{ newTrade.type === 'buy' ? '确认买入' : '确认卖出' }}
+                      <Icon :icon="newTrade.type === 'buy' ? 'mdi:cart-plus' : 'mdi:cart-remove'" />
+                      {{ newTrade.type === 'buy' ? '买入' : '卖出' }}
                       <span class="submit-total" v-if="newTrade.amount && newTrade.price">
                         {{ formatCompactAmount(newTrade.amount * newTrade.price) }}
                       </span>
@@ -303,7 +303,8 @@
                       <Icon icon="mdi:eye" />
                     </button>
                     <button class="btn-reset" @click="clearForm">
-                      <Icon icon="mdi:close" /> 重置
+                      <Icon icon="bx:reset" />
+                      重置
                     </button>
                   </div>
                 </div>
@@ -1048,14 +1049,15 @@
             :disabled="!isFormValid || portfolioStore.isLoading || isSubmitting.trade"
             :class="newTrade.type"
           >
-            <Icon :icon="newTrade.type === 'buy' ? 'mdi:arrow-down' : 'mdi:arrow-up'" />
-            {{ newTrade.type === 'buy' ? '确认买入' : '确认卖出' }}
+            <Icon :icon="newTrade.type === 'buy' ? 'mdi:cart-plus' : 'mdi:cart-remove'" />
+            {{ newTrade.type === 'buy' ? '买入' : '卖出' }}
             <span class="submit-total" v-if="newTrade.amount && newTrade.price">
               {{ formatCompactAmount(newTrade.amount * newTrade.price) }}
             </span>
           </button>
           <button class="btn-reset" @click="clearForm">
-            <Icon icon="mdi:close" /> 重置
+            <Icon icon="bx:reset" />
+            重置
           </button>
         </div>
       </div>
@@ -3010,6 +3012,9 @@ watch(() => userStore.isLoggedIn, async (isLoggedIn) => {
   cursor: pointer;
   transition: all 0.15s ease;
   touch-action: manipulation;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .btn-submit:active:not(:disabled) {
@@ -3066,6 +3071,9 @@ watch(() => userStore.isLoggedIn, async (isLoggedIn) => {
   color: #6b7280;
   cursor: pointer;
   transition: all 0.3s ease;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .dark .btn-reset {
