@@ -890,13 +890,6 @@
           <div class="asset-selector" v-if="!newTrade.symbol || showAssetSelector">
             <div class="asset-selector-header">
               <label class="field-label">选择资产</label>
-              <button 
-                v-if="newTrade.symbol" 
-                class="btn-back-to-input"
-                @click="showAssetSelector = false"
-              >
-                <Icon icon="mdi:arrow-left" /> 返回
-              </button>
             </div>
             <div class="asset-grid">
               <button
@@ -1328,6 +1321,8 @@ const setSymbolPrice = async (symbol, focusInput = true) => {
 const selectSymbol = async (symbol) => {
   newTrade.value.symbol = symbol
   await setSymbolPrice(symbol, true)
+  // 点击资产后自动关闭选择器
+  showAssetSelector.value = false
 }
 
 const onSymbolChange = async () => {
