@@ -833,6 +833,7 @@
     <button
       v-if="isMobile"
       class="fab-btn"
+      :class="{ hidden: !showFab }"
       @click="showTradeModal = true"
       title="快速交易"
     >
@@ -1133,6 +1134,8 @@ const showPreviewDrawer = ref(false)
 const showDetailedPreview = ref(false) // 移动端交易预览详情展开状态
 const showAssetSelector = ref(false) // 移动端资产选择器显示状态
 const isMobile = ref(false) // 是否为移动端模式
+const showFab = ref(false) // FAB按钮显示状态，默认隐藏
+const lastScrollTop = ref(0) // 上次滚动位置
 const refreshInterval = ref(60)
 const selectedFilter = ref('all')
 const selectedAsset = ref(null)
@@ -1940,9 +1943,28 @@ const checkMobile = () => {
   }, 250)
 }
 
+// 处理滚动事件，控制FAB按钮显示/隐藏
+// 逻辑：页面加载后隐藏，只有向上滚动时才显示
+const handleScroll = () => {
+  const scrollTop = window.pageYOffset || document.documentElement.scrollTop
+
+  // 向上滚动时显示FAB
+  if (scrollTop < lastScrollTop.value) {
+    showFab.value = true
+  }
+  // 向下滚动时隐藏FAB
+  else if (scrollTop > lastScrollTop.value) {
+    showFab.value = false
+  }
+
+  lastScrollTop.value = scrollTop
+}
+
 onMounted(async () => {
   checkMobile()
   window.addEventListener('resize', checkMobile)
+  // 添加滚动监听
+  window.addEventListener('scroll', handleScroll, { passive: true })
 
   if (userStore.isLoggedIn) {
     isLoading.value = true
@@ -1962,6 +1984,7 @@ onMounted(async () => {
 
 onUnmounted(() => {
   window.removeEventListener('resize', checkMobile)
+  window.removeEventListener('scroll', handleScroll)
   if (resizeTimer) clearTimeout(resizeTimer)
   if (refreshTimer) {
     clearInterval(refreshTimer)
@@ -4863,6 +4886,12 @@ watch(() => userStore.isLoggedIn, async (isLoggedIn) => {
 
 .fab-btn:active {
   transform: scale(0.95);
+}
+
+.fab-btn.hidden {
+  transform: translateY(100px) scale(0.8);
+  opacity: 0;
+  pointer-events: none;
 }
 
 .dark .fab-btn {
