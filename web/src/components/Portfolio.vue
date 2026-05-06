@@ -515,7 +515,7 @@
                         </template>
                         <template v-else>
                           <div class="profit-value positive">
-                            +{{ formatValue(crypto.amount * crypto.current_price - crypto.cost) }}
+                            +{{ formatValue(crypto.amount * crypto.current_price - crypto.avg_cost * crypto.amount) }}
                           </div>
                           <div class="profit-rate" v-if="crypto.symbol !== 'USDT'">
                             <span class="status-badge super-profit">🚀 超100%回报</span>
@@ -1131,15 +1131,13 @@ const refreshing = ref(false)
 const errorMessage = ref('')
 const autoRefresh = ref(false)
 const showPreviewDrawer = ref(false)
-const showDetailedPreview = ref(false) // 移动端交易预览详情展开状态
-const showAssetSelector = ref(false) // 移动端资产选择器显示状态
-const isMobile = ref(false) // 是否为移动端模式
-const showFab = ref(false) // FAB按钮显示状态，默认隐藏
-const lastScrollTop = ref(0) // 上次滚动位置
+const showAssetSelector = ref(false)
+const isMobile = ref(false)
+const showFab = ref(false)
+const lastScrollTop = ref(0)
 const refreshInterval = ref(60)
 const selectedFilter = ref('all')
 const selectedAsset = ref(null)
-const symbolSelect = ref(null)
 const amountInput = ref(null)
 const showRechargeModal = ref(false)
 const rechargeAmount = ref(null)
@@ -1221,9 +1219,6 @@ const importResult = ref({
   overwritten: 0
 })
 const importError = ref('')
-
-// 防抖计时器
-let refreshDebounceTimer = null
 
 // 图表视图选项
 const chartViews = [
@@ -1366,50 +1361,50 @@ const getProfitClass = (crypto) => {
 }
 
 // 计算卖出时的预估实现盈亏（借贷记账法）
-// 实现盈亏 = USDT退出 - USDT投入（按卖出比例计算）
+// 实现盈亏 = USD收入 - USD成本（按卖出比例计算）
 const calculateEstimatedRealizedPL = () => {
   if (newTrade.value.type !== 'sell') return 0
   const existing = portfolio.value?.find(c => c.symbol === newTrade.value.symbol)
   if (!existing || existing.amount === 0) return 0
 
-  // 本次卖出获得的USDT
-  const usdtOut = newTrade.value.price * newTrade.value.amount
+  // 本次卖出获得的USD
+  const usdOut = newTrade.value.price * newTrade.value.amount
 
-  // 按卖出比例计算的USDT投入成本
+  // 按卖出比例计算的USD投入成本
+  // 总成本 = 平均成本 * 持仓数量
+  const totalCost = existing.avg_cost * existing.amount
   const costRatio = newTrade.value.amount / existing.amount
-  const usdtIn = existing.cost * costRatio
+  const usdIn = totalCost * costRatio
 
-  return usdtOut - usdtIn
+  return usdOut - usdIn
 }
 
 // 计算交易后的新综合成本价（借贷记账法）
-// 买入: 新成本价 = (当前成本 + 本次投入) / (当前持仓 + 本次买入量)
+// 买入: 新成本价 = (当前总成本 + 本次投入) / (当前持仓 + 本次买入量)
 // 卖出: 新成本价 = 当前成本（保持不变，因为按比例回收成本）
 const calculateNewAvgCost = () => {
   if (!newTrade.value.symbol) return 0
   const existing = portfolio.value?.find(c => c.symbol === newTrade.value.symbol)
   const currentAmount = existing ? existing.amount : 0
-  const currentCost = existing ? existing.cost : 0
-  const tradeAmount = newTrade.value.amount
-  const tradeTotal = newTrade.value.amount * newTrade.value.price
+  const currentAvgCost = existing ? existing.avg_cost : 0
+  const tradeAmount = newTrade.value.amount || 0
+  const tradeTotal = tradeAmount * (newTrade.value.price || 0)
 
   if (newTrade.value.type === 'buy') {
     // 买入逻辑
-    if (currentAmount === 0) return newTrade.value.price
-    const totalCost = currentCost + tradeTotal
-    const totalAmount = currentAmount + tradeAmount
-    return totalCost / totalAmount
+    if (currentAmount === 0) return newTrade.value.price || 0
+    // 当前总成本 = 平均成本 * 持仓数量
+    const currentTotalCost = currentAvgCost * currentAmount
+    const newTotalCost = currentTotalCost + tradeTotal
+    const newTotalAmount = currentAmount + tradeAmount
+    return newTotalAmount > 0 ? newTotalCost / newTotalAmount : 0
   } else if (newTrade.value.type === 'sell') {
     // 卖出逻辑：成本价保持不变（借贷记账法）
     if (!existing || currentAmount === 0) return 0
     // 如果全部卖出，成本价为0
     if (tradeAmount >= currentAmount) return 0
-    // 成本价 = 剩余成本 / 剩余数量 = (currentCost - 按比例回收成本) / (currentAmount - tradeAmount)
-    // 由于 按比例回收成本 = currentCost * (tradeAmount / currentAmount)
-    // 所以 剩余成本 = currentCost * (currentAmount - tradeAmount) / currentAmount
-    // 成本价 = [currentCost * (currentAmount - tradeAmount) / currentAmount] / (currentAmount - tradeAmount)
-    // 成本价 = currentCost / currentAmount = 原成本价
-    return currentCost / currentAmount
+    // 成本价保持不变
+    return currentAvgCost
   }
   return 0
 }
@@ -1559,11 +1554,6 @@ const clearForm = () => {
     price: null
   }
   showAssetSelector.value = false
-  nextTick(() => {
-    if (symbolSelect.value) {
-      symbolSelect.value.focus()
-    }
-  })
 }
 
 const selectAsset = (symbol) => {
@@ -1594,28 +1584,13 @@ const setQuickBuyAmount = (percent) => {
 // 使用导入的工具函数
 const formatDate = formatDateTime
 
-const REFRESH_DEBOUNCE_MS = 5000 // 5秒内禁止重复刷新
-
 const refreshPrices = async () => {
   if (refreshing.value) return
-
-  // 防抖检查
-  if (refreshDebounceTimer) {
-    errorMessage.value = '刷新过于频繁，请稍后再试'
-    setTimeout(() => errorMessage.value = '', 2000)
-    return
-  }
-
-  // 设置防抖计时器
-  refreshDebounceTimer = setTimeout(() => {
-    refreshDebounceTimer = null
-  }, REFRESH_DEBOUNCE_MS)
 
   refreshing.value = true
   errorMessage.value = ''
 
   try {
-    // 强制刷新，忽略缓存
     const result = await portfolioStore.fetchDashboard({ useCache: false })
 
     if (!result.success) {

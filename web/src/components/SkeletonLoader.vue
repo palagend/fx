@@ -1,5 +1,5 @@
 <template>
-  <div class="skeleton-container">
+  <div class="skeleton-container" aria-busy="true" aria-label="加载中">
     <!-- 概览卡片骨架 -->
     <div class="overview-skeleton">
       <div v-for="i in 5" :key="'overview-' + i" class="skeleton-card">
@@ -118,12 +118,60 @@
 </script>
 
 <style scoped>
+/* CSS 变量定义 */
+:root {
+  --skeleton-bg: #e5e7eb;
+  --skeleton-highlight: #f3f4f6;
+  --skeleton-card-bg: var(--card-bg, #f9fafb);
+}
+
+/* 基础骨架动画 - 使用 transform 代替 background-position 提升性能 */
+@keyframes skeleton-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
+@keyframes skeleton-shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* 骨架元素基础样式 */
+.skeleton-base {
+  background: var(--skeleton-bg);
+  position: relative;
+  overflow: hidden;
+}
+
+.skeleton-base::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--skeleton-highlight) 50%,
+    transparent 100%
+  );
+  animation: skeleton-shimmer 1.5s ease-in-out infinite;
+}
+
+/* 容器 */
 .skeleton-container {
   padding: 16px;
 }
 
+/* 卡片基础样式 */
 .skeleton-card {
-  background: var(--card-bg, #f9fafb);
+  background: var(--skeleton-card-bg);
   border-radius: 12px;
   padding: 20px;
   display: flex;
@@ -131,11 +179,13 @@
   gap: 12px;
 }
 
+/* 线条变体 */
 .skeleton-line {
-  background: linear-gradient(90deg, #e5e7eb 25%, #f3f4f6 50%, #e5e7eb 75%);
-  background-size: 200% 100%;
-  animation: skeleton-loading 1.5s ease-in-out infinite;
+  composes: skeleton-base;
+  height: 16px;
   border-radius: 4px;
+  background: var(--skeleton-bg);
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
 }
 
 .skeleton-line.tiny {
@@ -159,13 +209,14 @@
   max-width: 200px;
 }
 
+/* 按钮变体 */
 .skeleton-btn {
-  background: linear-gradient(90deg, #e5e7eb 25%, #f3f4f6 50%, #e5e7eb 75%);
-  background-size: 200% 100%;
-  animation: skeleton-loading 1.5s ease-in-out infinite;
-  border-radius: 8px;
+  composes: skeleton-base;
   height: 36px;
   width: 100px;
+  border-radius: 8px;
+  background: var(--skeleton-bg);
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
 }
 
 .skeleton-btn.small {
@@ -184,13 +235,14 @@
   max-width: 200px;
 }
 
+/* 图标变体 */
 .skeleton-icon {
-  background: linear-gradient(90deg, #e5e7eb 25%, #f3f4f6 50%, #e5e7eb 75%);
-  background-size: 200% 100%;
-  animation: skeleton-loading 1.5s ease-in-out infinite;
-  border-radius: 12px;
+  composes: skeleton-base;
   width: 48px;
   height: 48px;
+  border-radius: 12px;
+  background: var(--skeleton-bg);
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
 }
 
 .skeleton-icon.small {
@@ -198,42 +250,79 @@
   height: 24px;
 }
 
+/* 选择器 */
 .skeleton-select {
-  background: linear-gradient(90deg, #e5e7eb 25%, #f3f4f6 50%, #e5e7eb 75%);
-  background-size: 200% 100%;
-  animation: skeleton-loading 1.5s ease-in-out infinite;
-  border-radius: 6px;
+  composes: skeleton-base;
   height: 32px;
   width: 120px;
+  border-radius: 6px;
+  background: var(--skeleton-bg);
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
 }
 
 .skeleton-select.small {
   width: 80px;
 }
 
+/* 徽章 */
 .skeleton-badge {
-  background: linear-gradient(90deg, #e5e7eb 25%, #f3f4f6 50%, #e5e7eb 75%);
-  background-size: 200% 100%;
-  animation: skeleton-loading 1.5s ease-in-out infinite;
-  border-radius: 12px;
+  composes: skeleton-base;
   height: 20px;
   width: 50px;
+  border-radius: 12px;
+  background: var(--skeleton-bg);
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
 }
 
+/* 颜色块 */
 .skeleton-color {
-  background: linear-gradient(90deg, #e5e7eb 25%, #f3f4f6 50%, #e5e7eb 75%);
-  background-size: 200% 100%;
-  animation: skeleton-loading 1.5s ease-in-out infinite;
-  border-radius: 4px;
+  composes: skeleton-base;
   width: 16px;
   height: 16px;
+  border-radius: 4px;
+  background: var(--skeleton-bg);
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
 }
 
-@keyframes skeleton-loading {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
+/* 标签 */
+.skeleton-tab {
+  composes: skeleton-base;
+  height: 36px;
+  width: 80px;
+  border-radius: 8px;
+  background: var(--skeleton-bg);
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
 }
 
+/* 资产按钮 */
+.skeleton-asset-btn {
+  composes: skeleton-base;
+  height: 56px;
+  border-radius: 10px;
+  background: var(--skeleton-bg);
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
+}
+
+/* 输入框 */
+.skeleton-input {
+  composes: skeleton-base;
+  height: 44px;
+  border-radius: 10px;
+  background: var(--skeleton-bg);
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
+}
+
+/* 图表 */
+.skeleton-chart {
+  composes: skeleton-base;
+  width: 200px;
+  height: 200px;
+  border-radius: 50%;
+  background: var(--skeleton-bg);
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
+}
+
+/* 布局区域 */
 .overview-skeleton {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -261,15 +350,6 @@
   gap: 40px;
 }
 
-.skeleton-chart {
-  background: linear-gradient(90deg, #e5e7eb 25%, #f3f4f6 50%, #e5e7eb 75%);
-  background-size: 200% 100%;
-  animation: skeleton-loading 1.5s ease-in-out infinite;
-  border-radius: 50%;
-  width: 200px;
-  height: 200px;
-}
-
 .skeleton-legend {
   display: flex;
   flex-direction: column;
@@ -294,15 +374,6 @@
   gap: 8px;
 }
 
-.skeleton-tab {
-  background: linear-gradient(90deg, #e5e7eb 25%, #f3f4f6 50%, #e5e7eb 75%);
-  background-size: 200% 100%;
-  animation: skeleton-loading 1.5s ease-in-out infinite;
-  border-radius: 8px;
-  height: 36px;
-  width: 80px;
-}
-
 .skeleton-asset-selector {
   margin-top: 16px;
 }
@@ -312,14 +383,6 @@
   grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
   gap: 8px;
   margin-top: 12px;
-}
-
-.skeleton-asset-btn {
-  background: linear-gradient(90deg, #e5e7eb 25%, #f3f4f6 50%, #e5e7eb 75%);
-  background-size: 200% 100%;
-  animation: skeleton-loading 1.5s ease-in-out infinite;
-  border-radius: 10px;
-  height: 56px;
 }
 
 .skeleton-inputs {
@@ -333,14 +396,6 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-}
-
-.skeleton-input {
-  background: linear-gradient(90deg, #e5e7eb 25%, #f3f4f6 50%, #e5e7eb 75%);
-  background-size: 200% 100%;
-  animation: skeleton-loading 1.5s ease-in-out infinite;
-  border-radius: 10px;
-  height: 44px;
 }
 
 .skeleton-actions {
@@ -376,11 +431,6 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
-}
-
-.skeleton-actions {
-  display: flex;
-  gap: 8px;
 }
 
 .skeleton-card-body {
@@ -425,6 +475,7 @@
   gap: 10px;
 }
 
+/* 暗黑模式 */
 .dark .skeleton-card {
   background: rgba(30, 30, 30, 0.98);
 }
@@ -437,8 +488,10 @@
 .dark .skeleton-color,
 .dark .skeleton-tab,
 .dark .skeleton-asset-btn,
-.dark .skeleton-input {
-  background: linear-gradient(90deg, #374151 25%, #4b5563 50%, #374151 75%);
+.dark .skeleton-input,
+.dark .skeleton-chart {
+  background: #374151;
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
 }
 
 .dark .skeleton-asset-card,
@@ -446,6 +499,23 @@
   background: rgba(255, 255, 255, 0.02);
 }
 
+/* 减少动画偏好 */
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-line,
+  .skeleton-btn,
+  .skeleton-icon,
+  .skeleton-select,
+  .skeleton-badge,
+  .skeleton-color,
+  .skeleton-tab,
+  .skeleton-asset-btn,
+  .skeleton-input,
+  .skeleton-chart {
+    animation: none;
+  }
+}
+
+/* 移动端适配 */
 @media (max-width: 768px) {
   .skeleton-container {
     padding: 0;

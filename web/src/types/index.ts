@@ -4,7 +4,7 @@ export interface Asset {
   amount: number
   price: number
   market_value: number
-  cost_basis: number
+  avg_cost: number
   profit_loss: number
   profit_loss_percent: number
   asset_type: 'crypto' | 'us_stock' | 'cash'
