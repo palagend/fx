@@ -291,7 +291,7 @@
                       <Icon :icon="newTrade.type === 'buy' ? 'mdi:arrow-down' : 'mdi:arrow-up'" />
                       {{ newTrade.type === 'buy' ? '确认买入' : '确认卖出' }}
                       <span class="submit-total" v-if="newTrade.amount && newTrade.price">
-                        ${{ formatAmount(newTrade.amount * newTrade.price) }}
+                        {{ formatCompactAmount(newTrade.amount * newTrade.price) }}
                       </span>
                     </button>
                     <button
@@ -1051,7 +1051,7 @@
             <Icon :icon="newTrade.type === 'buy' ? 'mdi:arrow-down' : 'mdi:arrow-up'" />
             {{ newTrade.type === 'buy' ? '确认买入' : '确认卖出' }}
             <span class="submit-total" v-if="newTrade.amount && newTrade.price">
-              ${{ formatAmount(newTrade.amount * newTrade.price) }}
+              {{ formatCompactAmount(newTrade.amount * newTrade.price) }}
             </span>
           </button>
           <button class="btn-reset" @click="clearForm">
