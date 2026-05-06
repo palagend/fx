@@ -170,6 +170,8 @@ const supportedCryptos: Record<string, boolean> = {
   'TRX': true,
   'AVAX': true,
   'HYPE': true,
+  'POL': true,
+  'DOT': true,
   'USDT': true
 }
 
@@ -184,7 +186,8 @@ const supportedUSStocks: Record<string, boolean> = {
   'BABA': true,
   'ORCL': true,
   'CRCL': true,
-  'MSTR': true
+  'MSTR': true,
+  'QQQI': true
 }
 
 const symbolToCoinCapId: Record<string, string> = {
@@ -198,6 +201,8 @@ const symbolToCoinCapId: Record<string, string> = {
   'TRX': 'tron',
   'AVAX': 'avalanche',
   'HYPE': 'hyperliquid',
+  'POL': 'polygon-ecosystem-token',
+  'DOT': 'polkadot',
   'USDT': 'tether'
 }
 

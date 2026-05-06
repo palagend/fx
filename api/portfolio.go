@@ -44,7 +44,7 @@ func updateHolding(tx *gorm.DB, holding *models.Holding, delta float64) error {
 
 // ========== 请求/响应结构 ==========
 
-// 支持的加密货币列表（包含USDT）
+// 支持的加密货币列表
 var supportedCryptos = map[string]bool{
 	"BTC":  true,
 	"ETH":  true,
@@ -56,7 +56,9 @@ var supportedCryptos = map[string]bool{
 	"TRX":  true,
 	"AVAX": true,
 	"HYPE": true,
-	"USDT": true, // USDT作为普通加密资产
+	"POL":  true,
+	"DOT":  true,
+	"USDT": true,
 }
 
 // 支持的美股列表
@@ -72,6 +74,7 @@ var supportedUSStocks = map[string]bool{
 	"ORCL": true,
 	"CRCL": true,
 	"MSTR": true,
+	"QQQI": true,
 }
 
 // BusinessError 业务错误类型

@@ -66,7 +66,9 @@ export const CRYPTO_CONFIG = {
     DOGE: '#C2A633',
     TRX: '#EB0029',
     AVAX: '#E84142',
-    HYPE: '#89F0E6'
+    HYPE: '#89F0E6',
+    POL: '#8247E5',
+    DOT: '#E6007A'
   } as Record<string, string>,
   ICONS: {
     USDT: 'cryptocurrency-color:usdt',
@@ -79,7 +81,9 @@ export const CRYPTO_CONFIG = {
     DOGE: 'cryptocurrency-color:doge',
     TRX: 'cryptocurrency-color:trx',
     AVAX: 'cryptocurrency-color:avax',
-    HYPE: 'token:hyper-evm'
+    HYPE: 'token:hyper-evm',
+    POL: 'token-branded:polygon-zkevm',
+    DOT: 'token-branded:polkadot'
   } as Record<string, string>,
   NAMES: {
     USDT: 'Tether',
@@ -92,7 +96,9 @@ export const CRYPTO_CONFIG = {
     DOGE: 'Dogecoin',
     TRX: 'Tron',
     AVAX: 'Avalanche',
-    HYPE: 'Hyperliquid'
+    HYPE: 'Hyperliquid',
+    POL: 'Polygon',
+    DOT: 'Polkadot'
   } as Record<string, string>
 }
 
@@ -141,7 +147,8 @@ export const USSTOCK_CONFIG = {
     'BABA': '#FF6A00',
     'ORCL': '#F80000',
     'CRCL': '#00A86B',
-    'MSTR': '#1A1A1A'
+    'MSTR': '#1A1A1A',
+    'QQQI': '#00A1E0'
   } as Record<string, string>,
   ICONS: {
     'AAPL': 'simple-icons:apple',
@@ -154,7 +161,8 @@ export const USSTOCK_CONFIG = {
     'BABA': 'simple-icons:alibabadotcom',
     'ORCL': 'simple-icons:oracle',
     'CRCL': 'simple-icons:circle',
-    'MSTR': 'simple-icons:microstrategy'
+    'MSTR': 'simple-icons:microstrategy',
+    'QQQI': 'mdi:chart-line'
   } as Record<string, string>,
   NAMES: {
     'AAPL': 'Apple',
@@ -167,7 +175,8 @@ export const USSTOCK_CONFIG = {
     'BABA': 'Alibaba',
     'ORCL': 'Oracle',
     'CRCL': 'Circle',
-    'MSTR': 'MicroStrategy'
+    'MSTR': 'MicroStrategy',
+    'QQQI': 'Nasdaq 100 Income'
   } as Record<string, string>
 }
 
@@ -196,9 +205,9 @@ export const HKSTOCK_CONFIG = {
 }
 
 export const AVAILABLE_ASSETS = {
-  CRYPTO: ['BTC', 'ETH', 'BNB', 'XRP', 'ADA', 'SOL', 'DOGE', 'TRX', 'AVAX', 'HYPE'] as const,
+  CRYPTO: ['BTC', 'ETH', 'BNB', 'SOL', 'TRX', 'HYPE', 'XRP', 'POL', 'DOGE', 'AVAX', 'ADA', 'DOT'] as const,
   A_STOCK: ['600519', '000858', '000333', '002415', '300750', '601318', '600036', '000002'] as const,
-  US_STOCK: ['AAPL', 'MSFT', 'GOOG', 'AMZN', 'TSLA', 'META', 'NVDA', 'BABA', 'ORCL', 'CRCL', 'MSTR'] as const,
+  US_STOCK: ['GOOG', 'TSLA', 'CRCL', 'QQQI', 'NVDA', 'AAPL', 'MSTR', 'AMZN', 'BABA', 'META', 'MSFT', 'ORCL'] as const,
   HK_STOCK: ['0700', '3690', '9988', '2318', '0005'] as const
 }
 
