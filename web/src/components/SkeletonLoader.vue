@@ -1,19 +1,41 @@
 <template>
   <div class="skeleton-container" aria-busy="true" aria-label="加载中">
-    <!-- 概览卡片骨架 -->
-    <div class="overview-skeleton">
-      <div v-for="i in 5" :key="'overview-' + i" class="skeleton-card">
-        <div class="skeleton-line short"></div>
-        <div class="skeleton-line long"></div>
-        <div class="skeleton-line medium"></div>
+    <!-- 移动端顶部导航骨架 -->
+    <div class="mobile-top-nav-skeleton">
+      <div v-for="i in 4" :key="'tab-' + i" class="skeleton-tab-item">
+        <div class="skeleton-icon tiny"></div>
+        <div class="skeleton-line tiny"></div>
       </div>
     </div>
 
-    <!-- 图表区域骨架 -->
+    <!-- 概览标签页骨架 -->
+    <div class="overview-skeleton">
+      <!-- 总资产卡片 -->
+      <div class="skeleton-card total-card">
+        <div class="skeleton-card-header-row">
+          <div class="skeleton-line short"></div>
+          <div class="skeleton-toggle"></div>
+        </div>
+        <div class="skeleton-line large"></div>
+        <div class="skeleton-line medium"></div>
+      </div>
+      <!-- 其他概览卡片 -->
+      <div class="overview-grid">
+        <div v-for="i in 3" :key="'overview-card-' + i" class="skeleton-card">
+          <div class="skeleton-line short"></div>
+          <div class="skeleton-line long"></div>
+          <div class="skeleton-line medium"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 资产分布标签页骨架 -->
     <div class="chart-skeleton">
       <div class="skeleton-header">
         <div class="skeleton-line medium"></div>
-        <div class="skeleton-btn"></div>
+        <div class="skeleton-view-toggle">
+          <div v-for="i in 4" :key="'view-' + i" class="skeleton-view-btn"></div>
+        </div>
       </div>
       <div class="skeleton-chart-wrapper">
         <div class="skeleton-chart"></div>
@@ -27,65 +49,36 @@
       </div>
     </div>
 
-    <!-- 交易区域骨架 -->
-    <div class="trading-skeleton">
-      <div class="skeleton-header">
-        <div class="skeleton-line medium"></div>
-        <div class="skeleton-tabs">
-          <div class="skeleton-tab"></div>
-          <div class="skeleton-tab"></div>
-        </div>
-      </div>
-      <div class="skeleton-asset-selector">
-        <div class="skeleton-line short"></div>
-        <div class="skeleton-grid">
-          <div v-for="i in 6" :key="'asset-' + i" class="skeleton-asset-btn"></div>
-        </div>
-      </div>
-      <div class="skeleton-inputs">
-        <div class="skeleton-input-group">
-          <div class="skeleton-line short"></div>
-          <div class="skeleton-input"></div>
-        </div>
-        <div class="skeleton-input-group">
-          <div class="skeleton-line short"></div>
-          <div class="skeleton-input"></div>
-        </div>
-      </div>
-      <div class="skeleton-actions">
-        <div class="skeleton-btn long"></div>
-        <div class="skeleton-btn small"></div>
-      </div>
-    </div>
-
-    <!-- 资产列表骨架 -->
+    <!-- 资产详情标签页骨架 -->
     <div class="portfolio-skeleton">
       <div class="skeleton-header">
         <div class="skeleton-line medium"></div>
         <div class="skeleton-select"></div>
       </div>
-      <div v-for="i in 3" :key="'asset-card-' + i" class="skeleton-asset-card">
-        <div class="skeleton-card-header">
-          <div class="skeleton-icon"></div>
-          <div class="skeleton-info">
-            <div class="skeleton-line short"></div>
-            <div class="skeleton-line tiny"></div>
+      <div class="mobile-asset-cards">
+        <div v-for="i in 3" :key="'asset-card-' + i" class="skeleton-asset-card">
+          <div class="skeleton-card-header">
+            <div class="skeleton-icon"></div>
+            <div class="skeleton-info">
+              <div class="skeleton-line short"></div>
+              <div class="skeleton-line tiny"></div>
+            </div>
+            <div class="skeleton-actions">
+              <div class="skeleton-btn tiny"></div>
+              <div class="skeleton-btn tiny"></div>
+            </div>
           </div>
-          <div class="skeleton-actions">
-            <div class="skeleton-btn tiny"></div>
-            <div class="skeleton-btn tiny"></div>
-          </div>
-        </div>
-        <div class="skeleton-card-body">
-          <div v-for="j in 4" :key="'row-' + j" class="skeleton-row">
-            <div class="skeleton-line tiny"></div>
-            <div class="skeleton-line short"></div>
+          <div class="skeleton-card-body">
+            <div v-for="j in 3" :key="'row-' + j" class="skeleton-row">
+              <div class="skeleton-line tiny"></div>
+              <div class="skeleton-line short"></div>
+            </div>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- 交易历史骨架 -->
+    <!-- 历史标签页骨架 -->
     <div class="trades-skeleton">
       <div class="skeleton-header">
         <div class="skeleton-line medium"></div>
@@ -95,21 +88,31 @@
           <div class="skeleton-select small"></div>
         </div>
       </div>
-      <div v-for="i in 3" :key="'trade-' + i" class="skeleton-trade-card">
-        <div class="skeleton-trade-header">
-          <div class="skeleton-badge"></div>
-          <div class="skeleton-line tiny"></div>
-        </div>
-        <div class="skeleton-trade-main">
-          <div class="skeleton-icon small"></div>
-          <div class="skeleton-line short"></div>
-          <div class="skeleton-line short"></div>
-        </div>
-        <div class="skeleton-trade-details">
-          <div class="skeleton-line tiny"></div>
-          <div class="skeleton-line tiny"></div>
+      <div class="mobile-trade-cards">
+        <div v-for="i in 3" :key="'trade-' + i" class="skeleton-trade-card">
+          <div class="skeleton-trade-header">
+            <div class="skeleton-badge"></div>
+            <div class="skeleton-line tiny"></div>
+          </div>
+          <div class="skeleton-trade-main">
+            <div class="skeleton-icon small"></div>
+            <div class="skeleton-trade-info">
+              <div class="skeleton-line short"></div>
+              <div class="skeleton-line tiny"></div>
+            </div>
+            <div class="skeleton-line short"></div>
+          </div>
+          <div class="skeleton-trade-details">
+            <div class="skeleton-line tiny"></div>
+            <div class="skeleton-line tiny"></div>
+          </div>
         </div>
       </div>
+    </div>
+
+    <!-- 移动端浮动按钮骨架 -->
+    <div class="mobile-fab-skeleton">
+      <div class="skeleton-fab"></div>
     </div>
   </div>
 </template>
@@ -125,7 +128,7 @@
   --skeleton-card-bg: var(--card-bg, #f9fafb);
 }
 
-/* 基础骨架动画 - 使用 transform 代替 background-position 提升性能 */
+/* 基础骨架动画 */
 @keyframes skeleton-pulse {
   0%, 100% {
     opacity: 1;
@@ -135,56 +138,15 @@
   }
 }
 
-@keyframes skeleton-shimmer {
-  0% {
-    transform: translateX(-100%);
-  }
-  100% {
-    transform: translateX(100%);
-  }
-}
-
-/* 骨架元素基础样式 */
-.skeleton-base {
-  background: var(--skeleton-bg);
-  position: relative;
-  overflow: hidden;
-}
-
-.skeleton-base::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    var(--skeleton-highlight) 50%,
-    transparent 100%
-  );
-  animation: skeleton-shimmer 1.5s ease-in-out infinite;
-}
-
 /* 容器 */
 .skeleton-container {
   padding: 16px;
 }
 
-/* 卡片基础样式 */
-.skeleton-card {
-  background: var(--skeleton-card-bg);
-  border-radius: 12px;
-  padding: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
 /* 线条变体 */
 .skeleton-line {
-  composes: skeleton-base;
-  height: 16px;
-  border-radius: 4px;
   background: var(--skeleton-bg);
+  border-radius: 4px;
   animation: skeleton-pulse 1.5s ease-in-out infinite;
 }
 
@@ -204,18 +166,23 @@
 }
 
 .skeleton-line.long {
-  height: 24px;
+  height: 20px;
+  width: 100%;
+  max-width: 180px;
+}
+
+.skeleton-line.large {
+  height: 32px;
   width: 100%;
   max-width: 200px;
 }
 
 /* 按钮变体 */
 .skeleton-btn {
-  composes: skeleton-base;
+  background: var(--skeleton-bg);
   height: 36px;
   width: 100px;
   border-radius: 8px;
-  background: var(--skeleton-bg);
   animation: skeleton-pulse 1.5s ease-in-out infinite;
 }
 
@@ -230,33 +197,33 @@
   border-radius: 8px;
 }
 
-.skeleton-btn.long {
-  width: 100%;
-  max-width: 200px;
-}
-
 /* 图标变体 */
 .skeleton-icon {
-  composes: skeleton-base;
+  background: var(--skeleton-bg);
   width: 48px;
   height: 48px;
   border-radius: 12px;
-  background: var(--skeleton-bg);
   animation: skeleton-pulse 1.5s ease-in-out infinite;
 }
 
 .skeleton-icon.small {
   width: 24px;
   height: 24px;
+  border-radius: 6px;
+}
+
+.skeleton-icon.tiny {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
 }
 
 /* 选择器 */
 .skeleton-select {
-  composes: skeleton-base;
+  background: var(--skeleton-bg);
   height: 32px;
   width: 120px;
   border-radius: 6px;
-  background: var(--skeleton-bg);
   animation: skeleton-pulse 1.5s ease-in-out infinite;
 }
 
@@ -266,70 +233,99 @@
 
 /* 徽章 */
 .skeleton-badge {
-  composes: skeleton-base;
+  background: var(--skeleton-bg);
   height: 20px;
   width: 50px;
   border-radius: 12px;
-  background: var(--skeleton-bg);
   animation: skeleton-pulse 1.5s ease-in-out infinite;
 }
 
 /* 颜色块 */
 .skeleton-color {
-  composes: skeleton-base;
+  background: var(--skeleton-bg);
   width: 16px;
   height: 16px;
   border-radius: 4px;
-  background: var(--skeleton-bg);
   animation: skeleton-pulse 1.5s ease-in-out infinite;
 }
 
-/* 标签 */
-.skeleton-tab {
-  composes: skeleton-base;
-  height: 36px;
-  width: 80px;
+/* 切换按钮 */
+.skeleton-toggle {
+  background: var(--skeleton-bg);
+  height: 32px;
+  width: 100px;
+  border-radius: 16px;
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
+}
+
+/* 视图切换 */
+.skeleton-view-toggle {
+  display: flex;
+  gap: 4px;
+  background: var(--skeleton-bg);
+  padding: 4px;
+  border-radius: 10px;
+}
+
+.skeleton-view-btn {
+  background: var(--skeleton-bg);
+  height: 32px;
+  width: 60px;
   border-radius: 8px;
-  background: var(--skeleton-bg);
   animation: skeleton-pulse 1.5s ease-in-out infinite;
 }
 
-/* 资产按钮 */
-.skeleton-asset-btn {
-  composes: skeleton-base;
-  height: 56px;
-  border-radius: 10px;
-  background: var(--skeleton-bg);
-  animation: skeleton-pulse 1.5s ease-in-out infinite;
+/* 标签项 */
+.skeleton-tab-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
 }
 
-/* 输入框 */
-.skeleton-input {
-  composes: skeleton-base;
-  height: 44px;
-  border-radius: 10px;
-  background: var(--skeleton-bg);
-  animation: skeleton-pulse 1.5s ease-in-out infinite;
+/* 移动端顶部导航 */
+.mobile-top-nav-skeleton {
+  display: none;
+  justify-content: space-around;
+  background: var(--card-bg, white);
+  border-radius: 12px;
+  padding: 8px;
+  margin-bottom: 16px;
 }
 
-/* 图表 */
-.skeleton-chart {
-  composes: skeleton-base;
-  width: 200px;
-  height: 200px;
-  border-radius: 50%;
-  background: var(--skeleton-bg);
-  animation: skeleton-pulse 1.5s ease-in-out infinite;
-}
-
-/* 布局区域 */
+/* 概览区域 */
 .overview-skeleton {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 16px;
   margin-bottom: 20px;
 }
 
+.overview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.skeleton-card {
+  background: var(--skeleton-card-bg);
+  border-radius: 12px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.skeleton-card.total-card {
+  gap: 16px;
+}
+
+.skeleton-card-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* 图表区域 */
 .chart-skeleton {
   background: var(--card-bg, white);
   border-radius: 12px;
@@ -342,12 +338,22 @@
   justify-content: space-between;
   align-items: center;
   margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 12px;
 }
 
 .skeleton-chart-wrapper {
   display: flex;
   align-items: center;
   gap: 40px;
+}
+
+.skeleton-chart {
+  background: var(--skeleton-bg);
+  width: 200px;
+  height: 200px;
+  border-radius: 50%;
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
 }
 
 .skeleton-legend {
@@ -362,59 +368,22 @@
   gap: 10px;
 }
 
-.trading-skeleton {
-  background: var(--card-bg, white);
-  border-radius: 16px;
-  padding: 20px;
-  margin-bottom: 20px;
-}
-
-.skeleton-tabs {
-  display: flex;
-  gap: 8px;
-}
-
-.skeleton-asset-selector {
-  margin-top: 16px;
-}
-
-.skeleton-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
-  gap: 8px;
-  margin-top: 12px;
-}
-
-.skeleton-inputs {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 16px;
-  margin-top: 20px;
-}
-
-.skeleton-input-group {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.skeleton-actions {
-  display: flex;
-  gap: 12px;
-  margin-top: 16px;
-}
-
-.portfolio-skeleton,
-.trades-skeleton {
+/* 资产列表区域 */
+.portfolio-skeleton {
   background: var(--card-bg, white);
   border-radius: 12px;
   padding: 20px;
   margin-bottom: 20px;
 }
 
+.mobile-asset-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
 .skeleton-asset-card {
   padding: 16px;
-  margin-bottom: 12px;
   border-radius: 16px;
   background: rgba(0, 0, 0, 0.02);
 }
@@ -444,9 +413,22 @@
   justify-content: space-between;
 }
 
+/* 交易历史区域 */
+.trades-skeleton {
+  background: var(--card-bg, white);
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.mobile-trade-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
 .skeleton-trade-card {
   padding: 14px;
-  margin-bottom: 10px;
   border-radius: 12px;
   background: rgba(0, 0, 0, 0.02);
 }
@@ -465,6 +447,13 @@
   margin-bottom: 10px;
 }
 
+.skeleton-trade-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
 .skeleton-trade-details {
   display: flex;
   justify-content: space-between;
@@ -473,6 +462,22 @@
 .skeleton-actions-row {
   display: flex;
   gap: 10px;
+}
+
+/* 浮动按钮 */
+.mobile-fab-skeleton {
+  display: none;
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+}
+
+.skeleton-fab {
+  background: var(--skeleton-bg);
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
 }
 
 /* 暗黑模式 */
@@ -486,12 +491,11 @@
 .dark .skeleton-select,
 .dark .skeleton-badge,
 .dark .skeleton-color,
-.dark .skeleton-tab,
-.dark .skeleton-asset-btn,
-.dark .skeleton-input,
-.dark .skeleton-chart {
+.dark .skeleton-toggle,
+.dark .skeleton-view-btn,
+.dark .skeleton-chart,
+.dark .skeleton-fab {
   background: #374151;
-  animation: skeleton-pulse 1.5s ease-in-out infinite;
 }
 
 .dark .skeleton-asset-card,
@@ -507,10 +511,10 @@
   .skeleton-select,
   .skeleton-badge,
   .skeleton-color,
-  .skeleton-tab,
-  .skeleton-asset-btn,
-  .skeleton-input,
-  .skeleton-chart {
+  .skeleton-toggle,
+  .skeleton-view-btn,
+  .skeleton-chart,
+  .skeleton-fab {
     animation: none;
   }
 }
@@ -521,11 +525,22 @@
     padding: 0;
   }
 
-  .overview-skeleton {
+  /* 显示移动端导航 */
+  .mobile-top-nav-skeleton {
+    display: flex;
+  }
+
+  /* 概览区域调整为单列 */
+  .overview-grid {
     grid-template-columns: 1fr;
     gap: 12px;
   }
 
+  .skeleton-card.total-card {
+    margin-bottom: 12px;
+  }
+
+  /* 图表区域调整 */
   .skeleton-chart-wrapper {
     flex-direction: column;
     gap: 20px;
@@ -540,26 +555,31 @@
     width: 100%;
   }
 
+  .skeleton-view-toggle {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .skeleton-view-btn {
+    flex: 1;
+    height: 36px;
+  }
+
+  /* 头部调整 */
   .skeleton-header {
-    flex-wrap: wrap;
+    flex-direction: column;
+    align-items: flex-start;
     gap: 12px;
   }
 
   .skeleton-actions-row {
     flex-wrap: wrap;
+    width: 100%;
   }
 
-  .skeleton-inputs {
-    grid-template-columns: 1fr;
-  }
-
-  .skeleton-actions {
-    flex-wrap: wrap;
-  }
-
-  .skeleton-btn.long {
-    flex: 1;
-    min-width: 150px;
+  /* 显示浮动按钮 */
+  .mobile-fab-skeleton {
+    display: block;
   }
 }
 </style>
