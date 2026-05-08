@@ -1938,7 +1938,7 @@ onMounted(async () => {
   // 添加滚动监听
   window.addEventListener('scroll', handleScroll, { passive: true })
 
-  if (userStore.isLoggedIn) {
+  if (!config.isBackend || userStore.isLoggedIn) {
     isLoading.value = true
     try {
       // 使用分阶段加载：先显示缓存数据，再后台刷新
