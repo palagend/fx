@@ -3,6 +3,10 @@ import { ref, computed } from 'vue'
 import { userApi } from '../api'
 import type { User, UserSettings } from '../types'
 
+const STORAGE_KEY_ACCESS_TOKEN = 'fx_access_token'
+const STORAGE_KEY_REFRESH_TOKEN = 'fx_refresh_token'
+const STORAGE_KEY_USER = 'fx_user'
+
 export interface LoginResult {
   success: boolean
   error?: string
@@ -10,7 +14,7 @@ export interface LoginResult {
 
 export const useUserStore = defineStore('user', () => {
   const user = ref<User | null>(null)
-  const isLoggedIn = computed(() => !!user.value)
+  const isLoggedIn = computed(() => !!user.value && !!accessToken.value)
   const accessToken = ref<string | null>(null)
   const refreshToken = ref<string | null>(null)
   const isLoading = ref<boolean>(false)
@@ -25,11 +29,15 @@ export const useUserStore = defineStore('user', () => {
   function setTokens(tokens: { access_token: string; refresh_token: string }): void {
     accessToken.value = tokens.access_token
     refreshToken.value = tokens.refresh_token
+    localStorage.setItem(STORAGE_KEY_ACCESS_TOKEN, tokens.access_token)
+    localStorage.setItem(STORAGE_KEY_REFRESH_TOKEN, tokens.refresh_token)
   }
 
   function clearTokens(): void {
     accessToken.value = null
     refreshToken.value = null
+    localStorage.removeItem(STORAGE_KEY_ACCESS_TOKEN)
+    localStorage.removeItem(STORAGE_KEY_REFRESH_TOKEN)
   }
 
   function openLoginModal(): void {
@@ -50,11 +58,13 @@ export const useUserStore = defineStore('user', () => {
 
   function setUser(newUser: User): void {
     user.value = newUser
+    localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(newUser))
   }
 
   function clearUser(): void {
     user.value = null
     clearTokens()
+    localStorage.removeItem(STORAGE_KEY_USER)
   }
 
   async function register(email: string, username: string, password: string): Promise<LoginResult> {
@@ -99,7 +109,7 @@ export const useUserStore = defineStore('user', () => {
         access_token: data.tokens.access_token,
         refresh_token: data.tokens.refresh_token
       })
-      user.value = data.user
+      setUser(data.user)
       showLoginModal.value = false
       return { success: true }
     } catch (err) {
@@ -157,7 +167,22 @@ export const useUserStore = defineStore('user', () => {
   }
 
   async function init(): Promise<void> {
-    if (userApi) {
+    const savedAccessToken = localStorage.getItem(STORAGE_KEY_ACCESS_TOKEN)
+    const savedRefreshToken = localStorage.getItem(STORAGE_KEY_REFRESH_TOKEN)
+    const savedUser = localStorage.getItem(STORAGE_KEY_USER)
+
+    if (savedAccessToken && savedRefreshToken) {
+      accessToken.value = savedAccessToken
+      refreshToken.value = savedRefreshToken
+      
+      if (savedUser) {
+        try {
+          user.value = JSON.parse(savedUser)
+        } catch (err) {
+          console.error('解析保存的用户信息失败:', err)
+        }
+      }
+    } else if (userApi) {
       try {
         const localUser = userApi.getUser()
         user.value = {
