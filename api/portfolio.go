@@ -12,6 +12,7 @@ import (
 	"gitee.com/palagend/fx/models"
 	"gitee.com/palagend/fx/utils"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -128,6 +129,7 @@ func validateTradeRequest(req *CreateTradeRequest) error {
 
 type TradeResponse struct {
 	ID        uint    `json:"id"`
+	UUID      string  `json:"uuid"`
 	AssetType string  `json:"asset_type"`
 	Symbol    string  `json:"symbol"`
 	Type      string  `json:"type"`
@@ -195,6 +197,7 @@ func CreateTrade(c *gin.Context) {
 	// 创建交易记录
 	currency := models.GetCurrencyByAssetType(req.AssetType)
 	trade := models.Trade{
+		UUID:      uuid.New().String(),
 		UserID:    uid,
 		AssetType: req.AssetType,
 		Symbol:    req.Symbol,
@@ -217,6 +220,7 @@ func CreateTrade(c *gin.Context) {
 
 	c.JSON(http.StatusCreated, TradeResponse{
 		ID:        trade.ID,
+		UUID:      trade.UUID,
 		AssetType: trade.AssetType,
 		Symbol:    trade.Symbol,
 		Type:      trade.Type,
@@ -320,6 +324,7 @@ func GetTrades(c *gin.Context) {
 	for i, t := range trades {
 		response[i] = TradeResponse{
 			ID:        t.ID,
+			UUID:      t.UUID,
 			AssetType: t.AssetType,
 			Symbol:    t.Symbol,
 			Type:      t.Type,
@@ -977,7 +982,7 @@ type ExportData struct {
 }
 
 type TradeExport struct {
-	ID        uint    `json:"id"`
+	UUID      string  `json:"uuid"`
 	AssetType string  `json:"asset_type"`
 	Symbol    string  `json:"symbol"`
 	Type      string  `json:"type"`
@@ -1008,7 +1013,7 @@ func ExportDataHandler(c *gin.Context) {
 	tradeExports := make([]TradeExport, len(trades))
 	for i, t := range trades {
 		tradeExports[i] = TradeExport{
-			ID:        t.ID,
+			UUID:      t.UUID,
 			AssetType: t.AssetType,
 			Symbol:    t.Symbol,
 			Type:      t.Type,
@@ -1064,14 +1069,15 @@ func ImportPreviewHandler(c *gin.Context) {
 	db := config.GetDB()
 	uid := userID.(uint)
 
-	// 获取用户现有交易记录的时间戳集合（用于检测冲突）
+	// 获取用户现有交易记录的UUID集合（用于检测冲突）
 	var existingTrades []models.Trade
 	db.Where("user_id = ?", uid).Find(&existingTrades)
 
-	existingMap := make(map[string]bool)
+	existingUUIDs := make(map[string]bool)
 	for _, t := range existingTrades {
-		key := fmt.Sprintf("%s_%s_%s_%s", t.AssetType, t.Symbol, t.Type, t.CreatedAt.Format("2006-01-02 15:04:05"))
-		existingMap[key] = true
+		if t.UUID != "" {
+			existingUUIDs[t.UUID] = true
+		}
 	}
 
 	preview := ImportPreviewResponse{
@@ -1082,12 +1088,19 @@ func ImportPreviewHandler(c *gin.Context) {
 	}
 
 	for _, trade := range req.Data.Trades {
-		key := fmt.Sprintf("%s_%s_%s_%s", trade.AssetType, trade.Symbol, trade.Type, trade.CreatedAt)
-		if existingMap[key] {
+		// 使用UUID检测冲突，如果没有UUID则使用时间戳作为备用
+		var key string
+		if trade.UUID != "" {
+			key = trade.UUID
+		} else {
+			key = fmt.Sprintf("%s_%s_%s_%s", trade.AssetType, trade.Symbol, trade.Type, trade.CreatedAt)
+		}
+
+		if existingUUIDs[key] {
 			preview.Conflicts++
 			preview.ConflictItems = append(preview.ConflictItems, ConflictItem{
 				Trade:  trade,
-				Reason: "与现有记录时间戳相同",
+				Reason: "与现有记录UUID相同",
 			})
 		} else {
 			preview.NewTrades++
@@ -1124,14 +1137,15 @@ func ImportConfirmHandler(c *gin.Context) {
 	db := config.GetDB()
 	uid := userID.(uint)
 
-	// 获取用户现有交易记录的时间戳集合
+	// 获取用户现有交易记录的UUID集合
 	var existingTrades []models.Trade
 	db.Where("user_id = ?", uid).Find(&existingTrades)
 
-	existingMap := make(map[string]uint) // key -> trade ID
+	existingUUIDs := make(map[string]uint) // UUID -> trade ID
 	for _, t := range existingTrades {
-		key := fmt.Sprintf("%s_%s_%s_%s", t.AssetType, t.Symbol, t.Type, t.CreatedAt.Format("2006-01-02 15:04:05"))
-		existingMap[key] = t.ID
+		if t.UUID != "" {
+			existingUUIDs[t.UUID] = t.ID
+		}
 	}
 
 	var imported, skipped, overwritten int
@@ -1139,9 +1153,15 @@ func ImportConfirmHandler(c *gin.Context) {
 	tx := db.Begin()
 
 	for _, trade := range req.Data.Trades {
-		key := fmt.Sprintf("%s_%s_%s_%s", trade.AssetType, trade.Symbol, trade.Type, trade.CreatedAt)
+		// 使用UUID检测冲突，如果没有UUID则使用时间戳作为备用
+		var key string
+		if trade.UUID != "" {
+			key = trade.UUID
+		} else {
+			key = fmt.Sprintf("%s_%s_%s_%s", trade.AssetType, trade.Symbol, trade.Type, trade.CreatedAt)
+		}
 
-		if existingID, exists := existingMap[key]; exists {
+		if existingID, exists := existingUUIDs[key]; exists {
 			// 存在冲突
 			if req.ConflictStrategy == "overwrite" {
 				// 删除旧记录
@@ -1164,8 +1184,9 @@ func ImportConfirmHandler(c *gin.Context) {
 			createdAt = time.Now()
 		}
 
-		// 创建新记录
+		// 创建新记录，保留原始UUID（如果有），否则生成新的UUID
 		newTrade := models.Trade{
+			UUID:      trade.UUID,
 			UserID:    uid,
 			AssetType: trade.AssetType,
 			Symbol:    trade.Symbol,
@@ -1174,6 +1195,10 @@ func ImportConfirmHandler(c *gin.Context) {
 			Price:     trade.Price,
 			Total:     trade.Total,
 			Currency:  trade.Currency,
+		}
+		// 如果导入的数据没有UUID，生成一个新的
+		if newTrade.UUID == "" {
+			newTrade.UUID = uuid.New().String()
 		}
 		newTrade.CreatedAt = createdAt
 

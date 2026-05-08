@@ -72,7 +72,8 @@ export type AssetType = 'crypto' | 'us_stock' | 'cash'
 export type TradeType = 'buy' | 'sell' | 'recharge'
 
 export interface Trade {
-  id: string
+  id: number
+  uuid: string
   asset_type: AssetType
   symbol: string
   type: TradeType
@@ -84,7 +85,7 @@ export interface Trade {
 }
 
 export interface Holding {
-  id: string
+  id: number
   asset_type: AssetType
   symbol: string
   amount: number
@@ -149,7 +150,7 @@ export interface AssetPriceResponse {
 export interface DeleteTradeResponse {
   message: string
   deleted_trade: {
-    id: string
+    id: number
     asset_type: string
     symbol: string
     type: string
@@ -219,8 +220,15 @@ function setStorageData(key: string, value: unknown): void {
   localStorage.setItem(key, JSON.stringify(value))
 }
 
-function generateId(): string {
-  return Date.now().toString(36) + Math.random().toString(36).substr(2)
+function generateId(): number {
+  return Date.now() + Math.floor(Math.random() * 1000)
+}
+
+function generateUUID(): string {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8)
+    return v.toString(16)
+  })
 }
 
 function abs(x: number): number {
@@ -760,10 +768,7 @@ export const localPortfolioApi = {
     const total = req.amount * req.price
     const holdings = getStorageData<Holding[]>(STORAGE_KEYS.HOLDINGS, [])
 
-    let cashHolding = holdings.find(h => h.asset_type === 'cash' && h.symbol === 'USD')
-    if (!cashHolding) {
-      cashHolding = { asset_type: 'cash', symbol: 'USD', amount: 0, id: '', currency: 'USD' }
-    }
+    const cashHolding = holdings.find(h => h.asset_type === 'cash' && h.symbol === 'USD') || { asset_type: 'cash', symbol: 'USD', amount: 0, id: 0, currency: 'USD' }
 
     switch (req.type) {
       case 'recharge':
@@ -786,6 +791,7 @@ export const localPortfolioApi = {
 
     const newTrade: Trade = {
       id: generateId(),
+      uuid: generateUUID(),
       asset_type: req.asset_type,
       symbol: req.symbol,
       type: req.type,
@@ -803,7 +809,7 @@ export const localPortfolioApi = {
     return mockResponse(newTrade)
   },
 
-  deleteTrade(id: string): Promise<MockResponse<DeleteTradeResponse>> {
+  deleteTrade(id: number): Promise<MockResponse<DeleteTradeResponse>> {
     const trades = getStorageData<Trade[]>(STORAGE_KEYS.TRADES, [])
     const tradeIndex = trades.findIndex(t => t.id === id)
 
@@ -872,7 +878,8 @@ export const localPortfolioApi = {
     const sortedTrades = [...trades].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
 
     const tradeExports: Trade[] = sortedTrades.map(t => ({
-      id: t.id,
+      id: 0,
+      uuid: t.uuid,
       asset_type: t.asset_type,
       symbol: t.symbol,
       type: t.type,
@@ -898,11 +905,12 @@ export const localPortfolioApi = {
     }
 
     const existingTrades = getStorageData<Trade[]>(STORAGE_KEYS.TRADES, [])
-    const existingMap = new Set<string>()
+    const existingUUIDs = new Set<string>()
 
     for (const t of existingTrades) {
-      const key = `${t.asset_type}_${t.symbol}_${t.type}_${t.created_at}`
-      existingMap.add(key)
+      if (t.uuid) {
+        existingUUIDs.add(t.uuid)
+      }
     }
 
     const preview = {
@@ -913,12 +921,12 @@ export const localPortfolioApi = {
     }
 
     for (const trade of data.trades) {
-      const key = `${trade.asset_type}_${trade.symbol}_${trade.type}_${trade.created_at}`
-      if (existingMap.has(key)) {
+      const key = trade.uuid || `${trade.asset_type}_${trade.symbol}_${trade.type}_${trade.created_at}`
+      if (existingUUIDs.has(key)) {
         preview.conflicts++
         preview.conflict_items.push({
           trade: trade,
-          reason: '与现有记录时间戳相同'
+          reason: '与现有记录UUID相同'
         })
       } else {
         preview.new_trades++
@@ -938,11 +946,12 @@ export const localPortfolioApi = {
     }
 
     const existingTrades = getStorageData<Trade[]>(STORAGE_KEYS.TRADES, [])
-    const existingMap = new Map<string, string>()
+    const existingUUIDs = new Map<string, number>()
 
     for (const t of existingTrades) {
-      const key = `${t.asset_type}_${t.symbol}_${t.type}_${t.created_at}`
-      existingMap.set(key, t.id)
+      if (t.uuid) {
+        existingUUIDs.set(t.uuid, t.id)
+      }
     }
 
     let imported = 0
@@ -950,11 +959,11 @@ export const localPortfolioApi = {
     let overwritten = 0
 
     for (const trade of data.trades) {
-      const key = `${trade.asset_type}_${trade.symbol}_${trade.type}_${trade.created_at}`
+      const key = trade.uuid || `${trade.asset_type}_${trade.symbol}_${trade.type}_${trade.created_at}`
 
-      if (existingMap.has(key)) {
+      if (existingUUIDs.has(key)) {
         if (conflictStrategy === 'overwrite') {
-          const existingId = existingMap.get(key)
+          const existingId = existingUUIDs.get(key) ?? 0
           const index = existingTrades.findIndex(t => t.id === existingId)
           if (index !== -1) {
             existingTrades.splice(index, 1)
@@ -968,6 +977,7 @@ export const localPortfolioApi = {
 
       const newTrade: Trade = {
         id: generateId(),
+        uuid: trade.uuid || generateUUID(),
         asset_type: trade.asset_type,
         symbol: trade.symbol,
         type: trade.type,

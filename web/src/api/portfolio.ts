@@ -9,7 +9,8 @@ export interface TradeRequest {
 }
 
 export interface Trade {
-  id: string
+  id: number
+  uuid: string
   asset_type: string
   symbol: string
   type: string
@@ -130,7 +131,7 @@ export const backendPortfolioApi = {
     return apiClient.post('/portfolio/trades', trade)
   },
 
-  deleteTrade(id: string): Promise<AxiosResponse<DeleteTradeResponse>> {
+  deleteTrade(id: number): Promise<AxiosResponse<DeleteTradeResponse>> {
     return apiClient.delete(`/portfolio/trades/${id}`)
   },
 

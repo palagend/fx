@@ -30,6 +30,7 @@ const (
 // 充值：现金增加（+Amount）
 type Trade struct {
 	ID        uint           `gorm:"primarykey" json:"id"`
+	UUID      string         `gorm:"size:36;uniqueIndex" json:"uuid"` // 唯一标识符，用于导入导出冲突检测
 	UserID    uint           `gorm:"index;not null" json:"user_id"`
 	AssetType string         `gorm:"size:20;not null;default:'crypto'" json:"asset_type"` // crypto/a_stock/us_stock/hk_stock
 	Symbol    string         `gorm:"size:20;not null" json:"symbol"`                      // 交易代码，如 BTC、600519、AAPL

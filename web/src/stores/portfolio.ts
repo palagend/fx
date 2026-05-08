@@ -99,7 +99,7 @@ export const usePortfolioStore = defineStore('portfolio', () => {
     trades.value.unshift(newTrade)
   }
 
-  function removeTrade(id: string) {
+  function removeTrade(id: number) {
     const index = trades.value.findIndex(t => t.id === id)
     if (index !== -1) {
       trades.value.splice(index, 1)
@@ -284,7 +284,7 @@ export const usePortfolioStore = defineStore('portfolio', () => {
     return result
   }
 
-  async function _deleteTrade(id: string): Promise<TradeResult> {
+  async function _deleteTrade(id: number): Promise<TradeResult> {
     try {
       await portfolioApi.deleteTrade(id)
       return { success: true }
@@ -294,7 +294,7 @@ export const usePortfolioStore = defineStore('portfolio', () => {
     }
   }
 
-  const deleteTrade = async (id: string, options: { refresh?: boolean } = {}): Promise<TradeResult> => {
+  const deleteTrade = async (id: number, options: { refresh?: boolean } = {}): Promise<TradeResult> => {
     const result = await _deleteTrade(id)
     if (result.success) {
       if (options.refresh !== false) {
@@ -353,7 +353,7 @@ export const usePortfolioStore = defineStore('portfolio', () => {
     error.value = null
 
     try {
-      const localData = data as unknown as { version: string; trades: { id: string; asset_type: 'crypto' | 'us_stock' | 'cash'; symbol: string; type: 'buy' | 'sell' | 'recharge'; amount: number; price: number; total: number; currency: string; created_at: string }[] }
+      const localData = data as unknown as { version: string; trades: { id: number; uuid: string; asset_type: 'crypto' | 'us_stock' | 'cash'; symbol: string; type: 'buy' | 'sell' | 'recharge'; amount: number; price: number; total: number; currency: string; created_at: string }[] }
       const response = await portfolioApi.importPreview(localData)
       return { success: true, preview: response.data.preview }
     } catch (err) {
@@ -369,7 +369,7 @@ export const usePortfolioStore = defineStore('portfolio', () => {
     error.value = null
 
     try {
-      const localData = data as unknown as { version: string; trades: { id: string; asset_type: 'crypto' | 'us_stock' | 'cash'; symbol: string; type: 'buy' | 'sell' | 'recharge'; amount: number; price: number; total: number; currency: string; created_at: string }[] }
+      const localData = data as unknown as { version: string; trades: { id: number; uuid: string; asset_type: 'crypto' | 'us_stock' | 'cash'; symbol: string; type: 'buy' | 'sell' | 'recharge'; amount: number; price: number; total: number; currency: string; created_at: string }[] }
       const strategy = conflictStrategy === 'overwrite' ? 'overwrite' : 'skip'
       const response = await portfolioApi.importConfirm(localData, strategy)
       return {

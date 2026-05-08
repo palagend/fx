@@ -11,10 +11,11 @@ export interface Asset {
 }
 
 export interface Trade {
-  id: string
+  id: number
+  uuid: string
   symbol: string
   asset_type: 'crypto' | 'us_stock'
-  type: 'buy' | 'sell'
+  type: 'buy' | 'sell' | 'recharge'
   amount: number
   price: number
   total: number
