@@ -42,8 +42,8 @@ export default defineConfig({
             }
           }
         },
-        //  chunk 文件命名
-        chunkFileNames: 'js/[name]-[hash].js',
+        //  chunk 文件命名（避免以 _ 开头，GitHub Pages 会忽略）
+        chunkFileNames: 'js/chunk-[name]-[hash].js',
         entryFileNames: 'js/[name]-[hash].js',
         assetFileNames: (assetInfo) => {
           const fileName = assetInfo.names?.[0] || ''
