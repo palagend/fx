@@ -768,8 +768,8 @@
     </button>
 
     <!-- 移动端交易弹窗 -->
-    <div v-if="isMobile && showTradeModal" class="trade-modal-overlay" @click="showTradeModal = false">
-      <div class="trade-modal" @click.stop>
+    <div v-if="isMobile && showTradeModal" class="trade-modal-overlay" @click="showTradeModal = false" @touchmove.stop.prevent>
+      <div class="trade-modal" @click.stop @touchmove.stop>
         <div class="trade-modal-header">
           <h3><Icon icon="mdi:swap-horizontal" /> 快速交易</h3>
           <button class="trade-modal-close" @click="showTradeModal = false">
@@ -2077,8 +2077,12 @@ watch(() => userStore.isLoggedIn, async (isLoggedIn) => {
 </script>
 
 <style scoped>
+/* iOS Safari 橡皮筋效果修复 - 类似微信的做法 */
 .portfolio-container {
   min-height: calc(100vh - 120px);
+  /* 确保在 iOS 上底部内容不被遮挡 */
+  padding-bottom: constant(safe-area-inset-bottom);
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
 .container {
@@ -4569,9 +4573,21 @@ watch(() => userStore.isLoggedIn, async (isLoggedIn) => {
     display: none;
   }
 
-  /* 标签内容区域 */
+  /* 标签内容区域 - 修复 iOS 橡皮筋效果 */
   .tab-content {
     min-height: calc(100vh - 70px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    /* 确保内容区域可以正常滚动 */
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    /* 增加底部内边距防止被遮挡 */
+    padding-bottom: calc(20px + env(safe-area-inset-bottom));
+    /* 弹窗打开时禁用外部滚动 */
+    position: relative;
+  }
+
+  /* 弹窗打开时，禁用外部容器滚动 */
+  .tab-content.modal-open {
+    overflow: hidden;
   }
 }
 
@@ -4762,10 +4778,23 @@ watch(() => userStore.isLoggedIn, async (isLoggedIn) => {
 }
 
 .trade-modal-body {
-  padding: 20px;
+  padding: 16px;
   overflow-y: auto;
   flex: 1;
-  padding-bottom: 100px;
+  /* 底部留足空间，确保价格输入框不被底部按钮遮挡 */
+  padding-bottom: calc(140px + env(safe-area-inset-bottom));
+  /* 确保弹窗内部可以正常滚动 */
+  -webkit-overflow-scrolling: touch;
+  /* 阻止滚动事件传播到外部 */
+  overscroll-behavior: contain;
+}
+
+/* 移动端优化 */
+@media (max-width: 768px) {
+  .trade-modal-body {
+    padding: 12px;
+    padding-bottom: calc(150px + env(safe-area-inset-bottom));
+  }
 }
 
 /* 移动端交易预览 - 简化版 */
@@ -4890,11 +4919,19 @@ watch(() => userStore.isLoggedIn, async (isLoggedIn) => {
   right: 0;
   background: white;
   border-top: 1px solid #e5e7eb;
-  padding: 16px 20px;
-  padding-bottom: calc(16px + env(safe-area-inset-bottom));
+  padding: 12px 16px;
+  padding-bottom: calc(12px + env(safe-area-inset-bottom));
   display: flex;
   gap: 12px;
   z-index: 10;
+}
+
+/* 移动端优化 */
+@media (max-width: 768px) {
+  .trade-modal-footer {
+    padding: 10px 12px;
+    padding-bottom: calc(10px + env(safe-area-inset-bottom));
+  }
 }
 
 .dark .trade-modal-footer {
@@ -4904,19 +4941,27 @@ watch(() => userStore.isLoggedIn, async (isLoggedIn) => {
 
 .trade-modal-footer .btn-submit {
   flex: 1;
-  height: 48px;
+  height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 0 20px;
+  gap: 6px;
+  padding: 0 16px;
   border: none;
-  border-radius: 12px;
-  font-size: 15px;
+  border-radius: 10px;
+  font-size: 14px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
   touch-action: manipulation;
+}
+
+/* 移动端优化 */
+@media (max-width: 768px) {
+  .trade-modal-footer .btn-submit {
+    height: 40px;
+    font-size: 13px;
+  }
 }
 
 .trade-modal-footer .btn-submit.buy {
@@ -4939,22 +4984,31 @@ watch(() => userStore.isLoggedIn, async (isLoggedIn) => {
 }
 
 .trade-modal-footer .btn-reset {
-  width: 80px;
-  height: 48px;
+  width: 70px;
+  height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 0 16px;
+  gap: 4px;
+  padding: 0 12px;
   border: 1px solid #e5e7eb;
   background: white;
   color: #6b7280;
-  border-radius: 12px;
-  font-size: 14px;
+  border-radius: 10px;
+  font-size: 13px;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
   touch-action: manipulation;
+}
+
+/* 移动端优化 */
+@media (max-width: 768px) {
+  .trade-modal-footer .btn-reset {
+    width: 60px;
+    height: 40px;
+    font-size: 12px;
+  }
 }
 
 .dark .trade-modal-footer .btn-reset {
@@ -4966,117 +5020,6 @@ watch(() => userStore.isLoggedIn, async (isLoggedIn) => {
 .trade-modal-footer .btn-reset:active {
   transform: scale(0.98);
   background: #f3f4f6;
-}
-
-/* 保留旧的样式以兼容 */
-.trade-preview-mobile {
-  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-  border-radius: 12px;
-  padding: 16px;
-  margin: 16px 0;
-}
-
-.dark .trade-preview-mobile {
-  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-}
-
-.trade-preview-mobile .preview-item.total {
-  flex-direction: column;
-  gap: 8px;
-  padding: 8px 0;
-  text-align: center;
-}
-
-.trade-preview-mobile .preview-item.total .label {
-  font-size: 13px;
-  color: #6b7280;
-}
-
-.dark .trade-preview-mobile .preview-item.total .label {
-  color: #9ca3af;
-}
-
-.trade-preview-mobile .preview-item.total .value {
-  font-size: 24px;
-  font-weight: 700;
-  color: #1f2937;
-}
-
-.dark .trade-preview-mobile .preview-item.total .value {
-  color: #f3f4f6;
-}
-
-.trade-preview-mobile .preview-divider {
-  height: 1px;
-  background: #e2e8f0;
-  margin: 12px 0;
-}
-
-.dark .trade-preview-mobile .preview-divider {
-  background: #334155;
-}
-
-.trade-preview-mobile .preview-details {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.trade-preview-mobile .preview-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 6px 0;
-}
-
-.trade-preview-mobile .preview-item .label {
-  font-size: 13px;
-  color: #64748b;
-}
-
-.dark .trade-preview-mobile .preview-item .label {
-  color: #94a3b8;
-}
-
-.trade-preview-mobile .preview-item .value {
-  font-size: 14px;
-  font-weight: 600;
-  color: #1f2937;
-}
-
-.dark .trade-preview-mobile .preview-item .value {
-  color: #f3f4f6;
-}
-
-.trade-preview-mobile .preview-item .value.highlight {
-  color: #6366f1;
-}
-
-.trade-preview-mobile .preview-item .value.positive {
-  color: #10b981;
-}
-
-.trade-preview-mobile .preview-item .value.negative {
-  color: #ef4444;
-}
-
-.trade-preview-mobile .preview-item.impact {
-  margin-top: 8px;
-  padding-top: 12px;
-  border-top: 1px dashed #cbd5e1;
-}
-
-.dark .trade-preview-mobile .preview-item.impact {
-  border-top-color: #475569;
-}
-
-.trade-preview-mobile .preview-item.impact .label {
-  font-weight: 600;
-  color: #475569;
-}
-
-.dark .trade-preview-mobile .preview-item.impact .label {
-  color: #94a3b8;
 }
 
 /* 资产选择器头部 */
@@ -5282,14 +5225,22 @@ watch(() => userStore.isLoggedIn, async (isLoggedIn) => {
   color: #94a3b8;
 }
 
-/* 移动端资产列表底部安全区域 */
+/* 移动端资产列表底部安全区域 - 修复 iOS 橡皮筋回弹遮挡问题 */
 @media (max-width: 768px) {
   .assets-list {
-    padding-bottom: calc(80px + env(safe-area-inset-bottom));
+    padding-bottom: calc(120px + env(safe-area-inset-bottom));
+    /* 确保列表区域可以独立滚动 */
+    -webkit-overflow-scrolling: touch;
   }
 
   .mobile-trades-list {
-    padding-bottom: calc(80px + env(safe-area-inset-bottom));
+    padding-bottom: calc(120px + env(safe-area-inset-bottom));
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* 移动端主容器增加底部安全区域 */
+  .portfolio-container {
+    padding-bottom: calc(env(safe-area-inset-bottom) + 20px);
   }
 }
 </style>
