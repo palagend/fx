@@ -158,206 +158,31 @@
             <section id="trading" class="trading-section desktop-only">
               <div class="trading-container">
                 <!-- 左侧：交易表单 -->
-                <div class="trading-form">
-                  <div class="form-header">
-                    <h3><Icon icon="mdi:swap-horizontal" /> 快速交易</h3>
-                    <div class="trade-type-tabs">
-                      <button
-                        :class="['type-tab', { active: newTrade.type === 'buy' }]"
-                        @click="newTrade.type = 'buy'"
-                      >
-                        <Icon icon="mdi:arrow-down-circle" /> 买入
-                      </button>
-                      <button
-                        :class="['type-tab', { active: newTrade.type === 'sell' }]"
-                        @click="newTrade.type = 'sell'"
-                      >
-                        <Icon icon="mdi:arrow-up-circle" /> 卖出
-                      </button>
-                    </div>
-                  </div>
-
-                  <!-- 资产类型选择 -->
-                  <div class="asset-type-selector">
-                    <label class="field-label">资产类型</label>
-                    <div class="asset-type-tabs">
-                      <button
-                        :class="['type-tab', { active: currentAssetType === 'crypto' }]"
-                        @click.stop="switchAssetType('crypto')"
-                      >
-                        <Icon icon="cryptocurrency:btc" /> 加密货币
-                      </button>
-                      <button
-                        :class="['type-tab', { active: currentAssetType === 'us_stock' }]"
-                        @click.stop="switchAssetType('us_stock')"
-                      >
-                        <Icon icon="mdi:chart-line" /> 美股
-                      </button>
-                    </div>
-                  </div>
-
-                  <!-- 币种选择网格 -->
-                  <div class="asset-selector">
-                    <label class="field-label">选择资产</label>
-                    <div class="asset-grid">
-                      <button
-                        v-for="symbol in currentAvailableSymbols"
-                        :key="symbol"
-                        :class="['asset-btn', { active: newTrade.symbol === symbol }]"
-                        @click.stop="selectSymbol(symbol)"
-                      >
-                        <Icon :icon="getAssetIcon(currentAssetType, symbol)" :style="{ color: getAssetColor(currentAssetType, symbol) }" />
-                        <span class="asset-code">{{ symbol }}</span>
-                        <span class="asset-price" v-if="getCurrentPrice(symbol)">
-                          ${{ formatAmount(getCurrentPrice(symbol)) }}
-                        </span>
-                      </button>
-                    </div>
-                  </div>
-
-                  <!-- 交易输入区 -->
-                  <div class="trade-inputs" v-if="newTrade.symbol">
-                    <div class="input-field">
-                      <label class="field-label">
-                        数量
-                        <span class="field-hint" v-if="newTrade.type === 'sell'">
-                          可卖: {{ formatAmount(getHoldingAmount(newTrade.symbol)) }}
-                        </span>
-                      </label>
-                      <div class="input-with-controls">
-                        <input
-                          type="number"
-                          inputmode="decimal"
-                          v-model.number="newTrade.amount"
-                          placeholder="0.00"
-                          min="0.00001"
-                          step="0.00001"
-                          ref="amountInput"
-                          class="mobile-number-input"
-                        >
-                        <span class="input-unit">{{ newTrade.symbol }}</span>
-                      </div>
-                      <!-- 快捷输入按钮 -->
-                      <div class="quick-amount-buttons" v-if="newTrade.type === 'sell' && getHoldingAmount(newTrade.symbol) > 0">
-                        <button class="quick-btn primary" @click="setQuickAmount(100)">100%</button>
-                        <button class="quick-btn" @click="setQuickAmount(75)">75%</button>
-                        <button class="quick-btn" @click="setQuickAmount(50)">50%</button>
-                        <button class="quick-btn" @click="setQuickAmount(25)">25%</button>
-                      </div>
-                      <div class="quick-amount-buttons" v-else-if="newTrade.type === 'buy' && cashBalance > 0">
-                        <button class="quick-btn primary" @click="setQuickBuyAmount(100)">100%</button>
-                        <button class="quick-btn" @click="setQuickBuyAmount(75)">75%</button>
-                        <button class="quick-btn" @click="setQuickBuyAmount(50)">50%</button>
-                        <button class="quick-btn" @click="setQuickBuyAmount(25)">25%</button>
-                      </div>
-                    </div>
-
-                    <div class="input-field">
-                      <label class="field-label">
-                        价格
-                        <span class="field-hint" v-if="currentMarketPrice > 0">
-                          市价: ${{ formatAmount(currentMarketPrice) }}
-                        </span>
-                      </label>
-                      <div class="input-with-controls">
-                        <input
-                          type="number"
-                          inputmode="decimal"
-                          v-model.number="newTrade.price"
-                          placeholder="0.00"
-                          min="0.00001"
-                          step="0.00001"
-                          class="mobile-number-input"
-                        >
-                        <button
-                          class="btn-use-market"
-                          @click="newTrade.price = currentMarketPrice"
-                          v-if="currentMarketPrice > 0"
-                        >
-                          使用市价
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-
-                  <!-- 交易按钮 -->
-                  <div class="trade-submit" v-if="newTrade.symbol">
-                    <button
-                      class="btn-submit"
-                      @click="addTrade"
-                      :disabled="!isFormValid || portfolioStore.isLoading || isSubmitting.trade"
-                      :class="newTrade.type"
-                    >
-                      <Icon :icon="newTrade.type === 'buy' ? 'mdi:cart-plus' : 'mdi:cart-remove'" />
-                      {{ newTrade.type === 'buy' ? '买入' : '卖出' }}
-                      <span class="submit-total" v-if="newTrade.amount && newTrade.price">
-                        {{ formatCompactAmount(newTrade.amount * newTrade.price) }}
-                      </span>
-                    </button>
-                    <button class="btn-reset" @click="clearForm">
-                      <Icon icon="bx:reset" />
-                      重置
-                    </button>
-                  </div>
-                </div>
+                <TradeForm
+                  v-model:trade-type="tradeFormState.tradeType"
+                  v-model:asset-type="tradeFormState.assetType"
+                  v-model:selected-symbol="tradeFormState.selectedSymbol"
+                  v-model:amount="tradeFormState.amount"
+                  v-model:price="tradeFormState.price"
+                  :current-market-price="tradeFormState.currentMarketPrice"
+                  :cash-balance="cashBalance"
+                  :is-loading="portfolioStore.isLoading"
+                  :is-submitting="isSubmitting.trade"
+                  @submit="handleTradeSubmit"
+                  @reset="resetTradeForm"
+                  @symbol-select="(symbol) => { tradeFormState.currentMarketPrice = tradeFormState.price }"
+                />
 
                 <!-- 右侧：交易预览（仅PC端显示） -->
-                <div class="trading-preview" v-if="!isMobile && newTrade.symbol && newTrade.amount && newTrade.price">
-                  <div class="preview-header-row">
-                    <span class="preview-title">交易预览</span>
-                    <span class="preview-total-value">${{ formatAmount(newTrade.amount * newTrade.price) }}</span>
-                  </div>
-                  <div class="preview-details-full">
-                    <!-- 买入预览 -->
-                    <template v-if="newTrade.type === 'buy'">
-                      <div class="preview-detail-row" v-if="getHoldingAmount(newTrade.symbol) > 0">
-                        <span class="detail-label">当前持仓</span>
-                        <span class="detail-value">{{ formatAmount(getHoldingAmount(newTrade.symbol)) }}</span>
-                      </div>
-                      <div class="preview-detail-row" v-if="getHoldingAmount(newTrade.symbol) > 0">
-                        <span class="detail-label">买入后持仓</span>
-                        <span class="detail-value highlight">{{ formatAmount(getHoldingAmount(newTrade.symbol) + newTrade.amount) }}</span>
-                      </div>
-                      <div class="preview-detail-row">
-                        <span class="detail-label">买入后成本价</span>
-                        <span class="detail-value highlight">${{ formatAmount(calculateNewAvgCost()) }}</span>
-                      </div>
-                      <div class="preview-detail-row impact">
-                        <span class="detail-label">USD支出</span>
-                        <span class="detail-value negative">-${{ formatAmount(newTrade.amount * newTrade.price) }}</span>
-                      </div>
-                    </template>
-                    <!-- 卖出预览 -->
-                    <template v-if="newTrade.type === 'sell'">
-                      <div class="preview-detail-row">
-                        <span class="detail-label">当前持仓</span>
-                        <span class="detail-value">{{ formatAmount(getHoldingAmount(newTrade.symbol)) }}</span>
-                      </div>
-                      <div class="preview-detail-row">
-                        <span class="detail-label">卖出后持仓</span>
-                        <span class="detail-value">{{ formatAmount(Math.max(0, getHoldingAmount(newTrade.symbol) - newTrade.amount)) }}</span>
-                      </div>
-                      <div class="preview-detail-row" v-if="calculateEstimatedRealizedPL() !== 0">
-                        <span class="detail-label">预估盈亏</span>
-                        <span :class="['detail-value', calculateEstimatedRealizedPL() >= 0 ? 'positive' : 'negative']">
-                          {{ calculateEstimatedRealizedPL() >= 0 ? '+' : '-' }}${{ formatAmount(Math.abs(calculateEstimatedRealizedPL())) }}
-                        </span>
-                      </div>
-                      <div class="preview-detail-row impact">
-                        <span class="detail-label">USD收入</span>
-                        <span class="detail-value positive">+${{ formatAmount(newTrade.amount * newTrade.price) }}</span>
-                      </div>
-                    </template>
-                  </div>
-                </div>
-
-                <!-- 空状态提示（仅PC端显示） -->
-                <div class="trading-preview empty" v-else-if="!isMobile && newTrade.symbol">
-                  <div class="preview-placeholder">
-                    <Icon icon="mdi:calculator" />
-                    <p>输入数量和价格查看交易详情</p>
-                  </div>
-                </div>
+                <TradePreview
+                  :trade-type="tradeFormState.tradeType"
+                  :symbol="tradeFormState.selectedSymbol"
+                  :amount="tradeFormState.amount || 0"
+                  :price="tradeFormState.price || 0"
+                  :current-holding="getHoldingAmount(tradeFormState.selectedSymbol)"
+                  :current-avg-cost="getHoldingAvgCost(tradeFormState.selectedSymbol)"
+                  :show-empty="!!tradeFormState.selectedSymbol"
+                />
               </div>
             </section>
 
@@ -488,106 +313,18 @@
 
             <!-- 历史标签页 -->
             <section id="trades" class="trades-section tab-content" :class="{ 'mobile-hidden': isMobile && activeTab !== 'history' }">
-              <div class="section-header">
-                <h2 class="section-title"><Icon icon="mdi:history" /> 交易历史</h2>
-                <div class="section-actions">
-                  <button class="btn-export" @click="exportData" :disabled="isSubmitting.export">
-                    <Icon icon="mdi:download" /> 导出
-                  </button>
-                  <button class="btn-import" @click="showImportDialog = true">
-                    <Icon icon="mdi:upload" /> 导入
-                  </button>
-                  <div class="protect-switch" @click="toggleProtectHistory">
-                    <Icon :icon="protectHistory ? 'mdi:shield-check' : 'mdi:shield-off'" />
-                    <span class="switch-label">保护</span>
-                    <div class="switch" :class="{ 'on': protectHistory }">
-                      <div class="switch-handle"></div>
-                    </div>
-                  </div>
-                  <div class="filter-group">
-                    <select v-model="tradeFilter" class="filter-select">
-                      <option value="all">全部交易</option>
-                      <option value="buy">买入</option>
-                      <option value="sell">卖出</option>
-                      <option value="recharge">充值</option>
-                    </select>
-                  </div>
-                  <button class="btn-clear" @click="clearTrades" v-if="filteredTrades.length > 0 && !protectHistory" :disabled="isSubmitting.clear">
-                    <Icon icon="mdi:delete-sweep" /> 清空历史
-                  </button>
-                </div>
-              </div>
-
-              <!-- PC端表格视图 -->
-              <div class="table-wrapper desktop-view">
-                <table class="trades-table">
-                  <thead>
-                    <tr>
-                      <th>时间</th>
-                      <th>资产</th>
-                      <th>类型</th>
-                      <th>数量</th>
-                      <th class="trade-price-col">价格</th>
-                      <th>总金额</th>
-                      <th>操作</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr v-for="trade in tradesWithMeta" :key="trade.id" class="trade-row">
-                      <td class="trade-time">{{ formatDate(trade.created_at || trade.timestamp) }}</td>
-                      <td>
-                        <div class="trade-asset">
-                          <Icon :icon="trade.icon" :style="{ color: trade.color }" />
-                          <span>{{ trade.symbol }}</span>
-                        </div>
-                      </td>
-                      <td>
-                        <span class="trade-type" :class="trade.type">
-                          {{ getTradeTypeText(trade.type) }}
-                        </span>
-                      </td>
-                      <td>{{ trade.formattedAmount }}</td>
-                      <td class="trade-price-col">${{ trade.formattedPrice }}</td>
-                      <td>${{ formatAmount(trade.total) }}</td>
-                      <td>
-                        <button class="btn-delete" @click="deleteTrade(trade.id)" :disabled="protectHistory || isSubmitting.delete" title="删除">
-                          <Icon icon="mdi:trash-can" />
-                        </button>
-                      </td>
-                    </tr>
-                    <tr v-if="tradesWithMeta.length === 0">
-                      <td colspan="7" class="empty-state">
-                        <Icon icon="mdi:inbox" />
-                        <p>暂无交易记录</p>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-
-              <!-- 移动端卡片视图 -->
-              <div class="mobile-trade-list mobile-view">
-                <MobileTradeCard
-                  v-for="trade in tradesWithMeta"
-                  :key="trade.id"
-                  :id="trade.id"
-                  :symbol="trade.symbol"
-                  :type="trade.type"
-                  :amount="trade.amount"
-                  :price="trade.price"
-                  :total="trade.total"
-                  :timestamp="trade.created_at || trade.timestamp"
-                  :icon="trade.icon"
-                  :color="trade.color"
-                  :can-delete="!protectHistory"
-                  :disabled="isSubmitting.delete"
-                  @delete="deleteTrade"
-                />
-                <div v-if="tradesWithMeta.length === 0" class="empty-state mobile-empty">
-                  <Icon icon="mdi:inbox" />
-                  <p>暂无交易记录</p>
-                </div>
-              </div>
+              <TradeHistory
+                v-model:filter="tradeFilter"
+                v-model:protect-history="protectHistory"
+                :trades="trades"
+                :is-submitting-export="isSubmitting.export"
+                :is-submitting-clear="isSubmitting.clear"
+                :is-submitting-delete="isSubmitting.delete"
+                @delete="deleteTrade"
+                @clear="clearTrades"
+                @export="exportData"
+                @import="showImportDialog = true"
+              />
             </section>
             </template>
           </template>
@@ -777,208 +514,47 @@
           </button>
         </div>
         <div class="trade-modal-body">
-          <!-- 交易类型切换 -->
-          <div class="trade-type-tabs">
-            <button
-              :class="['type-tab', { active: newTrade.type === 'buy' }]"
-              @click="newTrade.type = 'buy'"
-            >
-              <Icon icon="mdi:arrow-down-circle" /> 买入
-            </button>
-            <button
-              :class="['type-tab', { active: newTrade.type === 'sell' }]"
-              @click="newTrade.type = 'sell'"
-            >
-              <Icon icon="mdi:arrow-up-circle" /> 卖出
-            </button>
-          </div>
+          <TradeFormMobile
+            v-model:trade-type="tradeFormState.tradeType"
+            v-model:asset-type="tradeFormState.assetType"
+            v-model:selected-symbol="tradeFormState.selectedSymbol"
+            v-model:amount="tradeFormState.amount"
+            v-model:price="tradeFormState.price"
+            :current-market-price="tradeFormState.currentMarketPrice"
+            :cash-balance="cashBalance"
+            :is-loading="portfolioStore.isLoading"
+            :is-submitting="isSubmitting.trade"
+            @submit="handleTradeSubmit"
+            @reset="resetTradeForm"
+            @symbol-select="(symbol) => { tradeFormState.currentMarketPrice = tradeFormState.price }"
+          />
 
-          <!-- 资产类型选择 -->
-          <div class="asset-type-selector">
-            <label class="field-label">资产类型</label>
-            <div class="asset-type-tabs">
-              <button
-                :class="['type-tab', { active: currentAssetType === 'crypto' }]"
-                @click.stop="switchAssetType('crypto')"
-              >
-                <Icon icon="cryptocurrency:btc" /> 加密货币
-              </button>
-              <button
-                :class="['type-tab', { active: currentAssetType === 'us_stock' }]"
-                @click.stop="switchAssetType('us_stock')"
-              >
-                <Icon icon="mdi:chart-line" /> 美股
-              </button>
-            </div>
-          </div>
-
-          <!-- 币种选择网格 - 仅在未选择资产或点击更改时显示 -->
-          <div class="asset-selector" v-if="!newTrade.symbol || showAssetSelector">
-            <div class="asset-selector-header">
-              <label class="field-label">选择资产</label>
-            </div>
-            <div class="asset-grid">
-              <button
-                v-for="symbol in currentAvailableSymbols"
-                :key="symbol"
-                :class="['asset-btn', { active: newTrade.symbol === symbol }]"
-                @click.stop="selectSymbol(symbol)"
-              >
-                <Icon :icon="getAssetIcon(currentAssetType, symbol)" :style="{ color: getAssetColor(currentAssetType, symbol) }" />
-                <span class="asset-code">{{ symbol }}</span>
-                <span class="asset-price" v-if="getCurrentPrice(symbol)">
-                  ${{ formatAmount(getCurrentPrice(symbol)) }}
-                </span>
-              </button>
-            </div>
-          </div>
-
-          <!-- 已选择资产显示 & 更改按钮 -->
-          <div class="selected-asset-display" v-if="newTrade.symbol && !showAssetSelector">
-            <div class="selected-asset-info">
-              <Icon :icon="getAssetIcon(currentAssetType, newTrade.symbol)" :style="{ color: getAssetColor(currentAssetType, newTrade.symbol) }" />
-              <span class="selected-asset-name">{{ newTrade.symbol }}</span>
-              <span class="selected-asset-price" v-if="getCurrentPrice(newTrade.symbol)">
-                ${{ formatAmount(getCurrentPrice(newTrade.symbol)) }}
-              </span>
-            </div>
-            <button class="btn-change-asset" @click="showAssetSelector = true">
-              <Icon icon="mdi:swap-horizontal" /> 更改
-            </button>
-          </div>
-
-          <!-- 交易预览 - 完整显示，在选择资产和输入框之间 -->
-          <div class="trade-preview-full" v-if="newTrade.symbol && newTrade.amount && newTrade.price && !showAssetSelector">
-            <div class="preview-header-row">
-              <span class="preview-title">交易预览</span>
-              <span class="preview-total-value">${{ formatAmount(newTrade.amount * newTrade.price) }}</span>
-            </div>
-            <div class="preview-details-full">
-              <!-- 买入预览 -->
-              <template v-if="newTrade.type === 'buy'">
-                <div class="preview-detail-row" v-if="getHoldingAmount(newTrade.symbol) > 0">
-                  <span class="detail-label">当前持仓</span>
-                  <span class="detail-value">{{ formatAmount(getHoldingAmount(newTrade.symbol)) }}</span>
-                </div>
-                <div class="preview-detail-row" v-if="getHoldingAmount(newTrade.symbol) > 0">
-                  <span class="detail-label">买入后持仓</span>
-                  <span class="detail-value highlight">{{ formatAmount(getHoldingAmount(newTrade.symbol) + newTrade.amount) }}</span>
-                </div>
-                <div class="preview-detail-row">
-                  <span class="detail-label">买入后成本价</span>
-                  <span class="detail-value highlight">${{ formatAmount(calculateNewAvgCost()) }}</span>
-                </div>
-                <div class="preview-detail-row impact">
-                  <span class="detail-label">USD支出</span>
-                  <span class="detail-value negative">-${{ formatAmount(newTrade.amount * newTrade.price) }}</span>
-                </div>
-              </template>
-              <!-- 卖出预览 -->
-              <template v-if="newTrade.type === 'sell'">
-                <div class="preview-detail-row">
-                  <span class="detail-label">当前持仓</span>
-                  <span class="detail-value">{{ formatAmount(getHoldingAmount(newTrade.symbol)) }}</span>
-                </div>
-                <div class="preview-detail-row">
-                  <span class="detail-label">卖出后持仓</span>
-                  <span class="detail-value">{{ formatAmount(Math.max(0, getHoldingAmount(newTrade.symbol) - newTrade.amount)) }}</span>
-                </div>
-                <div class="preview-detail-row" v-if="calculateEstimatedRealizedPL() !== 0">
-                  <span class="detail-label">预估盈亏</span>
-                  <span :class="['detail-value', calculateEstimatedRealizedPL() >= 0 ? 'positive' : 'negative']">
-                    {{ calculateEstimatedRealizedPL() >= 0 ? '+' : '-' }}${{ formatAmount(Math.abs(calculateEstimatedRealizedPL())) }}
-                  </span>
-                </div>
-                <div class="preview-detail-row impact">
-                  <span class="detail-label">USD收入</span>
-                  <span class="detail-value positive">+${{ formatAmount(newTrade.amount * newTrade.price) }}</span>
-                </div>
-              </template>
-            </div>
-          </div>
-
-          <!-- 交易输入区 -->
-          <div class="trade-inputs" v-if="newTrade.symbol && !showAssetSelector">
-            <div class="input-field">
-              <label class="field-label">
-                数量
-                <span class="field-hint" v-if="newTrade.type === 'sell'">
-                  可卖: {{ formatAmount(getHoldingAmount(newTrade.symbol)) }}
-                </span>
-              </label>
-              <div class="input-with-controls">
-                <input
-                  type="number"
-                  inputmode="decimal"
-                  v-model.number="newTrade.amount"
-                  placeholder="0.00"
-                  min="0.00001"
-                  step="0.00001"
-                  ref="amountInput"
-                  class="mobile-number-input"
-                >
-                <span class="input-unit">{{ newTrade.symbol }}</span>
-              </div>
-              <!-- 快捷输入按钮 -->
-              <div class="quick-amount-buttons" v-if="newTrade.type === 'sell' && getHoldingAmount(newTrade.symbol) > 0">
-                <button class="quick-btn primary" @click="setQuickAmount(100)">100%</button>
-                <button class="quick-btn" @click="setQuickAmount(75)">75%</button>
-                <button class="quick-btn" @click="setQuickAmount(50)">50%</button>
-                <button class="quick-btn" @click="setQuickAmount(25)">25%</button>
-              </div>
-              <div class="quick-amount-buttons" v-else-if="newTrade.type === 'buy' && cashBalance > 0">
-                <button class="quick-btn primary" @click="setQuickBuyAmount(100)">100%</button>
-                <button class="quick-btn" @click="setQuickBuyAmount(75)">75%</button>
-                <button class="quick-btn" @click="setQuickBuyAmount(50)">50%</button>
-                <button class="quick-btn" @click="setQuickBuyAmount(25)">25%</button>
-              </div>
-            </div>
-
-            <div class="input-field">
-              <label class="field-label">
-                价格
-                <span class="field-hint" v-if="currentMarketPrice > 0">
-                  市价: ${{ formatAmount(currentMarketPrice) }}
-                </span>
-              </label>
-              <div class="input-with-controls">
-                <input
-                  type="number"
-                  inputmode="decimal"
-                  v-model.number="newTrade.price"
-                  placeholder="0.00"
-                  min="0.00001"
-                  step="0.00001"
-                  class="mobile-number-input"
-                >
-                <button
-                  class="btn-use-market"
-                  @click="newTrade.price = currentMarketPrice"
-                  v-if="currentMarketPrice > 0"
-                >
-                  使用市价
-                </button>
-              </div>
-            </div>
-          </div>
-
+          <TradePreview
+            :trade-type="tradeFormState.tradeType"
+            :symbol="tradeFormState.selectedSymbol"
+            :amount="tradeFormState.amount || 0"
+            :price="tradeFormState.price || 0"
+            :current-holding="getHoldingAmount(tradeFormState.selectedSymbol)"
+            :current-avg-cost="getHoldingAvgCost(tradeFormState.selectedSymbol)"
+            :show-empty="false"
+          />
         </div>
 
         <!-- 交易按钮 - 固定在底部 -->
-        <div class="trade-modal-footer" v-if="newTrade.symbol">
+        <div class="trade-modal-footer" v-if="tradeFormState.selectedSymbol">
           <button
             class="btn-submit"
-            @click="handleTradeSubmit"
-            :disabled="!isFormValid || portfolioStore.isLoading || isSubmitting.trade"
-            :class="newTrade.type"
+            @click="handleTradeSubmit(tradeFormState)"
+            :disabled="!tradeFormState.amount || !tradeFormState.price || portfolioStore.isLoading || isSubmitting.trade"
+            :class="tradeFormState.tradeType"
           >
-            <Icon :icon="newTrade.type === 'buy' ? 'mdi:cart-plus' : 'mdi:cart-remove'" />
-            {{ newTrade.type === 'buy' ? '买入' : '卖出' }}
-            <span class="submit-total" v-if="newTrade.amount && newTrade.price">
-              {{ formatCompactAmount(newTrade.amount * newTrade.price) }}
+            <Icon :icon="tradeFormState.tradeType === 'buy' ? 'mdi:cart-plus' : 'mdi:cart-remove'" />
+            {{ tradeFormState.tradeType === 'buy' ? '买入' : '卖出' }}
+            <span class="submit-total" v-if="tradeFormState.amount && tradeFormState.price">
+              {{ formatCompactAmount(tradeFormState.amount * tradeFormState.price) }}
             </span>
           </button>
-          <button class="btn-reset" @click="clearForm">
+          <button class="btn-reset" @click="resetTradeForm">
             <Icon icon="bx:reset" />
             重置
           </button>
@@ -997,11 +573,15 @@ import { useUserStore } from '../stores/user'
 import { config } from '../config'
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js'
 import { Doughnut } from 'vue-chartjs'
-import { AVAILABLE_SYMBOLS, AVAILABLE_ASSETS, getAssetColor, getAssetIcon, getAssetName } from '../config/assets'
+import { getAssetColor, getAssetIcon, getAssetName } from '../config/assets'
 import { formatAmount, formatCompactAmount, formatDateTime, getChangeClass } from '../utils/format'
 import MobileAssetCard from './MobileAssetCard.vue'
 import MobileTradeCard from './MobileTradeCard.vue'
 import SkeletonLoader from './SkeletonLoader.vue'
+import TradeForm from './portfolio/TradeForm.vue'
+import TradeFormMobile from './portfolio/TradeFormMobile.vue'
+import TradePreview from './portfolio/TradePreview.vue'
+import TradeHistory from './portfolio/TradeHistory.vue'
 
 // 延迟加载非关键组件
 const PortfolioChart = defineAsyncComponent(() => import('./PortfolioChart.vue'))
@@ -1011,46 +591,15 @@ ChartJS.register(ArcElement, Tooltip, Legend)
 const portfolioStore = usePortfolioStore()
 const userStore = useUserStore()
 
-// 支持的资产列表
-const availableSymbols = AVAILABLE_SYMBOLS
-const availableUSStocks = AVAILABLE_ASSETS.US_STOCK
-
-// 当前可用的资产列表
-const currentAvailableSymbols = computed(() => {
-  return currentAssetType.value === 'crypto' ? availableSymbols : availableUSStocks
-})
-
-// 切换资产类型
-const switchAssetType = (type) => {
-  currentAssetType.value = type
-  newTrade.value.assetType = type
-  newTrade.value.symbol = ''
-  newTrade.value.amount = null
-  newTrade.value.price = null
-  currentMarketPrice.value = 0
-}
-
-// 获取当前价格
-const getCurrentPrice = (symbol) => {
-  if (currentAssetType.value === 'crypto') {
-    return portfolioStore.prices[symbol]
-  } else {
-    return portfolioStore.usStockPrices[symbol]
-  }
-}
-
-
-
-// 状态
-const newTrade = ref({
+// 交易表单状态
+const tradeFormState = ref({
+  tradeType: 'buy',
   assetType: 'crypto',
-  symbol: '',
-  type: 'buy',
+  selectedSymbol: '',
   amount: null,
-  price: null
+  price: null,
+  currentMarketPrice: 0
 })
-const currentAssetType = ref('crypto') // 当前选中的资产类型
-const currentMarketPrice = ref(0) // 当前选中的币种市价
 const tradeFilter = ref('all')
 const refreshing = ref(false)
 const errorMessage = ref('')
@@ -1062,7 +611,6 @@ const lastScrollTop = ref(0)
 const refreshInterval = ref(60)
 const selectedFilter = ref('all')
 const selectedAsset = ref(null)
-const amountInput = ref(null)
 const showRechargeModal = ref(false)
 const rechargeAmount = ref(null)
 const protectHistory = ref(true)
@@ -1098,11 +646,23 @@ const activeTab = ref('overview')
 // 移动端交易弹窗显示状态
 const showTradeModal = ref(false)
 
-// 处理交易提交（移动端弹窗中使用）
-const handleTradeSubmit = async () => {
-  await addTrade()
+// 处理交易提交
+const handleTradeSubmit = async (tradeData) => {
+  await addTrade(tradeData)
   if (!errorMessage.value) {
     showTradeModal.value = false
+  }
+}
+
+// 重置交易表单
+const resetTradeForm = () => {
+  tradeFormState.value = {
+    tradeType: tradeFormState.value.tradeType,
+    assetType: tradeFormState.value.assetType,
+    selectedSymbol: '',
+    amount: null,
+    price: null,
+    currentMarketPrice: 0
   }
 }
 
@@ -1206,69 +766,16 @@ const formatValue = (valueInUSD) => {
   return formatCompactAmount(valueInUSD)
 }
 
-const getTradeTypeText = (type) => {
-  const map = {
-    buy: '买入',
-    sell: '卖出',
-    recharge: '充值'
-  }
-  return map[type] || type
-}
-
-const toggleProtectHistory = () => {
-  protectHistory.value = !protectHistory.value
-}
-
-// 设置交易对价格并聚焦输入框
-const setSymbolPrice = async (symbol, focusInput = true) => {
-  if (!symbol) {
-    currentMarketPrice.value = 0
-    return
-  }
-  // 优先从已有数据中获取价格，避免额外请求
-  const cachedPrice = getCurrentPrice(symbol)
-  if (cachedPrice) {
-    newTrade.value.price = cachedPrice
-    currentMarketPrice.value = cachedPrice
-  } else {
-    // 只有在没有缓存价格时才请求
-    const result = await portfolioStore.fetchAssetPrice(symbol, currentAssetType.value)
-    if (result.success) {
-      newTrade.value.price = result.price
-      currentMarketPrice.value = result.price
-    }
-  }
-  if (focusInput) {
-    nextTick(() => {
-      if (amountInput.value) {
-        amountInput.value.focus()
-      }
-    })
-  }
-}
-
-const selectSymbol = async (symbol) => {
-  newTrade.value.symbol = symbol
-  await setSymbolPrice(symbol, true)
-  // 点击资产后自动关闭选择器
-  showAssetSelector.value = false
-}
-
-const onSymbolChange = async () => {
-  await setSymbolPrice(newTrade.value.symbol, true)
-}
-
-const isFormValid = computed(() => {
-  return newTrade.value.symbol && 
-         newTrade.value.amount && 
-         newTrade.value.amount > 0 && 
-         newTrade.value.price && 
-         newTrade.value.price > 0
-})
-
+// 获取持仓数量（用于交易预览）
 const getHoldingAmount = (symbol) => {
   const asset = portfolio.value?.find(c => c.symbol === symbol)
   return asset ? asset.amount : 0
+}
+
+// 获取当前持仓成本价
+const getHoldingAvgCost = (symbol) => {
+  const asset = portfolio.value?.find(c => c.symbol === symbol)
+  return asset ? asset.avg_cost : 0
 }
 
 // 根据avg_cost获取盈亏显示的CSS类
@@ -1286,71 +793,22 @@ const getProfitClass = (crypto) => {
   }
 }
 
-// 计算卖出时的预估实现盈亏（借贷记账法）
-// 实现盈亏 = USD收入 - USD成本（按卖出比例计算）
-const calculateEstimatedRealizedPL = () => {
-  if (newTrade.value.type !== 'sell') return 0
-  const existing = portfolio.value?.find(c => c.symbol === newTrade.value.symbol)
-  if (!existing || existing.amount === 0) return 0
-
-  // 本次卖出获得的USD
-  const usdOut = newTrade.value.price * newTrade.value.amount
-
-  // 按卖出比例计算的USD投入成本
-  // 总成本 = 平均成本 * 持仓数量
-  const totalCost = existing.avg_cost * existing.amount
-  const costRatio = newTrade.value.amount / existing.amount
-  const usdIn = totalCost * costRatio
-
-  return usdOut - usdIn
-}
-
-// 计算交易后的新综合成本价（借贷记账法）
-// 买入: 新成本价 = (当前总成本 + 本次投入) / (当前持仓 + 本次买入量)
-// 卖出: 新成本价 = 当前成本（保持不变，因为按比例回收成本）
-const calculateNewAvgCost = () => {
-  if (!newTrade.value.symbol) return 0
-  const existing = portfolio.value?.find(c => c.symbol === newTrade.value.symbol)
-  const currentAmount = existing ? existing.amount : 0
-  const currentAvgCost = existing ? existing.avg_cost : 0
-  const tradeAmount = newTrade.value.amount || 0
-  const tradeTotal = tradeAmount * (newTrade.value.price || 0)
-
-  if (newTrade.value.type === 'buy') {
-    // 买入逻辑
-    if (currentAmount === 0) return newTrade.value.price || 0
-    // 当前总成本 = 平均成本 * 持仓数量
-    const currentTotalCost = currentAvgCost * currentAmount
-    const newTotalCost = currentTotalCost + tradeTotal
-    const newTotalAmount = currentAmount + tradeAmount
-    return newTotalAmount > 0 ? newTotalCost / newTotalAmount : 0
-  } else if (newTrade.value.type === 'sell') {
-    // 卖出逻辑：成本价保持不变（借贷记账法）
-    if (!existing || currentAmount === 0) return 0
-    // 如果全部卖出，成本价为0
-    if (tradeAmount >= currentAmount) return 0
-    // 成本价保持不变
-    return currentAvgCost
-  }
-  return 0
-}
-
-const addTrade = async () => {
+const addTrade = async (tradeData) => {
   if (isSubmitting.value.trade) return
 
-  if (!newTrade.value.symbol) {
+  if (!tradeData.symbol) {
     errorMessage.value = '请选择资产'
     setTimeout(() => errorMessage.value = '', 3000)
     return
   }
 
-  if (newTrade.value.amount <= 0) {
+  if (!tradeData.amount || tradeData.amount <= 0) {
     errorMessage.value = '请输入大于 0 的数量'
     setTimeout(() => errorMessage.value = '', 3000)
     return
   }
 
-  if (newTrade.value.price <= 0) {
+  if (!tradeData.price || tradeData.price <= 0) {
     errorMessage.value = '请输入大于 0 的价格'
     setTimeout(() => errorMessage.value = '', 3000)
     return
@@ -1360,11 +818,11 @@ const addTrade = async () => {
 
   try {
     const result = await portfolioStore.createTrade({
-      asset_type: newTrade.value.assetType,
-      symbol: newTrade.value.symbol,
-      type: newTrade.value.type,
-      amount: newTrade.value.amount,
-      price: newTrade.value.price
+      asset_type: tradeData.assetType,
+      symbol: tradeData.symbol,
+      type: tradeData.type,
+      amount: tradeData.amount,
+      price: tradeData.price
     })
 
     if (!result.success) {
@@ -1373,15 +831,8 @@ const addTrade = async () => {
       return
     }
 
-    // store 层已经自动刷新数据，这里不需要再调用 refreshPrices()
-    // 只需要重置表单
-    newTrade.value = {
-      assetType: currentAssetType.value,
-      symbol: '',
-      type: 'buy',
-      amount: null,
-      price: null
-    }
+    // 重置表单
+    resetTradeForm()
   } finally {
     isSubmitting.value.trade = false
   }
@@ -1470,18 +921,6 @@ const clearTrades = async () => {
   }
 }
 
-const clearForm = () => {
-  const currentType = newTrade.value.type
-  newTrade.value = {
-    assetType: currentAssetType.value,
-    symbol: '',
-    type: currentType,
-    amount: null,
-    price: null
-  }
-  showAssetSelector.value = false
-}
-
 const selectAsset = (symbol) => {
   // toggle 模式：点击已选中的资产则取消过滤，显示全部
   if (selectedAsset.value === symbol) {
@@ -1490,20 +929,6 @@ const selectAsset = (symbol) => {
   } else {
     selectedAsset.value = symbol
     selectedFilter.value = symbol
-  }
-}
-
-// 快捷设置卖出数量（百分比）
-const setQuickAmount = (percent) => {
-  const holding = getHoldingAmount(newTrade.value.symbol)
-  newTrade.value.amount = Number((holding * percent / 100).toFixed(4))
-}
-
-// 快捷设置买入数量（基于现金余额百分比）
-const setQuickBuyAmount = (percent) => {
-  if (currentMarketPrice.value > 0) {
-    const maxAmount = (cashBalance.value * percent / 100) / currentMarketPrice.value
-    newTrade.value.amount = Number(maxAmount.toFixed(4))
   }
 }
 
@@ -1578,20 +1003,6 @@ const handleVisibilityChange = () => {
   }
 }
 
-const filteredHoldings = computed(() => {
-  const filter = selectedFilter.value
-  return portfolio.value?.filter(c =>
-    c.symbol !== 'USDT' &&
-    c.amount > 0 &&
-    (filter === 'all' || c.symbol === filter)
-  ) || []
-})
-
-const filteredTrades = computed(() => {
-  const filter = tradeFilter.value
-  return filter === 'all' ? trades.value : trades.value?.filter(t => t.type === filter)
-})
-
 // 计算属性缓存工具
 function createComputedCache() {
   let cache = null
@@ -1612,7 +1023,17 @@ function createComputedCache() {
   }
 }
 
-// 缓存资产元数据，避免模板中频繁调用函数
+// 过滤后的持仓
+const filteredHoldings = computed(() => {
+  const filter = selectedFilter.value
+  return portfolio.value?.filter(c =>
+    c.symbol !== 'USDT' &&
+    c.amount > 0 &&
+    (filter === 'all' || c.symbol === filter)
+  ) || []
+})
+
+// 缓存资产元数据
 const holdingsWithMetaCache = createComputedCache()
 
 function computeHoldingsWithMeta() {
@@ -1631,26 +1052,6 @@ function computeHoldingsWithMeta() {
 const holdingsWithMeta = computed(() => {
   const cacheKey = `${selectedFilter.value}-${portfolio.value?.length || 0}-${valueMode.value}`
   return holdingsWithMetaCache.get(cacheKey, computeHoldingsWithMeta)
-})
-
-// 缓存交易元数据
-const tradesWithMetaCache = createComputedCache()
-
-function computeTradesWithMeta() {
-  return filteredTrades.value.map(item => ({
-    ...item,
-    icon: getAssetIcon(item.asset_type, item.symbol),
-    color: getAssetColor(item.asset_type, item.symbol),
-    formattedAmount: formatAmount(item.amount),
-    formattedPrice: formatAmount(item.price),
-    formattedTotal: formatAmount(item.amount * item.price),
-    formattedFee: formatAmount(item.fee || 0)
-  }))
-}
-
-const tradesWithMeta = computed(() => {
-  const cacheKey = `${tradeFilter.value}-${trades.value?.length || 0}`
-  return tradesWithMetaCache.get(cacheKey, computeTradesWithMeta)
 })
 
 // 总资产净值 = 加密资产市值 + 美股市值 + USD现金余额
