@@ -138,8 +138,9 @@ const setQuickAmount = (percent) => {
 
 // 快捷设置买入数量（基于现金余额百分比）
 const setQuickBuyAmount = (percent) => {
-  if (props.currentMarketPrice > 0) {
-    const maxAmount = (props.cashBalance * percent / 100) / props.currentMarketPrice
+  const price = getCurrentPrice(props.selectedSymbol)
+  if (price > 0) {
+    const maxAmount = (props.cashBalance * percent / 100) / price
     emit('update:amount', Number(maxAmount.toFixed(4)))
   }
 }

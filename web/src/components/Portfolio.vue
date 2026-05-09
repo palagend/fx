@@ -159,9 +159,9 @@
               <div class="trading-container">
                 <!-- 左侧：交易表单 -->
                 <TradeForm
-                  v-model:trade-type="tradeFormState.tradeType"
+                  v-model:trade-type="tradeFormState.type"
                   v-model:asset-type="tradeFormState.assetType"
-                  v-model:selected-symbol="tradeFormState.selectedSymbol"
+                  v-model:selected-symbol="tradeFormState.symbol"
                   v-model:amount="tradeFormState.amount"
                   v-model:price="tradeFormState.price"
                   :current-market-price="tradeFormState.currentMarketPrice"
@@ -175,13 +175,13 @@
 
                 <!-- 右侧：交易预览（仅PC端显示） -->
                 <TradePreview
-                  :trade-type="tradeFormState.tradeType"
-                  :symbol="tradeFormState.selectedSymbol"
+                  :trade-type="tradeFormState.type"
+                  :symbol="tradeFormState.symbol"
                   :amount="tradeFormState.amount || 0"
                   :price="tradeFormState.price || 0"
-                  :current-holding="getHoldingAmount(tradeFormState.selectedSymbol)"
-                  :current-avg-cost="getHoldingAvgCost(tradeFormState.selectedSymbol)"
-                  :show-empty="!!tradeFormState.selectedSymbol"
+                  :current-holding="getHoldingAmount(tradeFormState.symbol)"
+                  :current-avg-cost="getHoldingAvgCost(tradeFormState.symbol)"
+                  :show-empty="!!tradeFormState.symbol"
                 />
               </div>
             </section>
@@ -515,9 +515,9 @@
         </div>
         <div class="trade-modal-body">
           <TradeFormMobile
-            v-model:trade-type="tradeFormState.tradeType"
+            v-model:trade-type="tradeFormState.type"
             v-model:asset-type="tradeFormState.assetType"
-            v-model:selected-symbol="tradeFormState.selectedSymbol"
+            v-model:selected-symbol="tradeFormState.symbol"
             v-model:amount="tradeFormState.amount"
             v-model:price="tradeFormState.price"
             :current-market-price="tradeFormState.currentMarketPrice"
@@ -530,26 +530,26 @@
           />
 
           <TradePreview
-            :trade-type="tradeFormState.tradeType"
-            :symbol="tradeFormState.selectedSymbol"
+            :trade-type="tradeFormState.type"
+            :symbol="tradeFormState.symbol"
             :amount="tradeFormState.amount || 0"
             :price="tradeFormState.price || 0"
-            :current-holding="getHoldingAmount(tradeFormState.selectedSymbol)"
-            :current-avg-cost="getHoldingAvgCost(tradeFormState.selectedSymbol)"
+            :current-holding="getHoldingAmount(tradeFormState.symbol)"
+            :current-avg-cost="getHoldingAvgCost(tradeFormState.symbol)"
             :show-empty="false"
           />
         </div>
 
         <!-- 交易按钮 - 固定在底部 -->
-        <div class="trade-modal-footer" v-if="tradeFormState.selectedSymbol">
+        <div class="trade-modal-footer" v-if="tradeFormState.symbol">
           <button
             class="btn-submit"
             @click="handleTradeSubmit(tradeFormState)"
             :disabled="!tradeFormState.amount || !tradeFormState.price || portfolioStore.isLoading || isSubmitting.trade"
-            :class="tradeFormState.tradeType"
+            :class="tradeFormState.type"
           >
-            <Icon :icon="tradeFormState.tradeType === 'buy' ? 'mdi:cart-plus' : 'mdi:cart-remove'" />
-            {{ tradeFormState.tradeType === 'buy' ? '买入' : '卖出' }}
+            <Icon :icon="tradeFormState.type === 'buy' ? 'mdi:cart-plus' : 'mdi:cart-remove'" />
+            {{ tradeFormState.type === 'buy' ? '买入' : '卖出' }}
             <span class="submit-total" v-if="tradeFormState.amount && tradeFormState.price">
               {{ formatCompactAmount(tradeFormState.amount * tradeFormState.price) }}
             </span>
@@ -593,9 +593,9 @@ const userStore = useUserStore()
 
 // 交易表单状态
 const tradeFormState = ref({
-  tradeType: 'buy',
+  type: 'buy',
   assetType: 'crypto',
-  selectedSymbol: '',
+  symbol: '',
   amount: null,
   price: null,
   currentMarketPrice: 0
@@ -657,9 +657,9 @@ const handleTradeSubmit = async (tradeData) => {
 // 重置交易表单
 const resetTradeForm = () => {
   tradeFormState.value = {
-    tradeType: tradeFormState.value.tradeType,
+    type: tradeFormState.value.type,
     assetType: tradeFormState.value.assetType,
-    selectedSymbol: '',
+    symbol: '',
     amount: null,
     price: null,
     currentMarketPrice: 0
