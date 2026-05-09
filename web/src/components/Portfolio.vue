@@ -294,14 +294,6 @@
                         {{ formatCompactAmount(newTrade.amount * newTrade.price) }}
                       </span>
                     </button>
-                    <button
-                      class="btn-preview"
-                      @click="showPreviewDrawer = true"
-                      v-if="isMobile && newTrade.amount && newTrade.price"
-                      title="查看交易预览"
-                    >
-                      <Icon icon="mdi:eye" />
-                    </button>
                     <button class="btn-reset" @click="clearForm">
                       <Icon icon="bx:reset" />
                       重置
@@ -325,6 +317,10 @@
                       <div class="preview-detail-row" v-if="getHoldingAmount(newTrade.symbol) > 0">
                         <span class="detail-label">买入后持仓</span>
                         <span class="detail-value highlight">{{ formatAmount(getHoldingAmount(newTrade.symbol) + newTrade.amount) }}</span>
+                      </div>
+                      <div class="preview-detail-row">
+                        <span class="detail-label">买入后成本价</span>
+                        <span class="detail-value highlight">${{ formatAmount(calculateNewAvgCost()) }}</span>
                       </div>
                       <div class="preview-detail-row impact">
                         <span class="detail-label">USD支出</span>
@@ -364,76 +360,6 @@
                 </div>
               </div>
             </section>
-
-            <!-- 移动端抽屉预览 -->
-            <div class="preview-drawer-overlay" v-if="isMobile && showPreviewDrawer" @click="showPreviewDrawer = false">
-              <div class="preview-drawer" @click.stop>
-                <div class="drawer-header">
-                  <h4><Icon icon="mdi:eye" /> 交易预览</h4>
-                  <button class="drawer-close" @click="showPreviewDrawer = false">
-                    <Icon icon="mdi:close" />
-                  </button>
-                </div>
-                <div class="drawer-content">
-                  <div class="preview-main">
-                    <div class="preview-item total">
-                      <span class="label">交易总额</span>
-                      <span class="value">${{ formatAmount(newTrade.amount * newTrade.price) }}</span>
-                    </div>
-                  </div>
-
-                  <template v-if="newTrade.type === 'buy'">
-                    <div class="preview-divider"></div>
-                    <div class="preview-details">
-                      <div class="preview-item" v-if="getHoldingAmount(newTrade.symbol) > 0">
-                        <span class="label">当前持仓</span>
-                        <span class="value">{{ formatAmount(getHoldingAmount(newTrade.symbol)) }}</span>
-                      </div>
-                      <div class="preview-item" v-if="getHoldingAmount(newTrade.symbol) > 0">
-                        <span class="label">买入后持仓</span>
-                        <span class="value highlight">{{ formatAmount(getHoldingAmount(newTrade.symbol) + newTrade.amount) }}</span>
-                      </div>
-                      <div class="preview-item" v-if="getHoldingAmount(newTrade.symbol) > 0">
-                        <span class="label">买入后成本价</span>
-                        <span class="value">${{ formatAmount(calculateNewAvgCost()) }}</span>
-                      </div>
-                      <div class="preview-item impact">
-                        <span class="label">USD支出</span>
-                        <span class="value negative">-${{ formatAmount(newTrade.amount * newTrade.price) }}</span>
-                      </div>
-                    </div>
-                  </template>
-
-                  <template v-if="newTrade.type === 'sell'">
-                    <div class="preview-divider"></div>
-                    <div class="preview-details">
-                      <div class="preview-item">
-                        <span class="label">当前持仓</span>
-                        <span class="value">{{ formatAmount(getHoldingAmount(newTrade.symbol)) }}</span>
-                      </div>
-                      <div class="preview-item">
-                        <span class="label">卖出后持仓</span>
-                        <span class="value">{{ formatAmount(Math.max(0, getHoldingAmount(newTrade.symbol) - newTrade.amount)) }}</span>
-                      </div>
-                      <div class="preview-item" v-if="newTrade.amount < getHoldingAmount(newTrade.symbol)">
-                        <span class="label">卖出后成本价</span>
-                        <span class="value highlight">${{ formatAmount(calculateNewAvgCost()) }}</span>
-                      </div>
-                      <div class="preview-item" v-if="calculateEstimatedRealizedPL() !== 0">
-                        <span class="label">预估盈亏</span>
-                        <span :class="['value', calculateEstimatedRealizedPL() >= 0 ? 'positive' : 'negative']">
-                          {{ calculateEstimatedRealizedPL() >= 0 ? '+' : '-' }}${{ formatAmount(Math.abs(calculateEstimatedRealizedPL())) }}
-                        </span>
-                      </div>
-                      <div class="preview-item impact">
-                        <span class="label">USD收入</span>
-                        <span class="value positive">+${{ formatAmount(newTrade.amount * newTrade.price) }}</span>
-                      </div>
-                    </div>
-                  </template>
-                </div>
-              </div>
-            </div>
 
             <!-- 资产详情标签页 -->
             <section id="portfolio" class="portfolio-section tab-content" :class="{ 'mobile-hidden': isMobile && activeTab !== 'portfolio' }">
@@ -938,6 +864,10 @@
                   <span class="detail-label">买入后持仓</span>
                   <span class="detail-value highlight">{{ formatAmount(getHoldingAmount(newTrade.symbol) + newTrade.amount) }}</span>
                 </div>
+                <div class="preview-detail-row">
+                  <span class="detail-label">买入后成本价</span>
+                  <span class="detail-value highlight">${{ formatAmount(calculateNewAvgCost()) }}</span>
+                </div>
                 <div class="preview-detail-row impact">
                   <span class="detail-label">USD支出</span>
                   <span class="detail-value negative">-${{ formatAmount(newTrade.amount * newTrade.price) }}</span>
@@ -1125,7 +1055,6 @@ const tradeFilter = ref('all')
 const refreshing = ref(false)
 const errorMessage = ref('')
 const autoRefresh = ref(false)
-const showPreviewDrawer = ref(false)
 const showAssetSelector = ref(false)
 const isMobile = ref(false)
 const showFab = ref(false)
@@ -4680,156 +4609,6 @@ watch(() => userStore.isLoggedIn, async (isLoggedIn) => {
   display: block;
   font-size: 12px;
   margin-top: 4px;
-}
-
-/* 移动端预览按钮 */
-.btn-preview {
-  background: #f1f5f9;
-  color: #334155;
-  border: none;
-  border-radius: 10px;
-  padding: 12px;
-  font-size: 18px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  touch-action: manipulation;
-}
-
-.btn-preview:hover {
-  background: #e2e8f0;
-}
-
-.btn-preview:active {
-  transform: scale(0.98);
-}
-
-.dark .btn-preview {
-  background: #334155;
-  color: #cbd5e1;
-}
-
-.dark .btn-preview:hover {
-  background: #475569;
-}
-
-/* 抽屉预览遮罩 */
-.preview-drawer-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  z-index: 1000;
-  display: flex;
-  align-items: flex-end;
-  animation: fadeIn 0.3s ease;
-}
-
-.dark .preview-drawer-overlay {
-  background: rgba(0, 0, 0, 0.7);
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-/* 抽屉主体 */
-.preview-drawer {
-  background: white;
-  width: 100%;
-  max-height: 70vh;
-  border-radius: 20px 20px 0 0;
-  overflow: hidden;
-  animation: slideUp 0.3s ease;
-}
-
-.dark .preview-drawer {
-  background: #1e293b;
-}
-
-@keyframes slideUp {
-  from {
-    transform: translateY(100%);
-  }
-  to {
-    transform: translateY(0);
-  }
-}
-
-/* 抽屉头部 */
-.drawer-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 20px 24px;
-  border-bottom: 1px solid #e5e7eb;
-  background: white;
-  position: sticky;
-  top: 0;
-  z-index: 10;
-}
-
-.dark .drawer-header {
-  background: #1e293b;
-  border-bottom-color: #334155;
-}
-
-.drawer-header h4 {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 600;
-  color: #1f2937;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.dark .drawer-header h4 {
-  color: #f1f5f9;
-}
-
-.drawer-close {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  border: none;
-  background: #f3f4f6;
-  color: #6b7280;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  touch-action: manipulation;
-}
-
-.drawer-close:hover {
-  background: #e5e7eb;
-}
-
-.dark .drawer-close {
-  background: #334155;
-  color: #94a3b8;
-}
-
-.dark .drawer-close:hover {
-  background: #475569;
-}
-
-/* 抽屉内容 */
-.drawer-content {
-  padding: 20px 24px;
-  max-height: calc(70vh - 70px);
-  overflow-y: auto;
 }
 
 /* FAB按钮 */
