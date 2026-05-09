@@ -1,13 +1,18 @@
 import { createRouter, createWebHistory, RouteRecordRaw } from 'vue-router'
+import { defineAsyncComponent } from 'vue'
+
+// 首屏关键组件同步加载
 import Home from '../components/Home.vue'
-import ExchangeRate from '../components/ExchangeRate.vue'
-import Calculator from '../components/Calculator.vue'
-import Portfolio from '../components/Portfolio.vue'
-import QRCodeGenerator from '../components/QRCodeGenerator.vue'
-import PasswordGenerator from '../components/PasswordGenerator.vue'
-import PasswordManager from '../components/PasswordManager.vue'
-import MobileTools from '../components/MobileTools.vue'
-import MobileProfile from '../components/MobileProfile.vue'
+
+// 其他组件懒加载，减少首屏 JS 大小
+const ExchangeRate = defineAsyncComponent(() => import('../components/ExchangeRate.vue'))
+const Calculator = defineAsyncComponent(() => import('../components/Calculator.vue'))
+const Portfolio = defineAsyncComponent(() => import('../components/Portfolio.vue'))
+const QRCodeGenerator = defineAsyncComponent(() => import('../components/QRCodeGenerator.vue'))
+const PasswordGenerator = defineAsyncComponent(() => import('../components/PasswordGenerator.vue'))
+const PasswordManager = defineAsyncComponent(() => import('../components/PasswordManager.vue'))
+const MobileTools = defineAsyncComponent(() => import('../components/MobileTools.vue'))
+const MobileProfile = defineAsyncComponent(() => import('../components/MobileProfile.vue'))
 
 const routes: RouteRecordRaw[] = [
   { 
