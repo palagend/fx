@@ -306,7 +306,6 @@ const clearCache = () => {
 .mobile-profile {
   min-height: 100vh;
   background: #f0f2f5;
-  padding-bottom: 80px;
 }
 
 .profile-header {

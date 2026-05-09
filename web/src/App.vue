@@ -663,7 +663,10 @@ body {
   max-width: 480px;
   margin: 0 auto;
   padding: 0;
+  padding-bottom: calc(80px + env(safe-area-inset-bottom));
   width: 100%;
+  min-height: 100vh;
+  box-sizing: border-box;
 }
 
 .dark body {
@@ -985,9 +988,12 @@ body {
 
   .container {
     padding: 0;
+    padding-bottom: calc(80px + env(safe-area-inset-bottom));
     max-width: 480px;
     margin: 0 auto;
     width: 100%;
+    min-height: 100vh;
+    box-sizing: border-box;
   }
 
   body {

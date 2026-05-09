@@ -95,7 +95,6 @@ import { Icon } from '@iconify/vue'
 .mobile-tools {
   min-height: 100vh;
   background: #f0f2f5;
-  padding-bottom: 80px;
 }
 
 .tools-header {
