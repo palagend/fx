@@ -462,7 +462,19 @@
             <div class="result-error" v-else>
               <Icon icon="mdi:close-circle" class="result-icon error" />
               <h4>导入失败</h4>
-              <p>{{ importError }}</p>
+              <p class="error-detail">{{ importError }}</p>
+              <div class="error-hint" v-if="importError?.includes('篡改')">
+                <Icon icon="mdi:shield-alert" />
+                <span>请使用未被修改的原始导出文件</span>
+              </div>
+              <div class="error-hint" v-else-if="importError?.includes('版本')">
+                <Icon icon="mdi:update" />
+                <span>请更新到最新版本后再试</span>
+              </div>
+              <div class="error-hint" v-else-if="importError?.includes('格式')">
+                <Icon icon="mdi:file-code" />
+                <span>请确保上传的是有效的JSON文件</span>
+              </div>
             </div>
           </div>
         </div>
@@ -3643,13 +3655,48 @@ watch(() => userStore.isLoggedIn, async (isLoggedIn) => {
   color: #9ca3af;
 }
 
-.result-error p {
-  color: #6b7280;
-  font-size: 14px;
+.result-error .error-detail {
+  color: #dc2626;
+  font-size: 15px;
+  font-weight: 500;
+  margin: 12px 0;
+  padding: 12px 16px;
+  background: #fef2f2;
+  border-radius: 8px;
+  border-left: 4px solid #dc2626;
 }
 
-.dark .result-error p {
-  color: #9ca3af;
+.dark .result-error .error-detail {
+  color: #f87171;
+  background: rgba(220, 38, 38, 0.1);
+}
+
+.result-error .error-hint {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 10px 14px;
+  background: #f3f4f6;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #4b5563;
+}
+
+.result-error .error-hint svg {
+  width: 18px;
+  height: 18px;
+  color: #6366f1;
+  flex-shrink: 0;
+}
+
+.dark .result-error .error-hint {
+  background: #374151;
+  color: #d1d5db;
+}
+
+.dark .result-error .error-hint svg {
+  color: #818cf8;
 }
 
 /* 响应式 */

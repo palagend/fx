@@ -345,8 +345,22 @@ export const usePortfolioStore = defineStore('portfolio', () => {
       const response = await portfolioApi.importPreview(localData)
       return { success: true, preview: response.data.preview }
     } catch (err) {
-      const e = err as { response?: { data?: { error?: string } } }
-      const errorMsg = e.response?.data?.error || '预览导入数据失败'
+      const e = err as { response?: { data?: { error?: string } }; message?: string }
+      let errorMsg = e.response?.data?.error
+      
+      // 如果没有后端返回的错误，根据错误类型提供友好提示
+      if (!errorMsg) {
+        if (e.message?.includes('fingerprint') || e.message?.includes('篡改')) {
+          errorMsg = '数据文件已被篡改，无法导入'
+        } else if (e.message?.includes('version')) {
+          errorMsg = '不兼容的数据文件版本'
+        } else if (e.message?.includes('JSON') || e.message?.includes('parse')) {
+          errorMsg = '文件格式错误，请检查是否为有效的JSON文件'
+        } else {
+          errorMsg = '预览失败，请检查网络连接后重试'
+        }
+      }
+      
       error.value = errorMsg
       return { success: false, error: errorMsg }
     }
@@ -367,8 +381,22 @@ export const usePortfolioStore = defineStore('portfolio', () => {
         overwritten: response.data.overwritten
       }
     } catch (err) {
-      const e = err as { response?: { data?: { error?: string } } }
-      const errorMsg = e.response?.data?.error || '导入数据失败'
+      const e = err as { response?: { data?: { error?: string } }; message?: string }
+      let errorMsg = e.response?.data?.error
+      
+      // 如果没有后端返回的错误，根据错误类型提供友好提示
+      if (!errorMsg) {
+        if (e.message?.includes('fingerprint') || e.message?.includes('篡改')) {
+          errorMsg = '数据文件已被篡改，无法导入'
+        } else if (e.message?.includes('version')) {
+          errorMsg = '不兼容的数据文件版本'
+        } else if (e.message?.includes('JSON') || e.message?.includes('parse')) {
+          errorMsg = '文件格式错误，请检查是否为有效的JSON文件'
+        } else {
+          errorMsg = '导入失败，请检查网络连接后重试'
+        }
+      }
+      
       error.value = errorMsg
       return { success: false, error: errorMsg }
     } finally {
