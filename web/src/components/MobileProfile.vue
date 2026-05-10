@@ -17,6 +17,20 @@
       </div>
     </header>
 
+    <section class="theme-section">
+      <div class="menu-group">
+        <button class="menu-item" @click="toggleTheme">
+          <div class="menu-icon dark-icon">
+            <Icon icon="mdi:theme-light-dark" />
+          </div>
+          <span class="menu-text">{{ isDarkRef ? '暗色模式' : '浅色模式' }}</span>
+          <div class="theme-switch" :class="{ active: isDarkRef }">
+            <div class="switch-circle"></div>
+          </div>
+        </button>
+      </div>
+    </section>    
+
     <section class="menu-section">
       <div class="menu-group">
         <button class="menu-item" @click="goToPortfolio">
@@ -101,20 +115,6 @@
           </div>
           <span class="menu-text">登录</span>
           <Icon icon="mdi:chevron-right" class="menu-arrow" />
-        </button>
-      </div>
-    </section>
-
-    <section class="theme-section">
-      <div class="menu-group">
-        <button class="menu-item" @click="toggleTheme">
-          <div class="menu-icon dark-icon">
-            <Icon icon="mdi:theme-light-dark" />
-          </div>
-          <span class="menu-text">{{ isDarkRef ? '暗色模式' : '浅色模式' }}</span>
-          <div class="theme-switch" :class="{ active: isDarkRef }">
-            <div class="switch-circle"></div>
-          </div>
         </button>
       </div>
     </section>
