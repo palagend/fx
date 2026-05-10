@@ -12,9 +12,9 @@ export const ASSET_TYPES: Record<string, AssetTypeConfig> = {
   CRYPTO: {
     id: 'crypto',
     name: '加密货币',
-    currency: 'USDT',
-    currencyName: '泰达币',
-    currencyIcon: 'cryptocurrency-color:usdt',
+    currency: 'USD',
+    currencyName: '美元',
+    currencyIcon: 'mdi:currency-usd',
     priceApi: 'coincap',
     defaultColor: '#26A17B'
   },
@@ -49,14 +49,12 @@ export const ASSET_TYPES: Record<string, AssetTypeConfig> = {
 
 export const CURRENCY_RATES: Record<string, number> = {
   USD: 1,
-  USDT: 1,
   CNY: 0.14,
   HKD: 0.128
 }
 
 export const CRYPTO_CONFIG = {
   COLORS: {
-    USDT: '#26A17B',
     BTC: '#F7931A',
     ETH: '#627EEA',
     BNB: '#F3BA2F',
@@ -71,7 +69,6 @@ export const CRYPTO_CONFIG = {
     DOT: '#E6007A'
   } as Record<string, string>,
   ICONS: {
-    USDT: 'cryptocurrency-color:usdt',
     BTC: 'cryptocurrency-color:btc',
     ETH: 'cryptocurrency-color:eth',
     BNB: 'cryptocurrency-color:bnb',
@@ -86,7 +83,6 @@ export const CRYPTO_CONFIG = {
     DOT: 'token-branded:polkadot'
   } as Record<string, string>,
   NAMES: {
-    USDT: 'Tether',
     BTC: 'Bitcoin',
     ETH: 'Ethereum',
     BNB: 'Binance Coin',
@@ -282,7 +278,6 @@ export const convertCurrency = (amount: number, fromCurrency: string, toCurrency
 export const getCurrencySymbol = (currency: string): string => {
   const symbols: Record<string, string> = {
     USD: '$',
-    USDT: '$',
     CNY: '¥',
     HKD: 'HK$'
   }

@@ -253,7 +253,7 @@
                           <div class="profit-value">
                             {{ (crypto.amount * (crypto.current_price - crypto.avg_cost)) >= 0 ? '+' : '-' }}{{ formatValue(Math.abs(crypto.amount * (crypto.current_price - crypto.avg_cost))) }}
                           </div>
-                          <div class="profit-rate" v-if="crypto.symbol !== 'USDT'">
+                          <div class="profit-rate">
                             {{ ((crypto.current_price - crypto.avg_cost) / crypto.avg_cost * 100) >= 0 ? '+' : '-' }}{{ Math.abs((crypto.current_price - crypto.avg_cost) / crypto.avg_cost * 100).toFixed(2) }}%
                           </div>
                         </template>
@@ -261,7 +261,7 @@
                           <div class="profit-value positive">
                             +{{ formatValue(crypto.amount * crypto.current_price) }}
                           </div>
-                          <div class="profit-rate" v-if="crypto.symbol !== 'USDT'">
+                          <div class="profit-rate">
                             <span class="status-badge recovered">✓ 已回本</span>
                           </div>
                         </template>
@@ -269,7 +269,7 @@
                           <div class="profit-value positive">
                             +{{ formatValue(crypto.amount * crypto.current_price - crypto.avg_cost * crypto.amount) }}
                           </div>
-                          <div class="profit-rate" v-if="crypto.symbol !== 'USDT'">
+                          <div class="profit-rate">
                             <span class="status-badge super-profit">🚀 超100%回报</span>
                           </div>
                         </template>
@@ -978,7 +978,6 @@ function createComputedCache() {
 const filteredHoldings = computed(() => {
   const filter = selectedFilter.value
   return portfolio.value?.filter(c =>
-    c.symbol !== 'USDT' &&
     c.amount > 0 &&
     (filter === 'all' || c.symbol === filter)
   ) || []

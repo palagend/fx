@@ -140,7 +140,7 @@ Authorization: Bearer <token>
     }
   ],
   "crypto_value": 22500.00,
-  "usdt_balance": 10000.00,
+  "cash_balance": 10000.00,
   "unrealized_profit_loss": 2500.00,
   "unrealized_profit_loss_rate": 12.5,
   "realized_profit_loss": 1000.00,

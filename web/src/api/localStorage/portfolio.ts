@@ -38,8 +38,8 @@ function getCachedPrices(): PriceCache | null {
   // 回退到 localStorage 缓存
   const cachedUpdatedAt = getStorageData<number>(STORAGE_KEYS.PRICE_UPDATED_AT, 0)
   if (Date.now() - cachedUpdatedAt < PRICE_CACHE_TTL) {
-    const prices = getStorageData<Record<string, number>>(STORAGE_KEYS.PRICES, { 'USDT': 1.0 })
-    const priceChanges = getStorageData<Record<string, number>>(STORAGE_KEYS.PRICE_CHANGES, { 'USDT': 0 })
+    const prices = getStorageData<Record<string, number>>(STORAGE_KEYS.PRICES, {})
+    const priceChanges = getStorageData<Record<string, number>>(STORAGE_KEYS.PRICE_CHANGES, {})
     const usStockPrices = getStorageData<Record<string, number>>(STORAGE_KEYS.US_STOCK_PRICES, {})
 
     memoryPriceCache = { prices, priceChanges, usStockPrices, updatedAt: cachedUpdatedAt }
@@ -172,8 +172,7 @@ const supportedCryptos: Record<string, boolean> = {
   'AVAX': true,
   'HYPE': true,
   'POL': true,
-  'DOT': true,
-  'USDT': true
+  'DOT': true
 }
 
 const supportedUSStocks: Record<string, boolean> = {
@@ -203,8 +202,7 @@ const symbolToCoinCapId: Record<string, string> = {
   'AVAX': 'avalanche',
   'HYPE': 'hyperliquid',
   'POL': 'polygon-ecosystem-token',
-  'DOT': 'polkadot',
-  'USDT': 'tether'
+  'DOT': 'polkadot'
 }
 
 function getStorageData<T>(key: string, defaultValue: T): T {
@@ -238,7 +236,7 @@ function abs(x: number): number {
 function getCurrencyByAssetType(assetType: AssetType): string {
   switch (assetType) {
     case 'crypto':
-      return 'USDT'
+      return 'USD'
     case 'us_stock':
       return 'USD'
     case 'cash':
@@ -390,8 +388,8 @@ async function fetchCryptoPrices(): Promise<FetchCryptoPricesResult> {
       timeout: 10000
     })
 
-    const prices: Record<string, number> = { 'USDT': 1.0 }
-    const priceChanges: Record<string, number> = { 'USDT': 0 }
+    const prices: Record<string, number> = {}
+    const priceChanges: Record<string, number> = {}
     let updatedAt = Date.now()
 
     if (response.data && response.data.data) {
@@ -411,8 +409,8 @@ async function fetchCryptoPrices(): Promise<FetchCryptoPricesResult> {
     return { prices, priceChanges, updatedAt }
   } catch (error) {
     console.error('获取 CoinCap 价格失败:', error)
-    const cachedPrices = getStorageData<Record<string, number>>(STORAGE_KEYS.PRICES, { 'USDT': 1.0 })
-    const cachedChanges = getStorageData<Record<string, number>>(STORAGE_KEYS.PRICE_CHANGES, { 'USDT': 0 })
+    const cachedPrices = getStorageData<Record<string, number>>(STORAGE_KEYS.PRICES, {})
+    const cachedChanges = getStorageData<Record<string, number>>(STORAGE_KEYS.PRICE_CHANGES, {})
     const cachedUpdatedAt = getStorageData<number>(STORAGE_KEYS.PRICE_UPDATED_AT, Date.now())
     return { prices: cachedPrices, priceChanges: cachedChanges, updatedAt: cachedUpdatedAt }
   }
@@ -485,9 +483,6 @@ async function fetchAssetPrice(symbol: string, assetType: AssetType = 'crypto'):
 
   switch (assetType) {
     case 'crypto':
-      if (symbol === 'USDT') {
-        return { price: 1.0, updated_at: Date.now() }
-      }
       if (!supportedCryptos[symbol]) {
         throw new Error('不支持的加密货币')
       }
@@ -868,7 +863,7 @@ export const localPortfolioApi = {
       symbol: symbol,
       price: result.price,
       asset_type: assetType,
-      currency: assetType === 'crypto' ? 'USDT' : 'USD',
+      currency: 'USD',
       updated_at: new Date(result.updated_at).toISOString()
     })
   },

@@ -59,7 +59,6 @@ var supportedCryptos = map[string]bool{
 	"HYPE": true,
 	"POL":  true,
 	"DOT":  true,
-	"USDT": true,
 }
 
 // 支持的美股列表
@@ -572,16 +571,6 @@ func GetAssetPrice(c *gin.Context) {
 
 // getCryptoPrice 获取加密货币价格
 func getCryptoPrice(c *gin.Context, symbol string) {
-	// USDT价格固定为1
-	if symbol == "USDT" {
-		c.JSON(http.StatusOK, gin.H{
-			"symbol":     symbol,
-			"price":      1.0,
-			"asset_type": "crypto",
-			"currency":   "USDT",
-		})
-		return
-	}
 
 	if !supportedCryptos[symbol] {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "不支持的加密货币"})
@@ -628,7 +617,7 @@ func getCryptoPrice(c *gin.Context, symbol string) {
 		"symbol":     symbol,
 		"price":      price,
 		"asset_type": "crypto",
-		"currency":   "USDT",
+		"currency":   "USD",
 		"updated_at": result.Timestamp,
 	})
 }
@@ -741,12 +730,12 @@ func fetchCryptoPrices() (map[string]float64, map[string]float64, int64) {
 	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		return map[string]float64{"USDT": 1.0}, map[string]float64{"USDT": 0}, 0
+		return map[string]float64{}, map[string]float64{}, 0
 	}
 	defer resp.Body.Close()
 
-	prices := map[string]float64{"USDT": 1.0}
-	priceChanges := map[string]float64{"USDT": 0}
+	prices := map[string]float64{}
+	priceChanges := map[string]float64{}
 	var updatedAt int64
 
 	if resp.StatusCode == http.StatusOK {

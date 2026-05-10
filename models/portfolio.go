@@ -17,10 +17,9 @@ const (
 
 // Currency 货币类型
 const (
-	CurrencyUSDT = "USDT" // 加密货币计价
-	CurrencyCNY  = "CNY"  // 人民币
-	CurrencyUSD  = "USD"  // 美元
-	CurrencyHKD  = "HKD"  // 港币
+	CurrencyUSD = "USD" // 美元（统一计价货币）
+	CurrencyCNY = "CNY" // 人民币
+	CurrencyHKD = "HKD" // 港币
 )
 
 // Trade 交易记录 - 采用借贷记账思想
@@ -38,7 +37,7 @@ type Trade struct {
 	Amount    float64        `gorm:"type:decimal(20,8);not null" json:"amount"`           // 数量（买入/卖出/充值的数量）
 	Price     float64        `gorm:"type:decimal(20,8);not null" json:"price"`            // 单价（原始货币）
 	Total     float64        `gorm:"type:decimal(20,8);not null" json:"total"`            // 总额 = Amount * Price
-	Currency  string         `gorm:"size:10;not null;default:'USDT'" json:"currency"`     // 计价货币：USDT/CNY/USD/HKD
+	Currency  string         `gorm:"size:10;not null;default:'USD'" json:"currency"`      // 计价货币：USD/CNY/HKD
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
@@ -50,8 +49,8 @@ type Holding struct {
 	UserID    uint           `gorm:"index;not null" json:"user_id"`
 	AssetType string         `gorm:"size:20;not null;default:'crypto'" json:"asset_type"` // 资产类型
 	Symbol    string         `gorm:"size:20;not null" json:"symbol"`
-	Amount    float64        `gorm:"type:decimal(20,8);not null" json:"amount"`       // 当前持仓量
-	Currency  string         `gorm:"size:10;not null;default:'USDT'" json:"currency"` // 计价货币
+	Amount    float64        `gorm:"type:decimal(20,8);not null" json:"amount"`      // 当前持仓量
+	Currency  string         `gorm:"size:10;not null;default:'USD'" json:"currency"` // 计价货币
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
@@ -81,7 +80,7 @@ type AssetConfig struct {
 func GetCurrencyByAssetType(assetType string) string {
 	switch assetType {
 	case AssetTypeCrypto:
-		return CurrencyUSDT
+		return CurrencyUSD
 	case AssetTypeAStock:
 		return CurrencyCNY
 	case AssetTypeUSStock:
@@ -91,6 +90,6 @@ func GetCurrencyByAssetType(assetType string) string {
 	case AssetTypeCash:
 		return CurrencyUSD
 	default:
-		return CurrencyUSDT
+		return CurrencyUSD
 	}
 }

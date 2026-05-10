@@ -68,7 +68,7 @@ const profit = computed(() => {
 })
 
 const profitRate = computed(() => {
-  if (props.avgCost === 0 || props.symbol === 'USDT') return null
+  if (props.avgCost === 0) return null
   if (props.avgCost < 0) return null
   return ((props.currentPrice - props.avgCost) / props.avgCost) * 100
 })

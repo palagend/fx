@@ -33,7 +33,6 @@ func GetExchangeRateService() *ExchangeRateService {
 		}
 		// 初始化默认汇率
 		exchangeService.rates["USD"] = 1.0
-		exchangeService.rates["USDT"] = 1.0
 		exchangeService.rates["CNY"] = 0.138  // 1 CNY = 0.138 USD (约7.25汇率)
 		exchangeService.rates["HKD"] = 0.128  // 1 HKD = 0.128 USD (约7.8汇率)
 	})
