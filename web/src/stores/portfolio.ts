@@ -182,17 +182,29 @@ export const usePortfolioStore = defineStore('portfolio', () => {
     }
   }
 
+  // 记录上次后台刷新的时间
+  let lastBackgroundRefresh = 0
+  const BACKGROUND_REFRESH_INTERVAL = 2 * 60 * 1000 // 2分钟内不重复后台刷新
+
   /**
    * 分阶段加载：先使用缓存快速显示，再后台刷新最新数据
+   * 优化：增加刷新间隔控制，避免频繁调用 API
    */
   async function fetchDashboardStaged(): Promise<void> {
     // 第一阶段：使用缓存快速显示（如果有缓存）
-    await fetchDashboard({ useCache: true, silent: true })
+    const result = await fetchDashboard({ useCache: true, silent: true })
 
-    // 第二阶段：后台刷新最新数据
-    setTimeout(async () => {
-      await fetchDashboard({ useCache: false, silent: true })
-    }, 100)
+    // 第二阶段：后台刷新最新数据（仅在缓存较旧时）
+    const now = Date.now()
+    const shouldRefresh = now - lastBackgroundRefresh > BACKGROUND_REFRESH_INTERVAL
+
+    if (shouldRefresh && result.success) {
+      lastBackgroundRefresh = now
+      // 延迟后台刷新，避免阻塞页面渲染
+      setTimeout(async () => {
+        await fetchDashboard({ useCache: false, silent: true })
+      }, 500)
+    }
   }
 
   function reconcileTrades(newTrades: Trade[]) {
