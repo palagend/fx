@@ -1,6 +1,8 @@
 package api
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -965,9 +967,34 @@ func calculatePortfolioStats(holdings []models.Holding, cryptoPrices, cryptoChan
 
 // ExportData 导出用户数据
 type ExportData struct {
-	Version  string        `json:"version"`
-	Exported string        `json:"exported"`
-	Trades   []TradeExport `json:"trades"`
+	Version     string        `json:"version"`
+	Exported    string        `json:"exported"`
+	Trades      []TradeExport `json:"trades"`
+	Fingerprint string        `json:"fingerprint"` // 数据指纹，用于防篡改校验
+}
+
+// calculateFingerprint 计算数据指纹（SHA-256）
+func calculateFingerprint(version, exported string, trades []TradeExport) string {
+	// 构建需要校验的数据结构
+	data := struct {
+		Version  string        `json:"version"`
+		Exported string        `json:"exported"`
+		Trades   []TradeExport `json:"trades"`
+	}{
+		Version:  version,
+		Exported: exported,
+		Trades:   trades,
+	}
+
+	// 序列化为JSON（确保顺序一致）
+	jsonData, err := json.Marshal(data)
+	if err != nil {
+		return ""
+	}
+
+	// 计算SHA-256哈希
+	hash := sha256.Sum256(jsonData)
+	return hex.EncodeToString(hash[:])
 }
 
 type TradeExport struct {
@@ -1014,10 +1041,13 @@ func ExportDataHandler(c *gin.Context) {
 		}
 	}
 
+	exported := time.Now().Format("2006-01-02 15:04:05")
+
 	exportData := ExportData{
-		Version:  "1.0",
-		Exported: time.Now().Format("2006-01-02 15:04:05"),
-		Trades:   tradeExports,
+		Version:     "1.0",
+		Exported:    exported,
+		Trades:      tradeExports,
+		Fingerprint: calculateFingerprint("1.0", exported, tradeExports),
 	}
 
 	c.JSON(http.StatusOK, gin.H{"data": exportData})
@@ -1053,6 +1083,15 @@ func ImportPreviewHandler(c *gin.Context) {
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的请求数据"})
 		return
+	}
+
+	// 验证数据指纹（如果存在）
+	if req.Data.Fingerprint != "" {
+		expectedFingerprint := calculateFingerprint(req.Data.Version, req.Data.Exported, req.Data.Trades)
+		if expectedFingerprint != req.Data.Fingerprint {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "数据指纹校验失败，文件可能已被篡改"})
+			return
+		}
 	}
 
 	db := config.GetDB()
@@ -1117,6 +1156,15 @@ func ImportConfirmHandler(c *gin.Context) {
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的请求数据"})
 		return
+	}
+
+	// 验证数据指纹（如果存在）
+	if req.Data.Fingerprint != "" {
+		expectedFingerprint := calculateFingerprint(req.Data.Version, req.Data.Exported, req.Data.Trades)
+		if expectedFingerprint != req.Data.Fingerprint {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "数据指纹校验失败，文件可能已被篡改"})
+			return
+		}
 	}
 
 	if req.ConflictStrategy != "skip" && req.ConflictStrategy != "overwrite" {

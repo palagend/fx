@@ -229,6 +229,17 @@ function generateUUID(): string {
   })
 }
 
+// 计算数据指纹（SHA-256）
+async function calculateFingerprint(version: string, exported: string, trades: Trade[]): Promise<string> {
+  const data = { version, exported, trades }
+  const jsonData = JSON.stringify(data)
+  const encoder = new TextEncoder()
+  const dataBuffer = encoder.encode(jsonData)
+  const hashBuffer = await crypto.subtle.digest('SHA-256', dataBuffer)
+  const hashArray = Array.from(new Uint8Array(hashBuffer))
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
+}
+
 function abs(x: number): number {
   return x < 0 ? -x : x
 }
@@ -868,7 +879,7 @@ export const localPortfolioApi = {
     })
   },
 
-  exportData(): Promise<MockResponse<{ data: { version: string; exported: string; trades: Trade[] } }>> {
+  async exportData(): Promise<MockResponse<{ data: { version: string; exported: string; trades: Trade[]; fingerprint: string } }>> {
     const trades = getStorageData<Trade[]>(STORAGE_KEYS.TRADES, [])
     const sortedTrades = [...trades].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
 
@@ -885,18 +896,30 @@ export const localPortfolioApi = {
       created_at: t.created_at
     }))
 
+    const exported = new Date().toISOString()
+    const fingerprint = await calculateFingerprint('1.0', exported, tradeExports)
+
     return mockResponse({
       data: {
         version: '1.0',
-        exported: new Date().toISOString(),
-        trades: tradeExports
+        exported,
+        trades: tradeExports,
+        fingerprint
       }
     })
   },
 
-  importPreview(data: { version: string; trades: Trade[] }): Promise<MockResponse<{ preview: { total_trades: number; new_trades: number; conflicts: number; conflict_items: { trade: Trade; reason: string }[] } }>> {
+  async importPreview(data: { version: string; trades: Trade[]; fingerprint?: string; exported?: string }): Promise<MockResponse<{ preview: { total_trades: number; new_trades: number; conflicts: number; conflict_items: { trade: Trade; reason: string }[] } }>> {
     if (data.version !== '1.0') {
       throw new Error(`不支持的版本: ${data.version}`)
+    }
+
+    // 验证数据指纹（如果存在）
+    if (data.fingerprint && data.exported) {
+      const expectedFingerprint = await calculateFingerprint(data.version, data.exported, data.trades)
+      if (expectedFingerprint !== data.fingerprint) {
+        throw new Error('数据指纹校验失败，文件可能已被篡改')
+      }
     }
 
     const existingTrades = getStorageData<Trade[]>(STORAGE_KEYS.TRADES, [])
@@ -931,9 +954,17 @@ export const localPortfolioApi = {
     return mockResponse({ preview })
   },
 
-  importConfirm(data: { version: string; trades: Trade[] }, conflictStrategy: 'skip' | 'overwrite' = 'skip'): Promise<MockResponse<{ imported: number; skipped: number; overwritten: number }>> {
+  async importConfirm(data: { version: string; trades: Trade[]; fingerprint?: string; exported?: string }, conflictStrategy: 'skip' | 'overwrite' = 'skip'): Promise<MockResponse<{ imported: number; skipped: number; overwritten: number }>> {
     if (data.version !== '1.0') {
       throw new Error(`不支持的版本: ${data.version}`)
+    }
+
+    // 验证数据指纹（如果存在）
+    if (data.fingerprint && data.exported) {
+      const expectedFingerprint = await calculateFingerprint(data.version, data.exported, data.trades)
+      if (expectedFingerprint !== data.fingerprint) {
+        throw new Error('数据指纹校验失败，文件可能已被篡改')
+      }
     }
 
     if (conflictStrategy !== 'skip' && conflictStrategy !== 'overwrite') {

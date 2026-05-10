@@ -97,6 +97,7 @@ export interface ExportDataResponse {
     version: string
     exported: string
     trades: Trade[]
+    fingerprint?: string
   }
 }
 
