@@ -544,7 +544,7 @@ const getRate = async () => {
         if (backupData.rates && backupData.rates[to.value]) {
           rate = backupData.rates[to.value]
           apiTime = backupData.time_last_update_unix
-            ? backupData.time_last_update_unix * 1000
+            ? backupData.time_last_update_unix
             : null
         }
       } catch (backupError) {
@@ -561,8 +561,9 @@ const getRate = async () => {
     rateFixed.value = rate.toFixed(6)
     result.value = (amount.value * rate).toFixed(2)
 
-    const time = apiTime ? new Date(apiTime) : new Date()
+    const time = apiTime ? new Date(apiTime * 1000) : new Date()
     updateTime.value = time.toLocaleString('zh-CN', {
+      year: 'numeric',
       month: '2-digit',
       day: '2-digit',
       hour: '2-digit',
