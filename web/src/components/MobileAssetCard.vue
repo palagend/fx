@@ -76,10 +76,10 @@ const profitRate = computed(() => {
 const profitSign = computed(() => profit.value >= 0 ? '+' : '-')
 const profitRateSign = computed(() => profitRate.value >= 0 ? '+' : '-')
 
-const profitClass = computed(() => {
-  if (props.avgCost === 0 || props.avgCost < 0) return { positive: true }
-  return { positive: profit.value >= 0, negative: profit.value < 0 }
-})
+const profitClass = computed(() => ({
+  positive: props.avgCost <= 0 || profit.value >= 0,
+  negative: props.avgCost > 0 && profit.value < 0
+}))
 
 const handleClick = () => {
   emit('click', props.symbol)

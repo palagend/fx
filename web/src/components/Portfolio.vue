@@ -773,19 +773,10 @@ const getHoldingAvgCost = (symbol) => {
 }
 
 // 根据avg_cost获取盈亏显示的CSS类
-const getProfitClass = (crypto) => {
-  if (crypto.avg_cost > 0) {
-    // 正常情况：根据盈亏判断
-    const profit = crypto.amount * (crypto.current_price - crypto.avg_cost)
-    return { positive: profit >= 0, negative: profit < 0 }
-  } else if (crypto.avg_cost === 0) {
-    // 已回本：总是显示为盈利（绿色）
-    return { positive: true }
-  } else {
-    // 超100%回报：总是显示为盈利（绿色）
-    return { positive: true }
-  }
-}
+const getProfitClass = (crypto) => ({
+  positive: crypto.avg_cost <= 0 || crypto.amount * (crypto.current_price - crypto.avg_cost) >= 0,
+  negative: crypto.avg_cost > 0 && crypto.amount * (crypto.current_price - crypto.avg_cost) < 0
+})
 
 const addTrade = async (tradeData) => {
   if (isSubmitting.value.trade) return

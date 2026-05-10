@@ -24,11 +24,11 @@
         <div class="strength-bar">
           <div
             class="strength-fill"
-            :style="{ width: strengthPercentage + '%', backgroundColor: strengthColor }"
+            :style="{ width: strength + '%', backgroundColor: strengthLevel.color }"
           ></div>
         </div>
-        <span class="strength-text" :style="{ color: strengthColor }">
-          {{ strengthText }}
+        <span class="strength-text" :style="{ color: strengthLevel.color }">
+          {{ strengthLevel.text }}
         </span>
       </div>
 
@@ -259,41 +259,17 @@ const recentSavedPasswords = computed(() => passwordStore.recentPasswords)
 
 const strength = computed(() => {
   if (!password.value) return 0
-
-  let score = 0
   const pwd = password.value
-
-  // 长度评分
-  if (pwd.length >= 8) score += 10
-  if (pwd.length >= 12) score += 10
-  if (pwd.length >= 16) score += 10
-  if (pwd.length >= 20) score += 10
-
-  // 字符类型评分
-  if (/[a-z]/.test(pwd)) score += 15
-  if (/[A-Z]/.test(pwd)) score += 15
-  if (/[0-9]/.test(pwd)) score += 15
-  if (/[^a-zA-Z0-9]/.test(pwd)) score += 15
-
-  return Math.min(score, 100)
+  const types = [/[a-z]/, /[A-Z]/, /[0-9]/, /[^a-zA-Z0-9]/].filter(r => r.test(pwd)).length
+  return Math.min(pwd.length * 4 + types * 15, 100)
 })
 
-const strengthPercentage = computed(() => strength.value)
-
-const strengthText = computed(() => {
+const strengthLevel = computed(() => {
   const s = strength.value
-  if (s < 40) return '弱'
-  if (s < 60) return '一般'
-  if (s < 80) return '强'
-  return '非常强'
-})
-
-const strengthColor = computed(() => {
-  const s = strength.value
-  if (s < 40) return '#ef4444'
-  if (s < 60) return '#f59e0b'
-  if (s < 80) return '#3b82f6'
-  return '#10b981'
+  if (s < 40) return { text: '弱', color: '#ef4444' }
+  if (s < 60) return { text: '一般', color: '#f59e0b' }
+  if (s < 80) return { text: '强', color: '#3b82f6' }
+  return { text: '非常强', color: '#10b981' }
 })
 
 const generatePassword = () => {
