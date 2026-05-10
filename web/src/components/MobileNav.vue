@@ -119,16 +119,6 @@ import { Icon } from '@iconify/vue'
   font-weight: 500;
 }
 
-.nav-item.active::after {
-  content: '';
-  position: absolute;
-  bottom: 8px;
-  width: 4px;
-  height: 4px;
-  background: #4361ee;
-  border-radius: 50%;
-}
-
 .dark .mobile-nav {
   background: rgba(30, 30, 30, 0.98);
   border-top-color: rgba(255, 255, 255, 0.08);
@@ -140,9 +130,5 @@ import { Icon } from '@iconify/vue'
 
 .dark .nav-item.active {
   color: #4a90e2;
-}
-
-.dark .nav-item.active::after {
-  background: #4a90e2;
 }
 </style>

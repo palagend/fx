@@ -987,16 +987,18 @@ const filteredHoldings = computed(() => {
 const holdingsWithMetaCache = createComputedCache()
 
 function computeHoldingsWithMeta() {
-  return filteredHoldings.value.map(item => ({
-    ...item,
-    icon: getAssetIcon(item.asset_type, item.symbol),
-    color: getAssetColor(item.asset_type, item.symbol),
-    name: getAssetName(item.asset_type, item.symbol),
-    formattedAmount: formatAmount(item.amount),
-    formattedMarketValue: formatValue(item.market_value),
-    formattedCost: formatAmount(item.avg_cost),
-    formattedPL: formatAmount(item.realized_pl)
-  }))
+  return filteredHoldings.value
+    .sort((a, b) => b.market_value - a.market_value)
+    .map(item => ({
+      ...item,
+      icon: getAssetIcon(item.asset_type, item.symbol),
+      color: getAssetColor(item.asset_type, item.symbol),
+      name: getAssetName(item.asset_type, item.symbol),
+      formattedAmount: formatAmount(item.amount),
+      formattedMarketValue: formatValue(item.market_value),
+      formattedCost: formatAmount(item.avg_cost),
+      formattedPL: formatAmount(item.realized_pl)
+    }))
 }
 
 const holdingsWithMeta = computed(() => {
