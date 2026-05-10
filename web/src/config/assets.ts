@@ -137,18 +137,18 @@ export const ASTOCK_CONFIG = {
 
 export const USSTOCK_CONFIG = {
   COLORS: {
-    'AAPL': '#555555',
-    'MSFT': '#00A4EF',
-    'GOOG': '#4285F4',
-    'AMZN': '#FF9900',
-    'TSLA': '#CC0000',
-    'META': '#0081FB',
-    'NVDA': '#76B900',
-    'BABA': '#FF6A00',
-    'ORCL': '#F80000',
-    'CRCL': '#00A86B',
-    'MSTR': '#1A1A1A',
-    'QQQI': '#00A1E0'
+    'AAPL': '#C0C0C0',      // 亮银灰 - Apple 银色风格
+    'MSFT': '#00BCF2',      // 亮蓝 - Microsoft 品牌色
+    'GOOG': '#FBBC04',      // 金黄 - Google 四色之一，温暖明亮
+    'AMZN': '#FF9500',      // 橙黄 - Amazon 温暖橙色
+    'TSLA': '#E82127',      // 特斯拉红 - 品牌标志性红色
+    'META': '#0668E1',      // 深蓝 - Meta 品牌蓝
+    'NVDA': '#76B900',      // 亮绿 - NVIDIA 品牌绿，保持不变
+    'BABA': '#FF6A00',      // 阿里橙 - 保持不变
+    'ORCL': '#C74634',      // 砖红 - Oracle 品牌红，区别于特斯拉
+    'CRCL': '#00D4AA',      // 青绿 - Circle 稳定币清新色
+    'MSTR': '#E04403',      // 深橙 - MicroStrategy 强调色
+    'QQQI': '#8E44AD'       // 紫罗兰 - QQQI 独特紫色，区别于其他
   } as Record<string, string>,
   ICONS: {
     'AAPL': 'logos:apple',

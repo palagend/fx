@@ -7,19 +7,7 @@
           <Icon :icon="config.isBackend ? 'mdi:server' : 'mdi:database-outline'" />
           <span>{{ config.isBackend ? '后端模式' : '本地模式' }}</span>
         </div>
-        <main class="main-content mobile-main-content" ref="mainContentRef">
-          <!-- 移动端下拉刷新指示器 - 优化版，与 Safari 原生橡皮筋效果协调 -->
-          <div v-if="isMobile" class="pull-refresh-indicator" :class="{
-            'pulling': pullState === 'pulling',
-            'ready': pullState === 'ready',
-            'refreshing': pullState === 'refreshing'
-          }">
-            <div class="pull-refresh-content">
-              <Icon :icon="pullState === 'refreshing' ? 'mdi:loading' : 'mdi:arrow-down'" class="pull-icon" :class="{ 'spin': pullState === 'refreshing' }" />
-              <span class="pull-text">{{ pullText }}</span>
-            </div>
-          </div>
-
+        <main class="main-content mobile-main-content">
           <!-- 加载状态 - 骨架屏 -->
           <SkeletonLoader v-if="isLoading && !hasLoaded" />
           
@@ -622,14 +610,6 @@ const showRechargeModal = ref(false)
 const rechargeAmount = ref(null)
 const protectHistory = ref(true)
 
-// 移动端下拉刷新状态
-const mainContentRef = ref(null)
-const pullState = ref('idle') // idle, pulling, ready, refreshing
-const PULL_THRESHOLD = 60 // 触发刷新的下拉距离
-let touchStartY = 0
-let isTouching = false
-let isAtTopState = false
-
 // 加载状态
 const isLoading = ref(true)
 const hasLoaded = ref(false)
@@ -969,85 +949,6 @@ const refreshPrices = async () => {
   refreshing.value = false
 }
 
-// 下拉刷新文本
-const pullText = computed(() => {
-  switch (pullState.value) {
-    case 'pulling':
-      return '下拉刷新'
-    case 'ready':
-      return '释放刷新'
-    case 'refreshing':
-      return '刷新中...'
-    default:
-      return ''
-  }
-})
-
-// 检查是否在顶部
-const isAtTop = () => {
-  if (!mainContentRef.value) return false
-  return mainContentRef.value.scrollTop <= 0
-}
-
-// 处理触摸开始 - 优化版
-const handleTouchStart = (e) => {
-  if (!isMobile.value) return
-  if (pullState.value === 'refreshing') return
-
-  // 提前检查是否在顶部
-  isAtTopState = isAtTop()
-  if (!isAtTopState) return
-
-  touchStartY = e.touches[0].clientY
-  isTouching = true
-}
-
-// 处理触摸移动 - 优化版，与 Safari 原生效果协调
-const handleTouchMove = (e) => {
-  if (!isMobile.value || !isTouching) return
-  if (pullState.value === 'refreshing') return
-  if (!isAtTopState) return
-
-  const touchY = e.touches[0].clientY
-  const diff = touchY - touchStartY
-
-  // 只有向下滚动才触发下拉刷新
-  if (diff > 0 && diff < 150) {
-    // 不阻止默认行为，让 Safari 原生橡皮筋效果工作
-    // 只根据下拉距离显示指示器
-
-    if (diff >= PULL_THRESHOLD) {
-      pullState.value = 'ready'
-    } else if (diff > 20) {
-      pullState.value = 'pulling'
-    }
-  }
-}
-
-// 处理触摸结束 - 优化版
-const handleTouchEnd = async () => {
-  if (!isMobile.value) return
-  if (pullState.value === 'refreshing') return
-
-  isTouching = false
-  isAtTopState = false
-
-  if (pullState.value === 'ready') {
-    // 触发刷新
-    pullState.value = 'refreshing'
-
-    await refreshPrices()
-
-    // 刷新完成后恢复
-    setTimeout(() => {
-      pullState.value = 'idle'
-    }, 500)
-  } else {
-    // 未触发刷新，立即隐藏指示器
-    pullState.value = 'idle'
-  }
-}
-
 // 页面可见性变化处理
 const handleVisibilityChange = () => {
   // 页面显示时可以根据需要恢复某些操作
@@ -1142,7 +1043,7 @@ const mergeSmallItems = (allocation, minPercentage = 5) => {
       name: '其他',
       rawPercentage: otherRawPercentage,
       value: otherValue,
-      color: '#9ca3af' // 灰色
+      color: '#4B5563' // 暗灰色
     })
   }
 
@@ -1202,7 +1103,7 @@ const buildAllocation = (items, total, includeCash = false, cashValue = 0) => {
       name: 'USD',
       rawPercentage: (cashValue / total) * 100,
       value: cashValue,
-      color: '#10b981' // 绿色表示现金
+      color: '#6B8E6B' // 灰绿色表示现金
     })
   }
 
@@ -1322,18 +1223,10 @@ onMounted(async () => {
   // 添加滚动监听
   window.addEventListener('scroll', handleScroll, { passive: true })
 
-  // 移动端添加下拉刷新事件监听
-  if (mainContentRef.value) {
-    mainContentRef.value.addEventListener('touchstart', handleTouchStart, { passive: true })
-    mainContentRef.value.addEventListener('touchmove', handleTouchMove, { passive: false })
-    mainContentRef.value.addEventListener('touchend', handleTouchEnd, { passive: true })
-  }
-
   if (!config.isBackend || userStore.isLoggedIn) {
     isLoading.value = true
     try {
       // 统一使用缓存加载，避免频繁 API 请求
-      // 用户可通过下拉刷新或手动刷新获取最新数据
       await portfolioStore.fetchDashboard({ useCache: true, silent: false })
     } finally {
       isLoading.value = false
@@ -1351,13 +1244,6 @@ onUnmounted(() => {
   window.removeEventListener('scroll', handleScroll)
   if (resizeTimer) clearTimeout(resizeTimer)
   document.removeEventListener('visibilitychange', handleVisibilityChange)
-
-  // 移除下拉刷新事件监听
-  if (mainContentRef.value) {
-    mainContentRef.value.removeEventListener('touchstart', handleTouchStart)
-    mainContentRef.value.removeEventListener('touchmove', handleTouchMove)
-    mainContentRef.value.removeEventListener('touchend', handleTouchEnd)
-  }
 })
 
 // ========== 导入/导出方法 ==========
@@ -1543,84 +1429,11 @@ watch(() => userStore.isLoggedIn, async (isLoggedIn) => {
 </script>
 
 <style scoped>
-/* iOS Safari 橡皮筋效果修复 - 类似微信的做法 */
 .portfolio-container {
   min-height: calc(100vh - 120px);
   /* 确保在 iOS 上底部内容不被遮挡 */
   padding-bottom: constant(safe-area-inset-bottom);
   padding-bottom: env(safe-area-inset-bottom);
-}
-
-/* 移动端下拉刷新指示器 - 优化版，与 Safari 原生效果协调 */
-.pull-refresh-indicator {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 50px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 100;
-  pointer-events: none;
-  opacity: 0;
-  transform: translateY(-100%);
-  transition: opacity 0.2s ease, transform 0.2s ease;
-  background: linear-gradient(180deg, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.8) 100%);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-}
-
-/* 深色模式适配 */
-.dark .pull-refresh-indicator {
-  background: linear-gradient(180deg, rgba(30,30,30,0.95) 0%, rgba(30,30,30,0.8) 100%);
-}
-
-.pull-refresh-indicator.pulling,
-.pull-refresh-indicator.ready {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-.pull-refresh-indicator.refreshing {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-.pull-refresh-content {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  color: #666;
-  font-size: 11px;
-  gap: 4px;
-}
-
-.dark .pull-refresh-content {
-  color: #aaa;
-}
-
-.pull-icon {
-  font-size: 18px;
-  transition: transform 0.2s ease;
-}
-
-.pull-refresh-indicator.ready .pull-icon {
-  transform: rotate(180deg);
-}
-
-.pull-icon.spin {
-  animation: spin 0.8s linear infinite;
-}
-
-.pull-text {
-  font-size: 11px;
-}
-
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
 }
 
 .container {
