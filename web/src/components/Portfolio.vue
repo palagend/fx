@@ -594,9 +594,7 @@ import TradeForm from './portfolio/TradeForm.vue'
 import TradeFormMobile from './portfolio/TradeFormMobile.vue'
 import TradePreview from './portfolio/TradePreview.vue'
 import TradeHistory from './portfolio/TradeHistory.vue'
-
-// 延迟加载非关键组件，使用具名 chunk 合并到 portfolio 功能模块
-const PortfolioChart = defineAsyncComponent(() => import(/* webpackChunkName: "feature-portfolio" */ './PortfolioChart.vue'))
+import PortfolioChart from './PortfolioChart.vue'
 
 ChartJS.register(ArcElement, Tooltip, Legend)
 

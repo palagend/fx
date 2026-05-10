@@ -1,20 +1,15 @@
 import { createRouter, createWebHashHistory, RouteRecordRaw } from 'vue-router'
 
-// 首屏关键组件同步加载
+// 所有组件同步导入，由 vite.config.ts 中的 manualChunks 控制代码分割
 import Home from '../components/Home.vue'
-
-// 其他组件懒加载，使用具名 chunk 合并相关模块
-const ExchangeRate = () => import(/* webpackChunkName: "feature-tools" */ '../components/ExchangeRate.vue')
-const Calculator = () => import(/* webpackChunkName: "feature-tools" */ '../components/Calculator.vue')
-const QRCodeGenerator = () => import(/* webpackChunkName: "feature-tools" */ '../components/QRCodeGenerator.vue')
-
-const Portfolio = () => import(/* webpackChunkName: "feature-portfolio" */ '../components/Portfolio.vue')
-
-const PasswordGenerator = () => import(/* webpackChunkName: "feature-password" */ '../components/PasswordGenerator.vue')
-const PasswordManager = () => import(/* webpackChunkName: "feature-password" */ '../components/PasswordManager.vue')
-
-const MobileTools = () => import(/* webpackChunkName: "feature-mobile" */ '../components/MobileTools.vue')
-const MobileProfile = () => import(/* webpackChunkName: "feature-mobile" */ '../components/MobileProfile.vue')
+import ExchangeRate from '../components/ExchangeRate.vue'
+import Calculator from '../components/Calculator.vue'
+import QRCodeGenerator from '../components/QRCodeGenerator.vue'
+import Portfolio from '../components/Portfolio.vue'
+import PasswordGenerator from '../components/PasswordGenerator.vue'
+import PasswordManager from '../components/PasswordManager.vue'
+import MobileTools from '../components/MobileTools.vue'
+import MobileProfile from '../components/MobileProfile.vue'
 
 const routes: RouteRecordRaw[] = [
   { 
