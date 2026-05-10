@@ -909,17 +909,9 @@ export const localPortfolioApi = {
     })
   },
 
-  async importPreview(data: { version: string; trades: Trade[]; fingerprint?: string; exported?: string }): Promise<MockResponse<{ preview: { total_trades: number; new_trades: number; conflicts: number; conflict_items: { trade: Trade; reason: string }[] } }>> {
+  importPreview(data: { version: string; trades: Trade[]; fingerprint?: string; exported?: string }): Promise<MockResponse<{ preview: { total_trades: number; new_trades: number; conflicts: number; conflict_items: { trade: Trade; reason: string }[] } }>> {
     if (data.version !== '1.0') {
       throw new Error(`不支持的版本: ${data.version}`)
-    }
-
-    // 验证数据指纹（如果存在）
-    if (data.fingerprint && data.exported) {
-      const expectedFingerprint = await calculateFingerprint(data.version, data.exported, data.trades)
-      if (expectedFingerprint !== data.fingerprint) {
-        throw new Error('数据指纹校验失败，文件可能已被篡改')
-      }
     }
 
     const existingTrades = getStorageData<Trade[]>(STORAGE_KEYS.TRADES, [])

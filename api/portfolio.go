@@ -1085,15 +1085,6 @@ func ImportPreviewHandler(c *gin.Context) {
 		return
 	}
 
-	// 验证数据指纹（如果存在）
-	if req.Data.Fingerprint != "" {
-		expectedFingerprint := calculateFingerprint(req.Data.Version, req.Data.Exported, req.Data.Trades)
-		if expectedFingerprint != req.Data.Fingerprint {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "数据指纹校验失败，文件可能已被篡改"})
-			return
-		}
-	}
-
 	db := config.GetDB()
 	uid := userID.(uint)
 
