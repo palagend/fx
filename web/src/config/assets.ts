@@ -151,12 +151,12 @@ export const USSTOCK_CONFIG = {
     'QQQI': '#00A1E0'
   } as Record<string, string>,
   ICONS: {
-    'AAPL': 'simple-icons:apple',
-    'MSFT': 'simple-icons:microsoft',
-    'GOOG': 'simple-icons:google',
+    'AAPL': 'logos:apple',
+    'MSFT': 'logos:microsoft-icon',
+    'GOOG': 'logos:google-icon',
     'AMZN': 'simple-icons:amazon',
     'TSLA': 'simple-icons:tesla',
-    'META': 'simple-icons:meta',
+    'META': 'logos:meta-icon',
     'NVDA': 'simple-icons:nvidia',
     'BABA': 'simple-icons:alibabadotcom',
     'ORCL': 'simple-icons:oracle',
