@@ -1291,6 +1291,10 @@ const currentTotalValue = computed(() => {
 
 let resizeTimer = null
 const checkMobile = () => {
+  // 立即设置初始值
+  isMobile.value = window.innerWidth <= 768
+
+  // 防抖处理窗口大小变化
   if (resizeTimer) clearTimeout(resizeTimer)
   resizeTimer = setTimeout(() => {
     isMobile.value = window.innerWidth <= 768
@@ -1330,13 +1334,9 @@ onMounted(async () => {
   if (!config.isBackend || userStore.isLoggedIn) {
     isLoading.value = true
     try {
-      // 移动端：只使用缓存数据，不自动刷新，通过下拉刷新获取最新数据
-      // 桌面端：使用分阶段加载
-      if (isMobile.value) {
-        await portfolioStore.fetchDashboard({ useCache: true, silent: false })
-      } else {
-        await portfolioStore.fetchDashboardStaged()
-      }
+      // 统一使用缓存加载，避免频繁 API 请求
+      // 用户可通过下拉刷新或手动刷新获取最新数据
+      await portfolioStore.fetchDashboard({ useCache: true, silent: false })
     } finally {
       isLoading.value = false
       hasLoaded.value = true

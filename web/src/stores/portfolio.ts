@@ -143,7 +143,7 @@ export const usePortfolioStore = defineStore('portfolio', () => {
         btc_price?: number
         updated_at?: number
       }
-      mergeDashboardData({
+      const newData = {
         prices: d.prices || {},
         us_stock_prices: d.us_stock_prices || {},
         price_changes: d.price_changes || {},
@@ -159,7 +159,8 @@ export const usePortfolioStore = defineStore('portfolio', () => {
         value_change_24h: d.value_change_24h || 0,
         btc_price: d.btc_price || 0,
         updated_at: d.updated_at || Date.now()
-      })
+      }
+      mergeDashboardData(newData)
 
       const tradesData = tradesRes.data as unknown as { trades?: Trade[] }
       const newTrades = tradesData.trades || []
@@ -180,19 +181,6 @@ export const usePortfolioStore = defineStore('portfolio', () => {
         isLoading.value = false
       }
     }
-  }
-
-  /**
-   * 分阶段加载：先使用缓存快速显示，再后台刷新最新数据（桌面端使用）
-   */
-  async function fetchDashboardStaged(): Promise<void> {
-    // 第一阶段：使用缓存快速显示
-    await fetchDashboard({ useCache: true, silent: true })
-
-    // 第二阶段：后台刷新最新数据
-    setTimeout(async () => {
-      await fetchDashboard({ useCache: false, silent: true })
-    }, 100)
   }
 
   function reconcileTrades(newTrades: Trade[]) {
@@ -413,7 +401,6 @@ export const usePortfolioStore = defineStore('portfolio', () => {
     realizedPLRate,
     cryptoValueChange24h,
     fetchDashboard,
-    fetchDashboardStaged,
     fetchAssetPrice,
     createTrade,
     deleteTrade,

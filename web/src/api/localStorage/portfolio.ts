@@ -14,7 +14,7 @@ const COINCAP_BASE_URL = 'https://rest.coincap.io/v3'
 const TENCENT_STOCK_URL = 'https://qt.gtimg.cn'
 
 // 价格缓存配置
-const PRICE_CACHE_TTL = 10 * 60 * 1000 // 10分钟缓存（减少 API 调用频率）
+const PRICE_CACHE_TTL = 5 * 60 * 1000 // 5分钟缓存（平衡实时性和 API 调用频率）
 
 interface PriceCache {
   prices: Record<string, number>
