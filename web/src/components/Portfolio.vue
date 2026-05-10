@@ -7,7 +7,19 @@
           <Icon :icon="config.isBackend ? 'mdi:server' : 'mdi:database-outline'" />
           <span>{{ config.isBackend ? '后端模式' : '本地模式' }}</span>
         </div>
-        <main class="main-content mobile-main-content">
+        <main class="main-content mobile-main-content" ref="mainContentRef">
+          <!-- 移动端下拉刷新指示器 - 优化版，与 Safari 原生橡皮筋效果协调 -->
+          <div v-if="isMobile" class="pull-refresh-indicator" :class="{
+            'pulling': pullState === 'pulling',
+            'ready': pullState === 'ready',
+            'refreshing': pullState === 'refreshing'
+          }">
+            <div class="pull-refresh-content">
+              <Icon :icon="pullState === 'refreshing' ? 'mdi:loading' : 'mdi:arrow-down'" class="pull-icon" :class="{ 'spin': pullState === 'refreshing' }" />
+              <span class="pull-text">{{ pullText }}</span>
+            </div>
+          </div>
+
           <!-- 加载状态 - 骨架屏 -->
           <SkeletonLoader v-if="isLoading && !hasLoaded" />
           
@@ -583,8 +595,8 @@ import TradeFormMobile from './portfolio/TradeFormMobile.vue'
 import TradePreview from './portfolio/TradePreview.vue'
 import TradeHistory from './portfolio/TradeHistory.vue'
 
-// 延迟加载非关键组件
-const PortfolioChart = defineAsyncComponent(() => import('./PortfolioChart.vue'))
+// 延迟加载非关键组件，使用具名 chunk 合并到 portfolio 功能模块
+const PortfolioChart = defineAsyncComponent(() => import(/* webpackChunkName: "feature-portfolio" */ './PortfolioChart.vue'))
 
 ChartJS.register(ArcElement, Tooltip, Legend)
 
@@ -603,18 +615,22 @@ const tradeFormState = ref({
 const tradeFilter = ref('all')
 const refreshing = ref(false)
 const errorMessage = ref('')
-const autoRefresh = ref(false)
-const showAssetSelector = ref(false)
 const isMobile = ref(false)
 const showFab = ref(false)
 const lastScrollTop = ref(0)
-const refreshInterval = ref(60)
 const selectedFilter = ref('all')
 const selectedAsset = ref(null)
 const showRechargeModal = ref(false)
 const rechargeAmount = ref(null)
 const protectHistory = ref(true)
-let refreshTimer = null
+
+// 移动端下拉刷新状态
+const mainContentRef = ref(null)
+const pullState = ref('idle') // idle, pulling, ready, refreshing
+const PULL_THRESHOLD = 60 // 触发刷新的下拉距离
+let touchStartY = 0
+let isTouching = false
+let isAtTopState = false
 
 // 加载状态
 const isLoading = ref(true)
@@ -955,52 +971,88 @@ const refreshPrices = async () => {
   refreshing.value = false
 }
 
-const toggleAutoRefresh = () => {
-  if (autoRefresh.value) {
-    startAutoRefresh()
-  } else {
-    stopAutoRefresh()
+// 下拉刷新文本
+const pullText = computed(() => {
+  switch (pullState.value) {
+    case 'pulling':
+      return '下拉刷新'
+    case 'ready':
+      return '释放刷新'
+    case 'refreshing':
+      return '刷新中...'
+    default:
+      return ''
   }
+})
+
+// 检查是否在顶部
+const isAtTop = () => {
+  if (!mainContentRef.value) return false
+  return mainContentRef.value.scrollTop <= 0
 }
 
-// 启动自动刷新
-const startAutoRefresh = () => {
-  // 页面不可见时不启动
-  if (document.hidden) return
-  
-  if (refreshTimer) {
-    clearInterval(refreshTimer)
-  }
-  refreshTimer = setInterval(() => {
-    // 页面可见时才刷新
-    if (!document.hidden) {
-      refreshPrices()
+// 处理触摸开始 - 优化版
+const handleTouchStart = (e) => {
+  if (!isMobile.value) return
+  if (pullState.value === 'refreshing') return
+
+  // 提前检查是否在顶部
+  isAtTopState = isAtTop()
+  if (!isAtTopState) return
+
+  touchStartY = e.touches[0].clientY
+  isTouching = true
+}
+
+// 处理触摸移动 - 优化版，与 Safari 原生效果协调
+const handleTouchMove = (e) => {
+  if (!isMobile.value || !isTouching) return
+  if (pullState.value === 'refreshing') return
+  if (!isAtTopState) return
+
+  const touchY = e.touches[0].clientY
+  const diff = touchY - touchStartY
+
+  // 只有向下滚动才触发下拉刷新
+  if (diff > 0 && diff < 150) {
+    // 不阻止默认行为，让 Safari 原生橡皮筋效果工作
+    // 只根据下拉距离显示指示器
+
+    if (diff >= PULL_THRESHOLD) {
+      pullState.value = 'ready'
+    } else if (diff > 20) {
+      pullState.value = 'pulling'
     }
-  }, refreshInterval.value * 60 * 1000)
+  }
 }
 
-// 停止自动刷新
-const stopAutoRefresh = () => {
-  if (refreshTimer) {
-    clearInterval(refreshTimer)
-    refreshTimer = null
+// 处理触摸结束 - 优化版
+const handleTouchEnd = async () => {
+  if (!isMobile.value) return
+  if (pullState.value === 'refreshing') return
+
+  isTouching = false
+  isAtTopState = false
+
+  if (pullState.value === 'ready') {
+    // 触发刷新
+    pullState.value = 'refreshing'
+
+    await refreshPrices()
+
+    // 刷新完成后恢复
+    setTimeout(() => {
+      pullState.value = 'idle'
+    }, 500)
+  } else {
+    // 未触发刷新，立即隐藏指示器
+    pullState.value = 'idle'
   }
 }
 
 // 页面可见性变化处理
 const handleVisibilityChange = () => {
-  if (document.hidden) {
-    // 页面隐藏时停止自动刷新
-    if (refreshTimer) {
-      clearInterval(refreshTimer)
-      refreshTimer = null
-    }
-  } else {
-    // 页面显示时恢复自动刷新
-    if (autoRefresh.value) {
-      startAutoRefresh()
-    }
-  }
+  // 页面显示时可以根据需要恢复某些操作
 }
 
 // 计算属性缓存工具
@@ -1268,11 +1320,23 @@ onMounted(async () => {
   // 添加滚动监听
   window.addEventListener('scroll', handleScroll, { passive: true })
 
+  // 移动端添加下拉刷新事件监听
+  if (mainContentRef.value) {
+    mainContentRef.value.addEventListener('touchstart', handleTouchStart, { passive: true })
+    mainContentRef.value.addEventListener('touchmove', handleTouchMove, { passive: false })
+    mainContentRef.value.addEventListener('touchend', handleTouchEnd, { passive: true })
+  }
+
   if (!config.isBackend || userStore.isLoggedIn) {
     isLoading.value = true
     try {
-      // 使用分阶段加载：先显示缓存数据，再后台刷新
-      await portfolioStore.fetchDashboardStaged()
+      // 移动端：只使用缓存数据，不自动刷新，通过下拉刷新获取最新数据
+      // 桌面端：使用分阶段加载
+      if (isMobile.value) {
+        await portfolioStore.fetchDashboard({ useCache: true, silent: false })
+      } else {
+        await portfolioStore.fetchDashboardStaged()
+      }
     } finally {
       isLoading.value = false
       hasLoaded.value = true
@@ -1288,11 +1352,14 @@ onUnmounted(() => {
   window.removeEventListener('resize', checkMobile)
   window.removeEventListener('scroll', handleScroll)
   if (resizeTimer) clearTimeout(resizeTimer)
-  if (refreshTimer) {
-    clearInterval(refreshTimer)
-  }
-  // 移除页面可见性监听
   document.removeEventListener('visibilitychange', handleVisibilityChange)
+
+  // 移除下拉刷新事件监听
+  if (mainContentRef.value) {
+    mainContentRef.value.removeEventListener('touchstart', handleTouchStart)
+    mainContentRef.value.removeEventListener('touchmove', handleTouchMove)
+    mainContentRef.value.removeEventListener('touchend', handleTouchEnd)
+  }
 })
 
 // ========== 导入/导出方法 ==========
@@ -1484,6 +1551,78 @@ watch(() => userStore.isLoggedIn, async (isLoggedIn) => {
   /* 确保在 iOS 上底部内容不被遮挡 */
   padding-bottom: constant(safe-area-inset-bottom);
   padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* 移动端下拉刷新指示器 - 优化版，与 Safari 原生效果协调 */
+.pull-refresh-indicator {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(-100%);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  background: linear-gradient(180deg, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.8) 100%);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+/* 深色模式适配 */
+.dark .pull-refresh-indicator {
+  background: linear-gradient(180deg, rgba(30,30,30,0.95) 0%, rgba(30,30,30,0.8) 100%);
+}
+
+.pull-refresh-indicator.pulling,
+.pull-refresh-indicator.ready {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.pull-refresh-indicator.refreshing {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.pull-refresh-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #666;
+  font-size: 11px;
+  gap: 4px;
+}
+
+.dark .pull-refresh-content {
+  color: #aaa;
+}
+
+.pull-icon {
+  font-size: 18px;
+  transition: transform 0.2s ease;
+}
+
+.pull-refresh-indicator.ready .pull-icon {
+  transform: rotate(180deg);
+}
+
+.pull-icon.spin {
+  animation: spin 0.8s linear infinite;
+}
+
+.pull-text {
+  font-size: 11px;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 .container {

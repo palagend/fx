@@ -4,15 +4,18 @@ import { defineAsyncComponent } from 'vue'
 // 首屏关键组件同步加载
 import Home from '../components/Home.vue'
 
-// 其他组件懒加载，减少首屏 JS 大小
-const ExchangeRate = defineAsyncComponent(() => import('../components/ExchangeRate.vue'))
-const Calculator = defineAsyncComponent(() => import('../components/Calculator.vue'))
-const Portfolio = defineAsyncComponent(() => import('../components/Portfolio.vue'))
-const QRCodeGenerator = defineAsyncComponent(() => import('../components/QRCodeGenerator.vue'))
-const PasswordGenerator = defineAsyncComponent(() => import('../components/PasswordGenerator.vue'))
-const PasswordManager = defineAsyncComponent(() => import('../components/PasswordManager.vue'))
-const MobileTools = defineAsyncComponent(() => import('../components/MobileTools.vue'))
-const MobileProfile = defineAsyncComponent(() => import('../components/MobileProfile.vue'))
+// 其他组件懒加载，使用具名 chunk 合并相关模块
+const ExchangeRate = defineAsyncComponent(() => import(/* webpackChunkName: "feature-tools" */ '../components/ExchangeRate.vue'))
+const Calculator = defineAsyncComponent(() => import(/* webpackChunkName: "feature-tools" */ '../components/Calculator.vue'))
+const QRCodeGenerator = defineAsyncComponent(() => import(/* webpackChunkName: "feature-tools" */ '../components/QRCodeGenerator.vue'))
+
+const Portfolio = defineAsyncComponent(() => import(/* webpackChunkName: "feature-portfolio" */ '../components/Portfolio.vue'))
+
+const PasswordGenerator = defineAsyncComponent(() => import(/* webpackChunkName: "feature-password" */ '../components/PasswordGenerator.vue'))
+const PasswordManager = defineAsyncComponent(() => import(/* webpackChunkName: "feature-password" */ '../components/PasswordManager.vue'))
+
+const MobileTools = defineAsyncComponent(() => import(/* webpackChunkName: "feature-mobile" */ '../components/MobileTools.vue'))
+const MobileProfile = defineAsyncComponent(() => import(/* webpackChunkName: "feature-mobile" */ '../components/MobileProfile.vue'))
 
 const routes: RouteRecordRaw[] = [
   { 

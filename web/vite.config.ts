@@ -1,23 +1,10 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import { resolve } from 'path'
-import { compression } from 'vite-plugin-compression2'
 
 export default defineConfig({
   plugins: [
-    vue(),
-    // Gzip 压缩
-    compression({
-      algorithms: ['gzip'],
-      exclude: [/\.(br)$/, /\.(gz)$/],
-      threshold: 1024, // 大于 1KB 的文件才压缩
-    }),
-    // Brotli 压缩（更好的压缩率）
-    compression({
-      algorithms: ['brotliCompress'],
-      exclude: [/\.(br)$/, /\.(gz)$/],
-      threshold: 1024,
-    })
+    vue()
   ],
   resolve: {
     alias: {
@@ -30,6 +17,7 @@ export default defineConfig({
       output: {
         // 手动代码分割 - 优化策略：减少 chunk 数量，合并相关依赖
         manualChunks: (id) => {
+          // 1. 第三方库打包
           if (id.includes('node_modules')) {
             // 核心框架打包在一起
             if (id.includes('vue') || id.includes('vue-router') || id.includes('pinia')) {
@@ -41,6 +29,31 @@ export default defineConfig({
             }
             // 其他第三方库统一打包
             return 'vendor-others'
+          }
+
+          // 2. 业务组件打包 - 合并相关功能模块
+          if (id.includes('/src/components/')) {
+            // Portfolio 相关组件合并
+            if (id.includes('Portfolio') || id.includes('portfolio/') || id.includes('TradeForm') || id.includes('TradeHistory') || id.includes('TradePreview')) {
+              return 'feature-portfolio'
+            }
+            // 密码管理相关组件合并
+            if (id.includes('Password') || id.includes('password/')) {
+              return 'feature-password'
+            }
+            // 移动端相关组件合并
+            if (id.includes('Mobile')) {
+              return 'feature-mobile'
+            }
+            // 其他工具组件
+            if (id.includes('Calculator') || id.includes('ExchangeRate') || id.includes('QRCode')) {
+              return 'feature-tools'
+            }
+          }
+
+          // 3. API 和 stores 合并
+          if (id.includes('/src/api/') || id.includes('/src/stores/')) {
+            return 'app-core'
           }
         },
         // chunk 文件命名（避免以 _ 开头，GitHub Pages 会忽略）
