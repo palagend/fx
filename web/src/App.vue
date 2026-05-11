@@ -488,20 +488,23 @@ onUnmounted(() => {
 
 <style>
 :root {
-  --card-bg: rgba(255, 255, 255, 0.98);
-  --shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-  --border-color: rgba(0, 0, 0, 0.08);
-  --text-primary: #212529;
-  --text-secondary: #6c757d;
-  --text-muted: #adb5bd;
+  --card-bg: #ffffff;
+  --shadow: 0 4px 20px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.06);
+  --border-color: #e8eaed;
+  --text-primary: #1a1d21;
+  --text-secondary: #5f6368;
+  --text-muted: #9aa0a6;
   --primary-color: #4361ee;
+  --primary-dark: #3651d4;
   --secondary-color: #7209b7;
-  --input-bg: #ffffff;
-  --btn-secondary-bg: #f8f9fa;
+  --input-bg: #f8f9fa;
+  --btn-secondary-bg: #f1f3f4;
   --result-bg: #f8f9fa;
   --success-color: #28a745;
   --loss-bg: rgba(245, 87, 108, 0.08);
   --loss-border: rgba(245, 87, 108, 0.2);
+  --bg-secondary: #f1f3f4;
+  --bg-primary: #f8f9fa;
 }
 
 .dark {
@@ -512,6 +515,7 @@ onUnmounted(() => {
   --text-secondary: #adb5bd;
   --text-muted: #6c757d;
   --primary-color: #4a90e2;
+  --primary-dark: #3d7bc9;
   --secondary-color: #7b68ee;
   --input-bg: #2d2d2d;
   --btn-secondary-bg: #3d3d3d;
@@ -519,6 +523,8 @@ onUnmounted(() => {
   --success-color: #3ddc84;
   --loss-bg: rgba(245, 87, 108, 0.15);
   --loss-border: rgba(245, 87, 108, 0.3);
+  --bg-secondary: #2d2d2d;
+  --bg-primary: #1e1e1e;
 }
 
 * {
@@ -530,7 +536,7 @@ onUnmounted(() => {
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   background: #f0f2f5;
-  color: #212529;
+  color: var(--text-primary);
   transition: background 0.3s ease, color 0.3s ease;
 }
 
