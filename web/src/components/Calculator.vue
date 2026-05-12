@@ -68,50 +68,84 @@
       </div>
 
       <div v-if="activeTab === 'unit'" class="unit-converter">
-        <div class="input-box">
-          <label><Icon icon="mdi:settings" /> 转换类型</label>
-          <select v-model="unitType">
-            <option value="length">长度</option>
-            <option value="weight">重量</option>
-            <option value="temperature">温度</option>
-            <option value="volume">体积</option>
-          </select>
+        <!-- iOS风格分段控制器 -->
+        <div class="unit-type-segmented">
+          <button 
+            v-for="type in unitTypes" 
+            :key="type.value"
+            class="segment-btn"
+            :class="{ active: unitType === type.value }"
+            @click="setUnitType(type.value)"
+          >
+            <Icon :icon="type.icon" />
+            <span>{{ type.label }}</span>
+          </button>
         </div>
 
-        <div class="input-box">
-          <label><Icon icon="mdi:keyboard" /> 输入数值</label>
-          <input type="number" v-model.number="unitValue" placeholder="请输入数值">
-        </div>
-
-        <div class="unit-row">
-          <div class="unit-col">
-            <span class="unit-label">从</span>
-            <select v-model="fromUnit">
-              <option v-for="unit in units[unitType]" :key="unit.value" :value="unit.value">{{ unit.label }}</option>
-            </select>
+        <!-- 输入区域 -->
+        <div class="unit-input-section">
+          <div class="unit-display from" @click="showFromPicker = true">
+            <div class="unit-value">{{ unitValue || 0 }}</div>
+            <div class="unit-name">{{ getUnitLabel(fromUnit) }}</div>
           </div>
+          
+          <button class="unit-swap-btn" @click="swapUnits">
+            <Icon icon="mdi:swap-vertical" />
+          </button>
+          
+          <div class="unit-display to">
+            <div class="unit-value">{{ convertedValue }}</div>
+            <div class="unit-name">{{ getUnitLabel(toUnit) }}</div>
+          </div>
+        </div>
 
-          <button class="swap-btn" @click="swapUnits">
-            <Icon icon="mdi:swap-horizontal" />
+        <!-- 数字键盘 -->
+        <div class="unit-keyboard">
+          <button class="unit-key" @click="appendUnitValue('7')">7</button>
+          <button class="unit-key" @click="appendUnitValue('8')">8</button>
+          <button class="unit-key" @click="appendUnitValue('9')">9</button>
+          <button class="unit-key unit-key-function" @click="backspaceUnitValue">
+            <Icon icon="mdi:backspace" />
           </button>
 
-          <div class="unit-col">
-            <span class="unit-label">到</span>
-            <select v-model="toUnit">
-              <option v-for="unit in units[unitType]" :key="unit.value" :value="unit.value">{{ unit.label }}</option>
-            </select>
-          </div>
+          <button class="unit-key" @click="appendUnitValue('4')">4</button>
+          <button class="unit-key" @click="appendUnitValue('5')">5</button>
+          <button class="unit-key" @click="appendUnitValue('6')">6</button>
+          <button class="unit-key unit-key-function" @click="clearUnitValue">C</button>
+
+          <button class="unit-key" @click="appendUnitValue('1')">1</button>
+          <button class="unit-key" @click="appendUnitValue('2')">2</button>
+          <button class="unit-key" @click="appendUnitValue('3')">3</button>
+          <button class="unit-key unit-key-function" @click="toggleUnitSign">+/-</button>
+
+          <button class="unit-key unit-key-zero" @click="appendUnitValue('0')">0</button>
+          <button class="unit-key" @click="appendUnitValue('.')">.</button>
+          <button class="unit-key unit-key-function" @click="showUnitPicker = true">
+            <Icon icon="mdi:chevron-down" />
+          </button>
         </div>
 
-        <button class="btn btn-convert" @click="convertUnit">
-          <Icon icon="mdi:sync" />
-          <span>转换</span>
-        </button>
-
-        <div class="result" v-if="unitResult">
-          <div class="result-main">
-            <Icon icon="mdi:check-circle" />
-            <span>{{ unitValue }}{{ fromUnit }} = <strong>{{ unitResult }}</strong>{{ toUnit }}</span>
+        <!-- 单位选择弹窗 -->
+        <div v-if="showUnitPicker" class="unit-picker-modal" @click="showUnitPicker = false">
+          <div class="unit-picker-content" @click.stop>
+            <div class="unit-picker-header">
+              <span>选择单位</span>
+              <button @click="showUnitPicker = false">
+                <Icon icon="mdi:close" />
+              </button>
+            </div>
+            <div class="unit-picker-list">
+              <button 
+                v-for="unit in currentUnits" 
+                :key="unit.value"
+                class="unit-picker-item"
+                :class="{ active: toUnit === unit.value }"
+                @click="selectToUnit(unit.value)"
+              >
+                {{ unit.label }}
+                <Icon v-if="toUnit === unit.value" icon="mdi:check" />
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -138,8 +172,51 @@ const clearButtonText = computed(() => {
 const unitType = ref('length')
 const fromUnit = ref('m')
 const toUnit = ref('km')
-const unitValue = ref(0)
-const unitResult = ref('')
+const unitValue = ref('0')
+const showUnitPicker = ref(false)
+
+const unitTypes = [
+  { value: 'length', label: '长度', icon: 'mdi:ruler' },
+  { value: 'weight', label: '重量', icon: 'mdi:weight' },
+  { value: 'temperature', label: '温度', icon: 'mdi:thermometer' },
+  { value: 'volume', label: '体积', icon: 'mdi:cup-water' }
+]
+
+const currentUnits = computed(() => units[unitType.value])
+
+const convertedValue = computed(() => {
+  if (!unitValue.value || unitValue.value === '0') return '0'
+  
+  try {
+    let result
+    const val = parseFloat(unitValue.value) || 0
+    
+    switch (unitType.value) {
+      case 'length':
+        result = convertLength(val, fromUnit.value, toUnit.value)
+        break
+      case 'weight':
+        result = convertWeight(val, fromUnit.value, toUnit.value)
+        break
+      case 'temperature':
+        result = convertTemperature(val, fromUnit.value, toUnit.value)
+        break
+      case 'volume':
+        result = convertVolume(val, fromUnit.value, toUnit.value)
+        break
+      default:
+        result = val
+    }
+    
+    // 格式化结果
+    if (result < 0.0001 || result > 1000000) {
+      return result.toExponential(4)
+    }
+    return parseFloat(result.toFixed(6)).toString()
+  } catch (error) {
+    return 'Error'
+  }
+})
 
 const units = {
   length: [
@@ -295,38 +372,64 @@ const calculate = () => {
   }
 }
 
+const getUnitLabel = (value) => {
+  const unit = units[unitType.value].find(u => u.value === value)
+  return unit ? unit.label : value
+}
+
+const setUnitType = (type) => {
+  unitType.value = type
+  // 重置为默认单位
+  const defaultUnits = {
+    length: { from: 'm', to: 'km' },
+    weight: { from: 'kg', to: 'g' },
+    temperature: { from: 'c', to: 'f' },
+    volume: { from: 'l', to: 'ml' }
+  }
+  fromUnit.value = defaultUnits[type].from
+  toUnit.value = defaultUnits[type].to
+}
+
+const appendUnitValue = (value) => {
+  if (unitValue.value === '0' && value !== '.') {
+    unitValue.value = value
+  } else if (value === '.' && unitValue.value.includes('.')) {
+    return
+  } else {
+    unitValue.value += value
+  }
+}
+
+const backspaceUnitValue = () => {
+  if (unitValue.value.length > 1) {
+    unitValue.value = unitValue.value.slice(0, -1)
+  } else {
+    unitValue.value = '0'
+  }
+}
+
+const clearUnitValue = () => {
+  unitValue.value = '0'
+}
+
+const toggleUnitSign = () => {
+  if (unitValue.value === '0') return
+  if (unitValue.value.startsWith('-')) {
+    unitValue.value = unitValue.value.substring(1)
+  } else {
+    unitValue.value = '-' + unitValue.value
+  }
+}
+
+const selectToUnit = (value) => {
+  toUnit.value = value
+  showUnitPicker.value = false
+}
+
 const swapUnits = () => {
   const temp = fromUnit.value
   fromUnit.value = toUnit.value
   toUnit.value = temp
-  if (unitResult.value) {
-    convertUnit()
-  }
-}
-
-const convertUnit = () => {
-  try {
-    let result
-
-    switch (unitType.value) {
-      case 'length':
-        result = convertLength(unitValue.value, fromUnit.value, toUnit.value)
-        break
-      case 'weight':
-        result = convertWeight(unitValue.value, fromUnit.value, toUnit.value)
-        break
-      case 'temperature':
-        result = convertTemperature(unitValue.value, fromUnit.value, toUnit.value)
-        break
-      case 'volume':
-        result = convertVolume(unitValue.value, fromUnit.value, toUnit.value)
-        break
-    }
-    
-    unitResult.value = result.toFixed(4)
-  } catch (error) {
-    unitResult.value = 'Error'
-  }
 }
 
 const convertLength = (value, from, to) => {
@@ -604,147 +707,257 @@ const convertVolume = (value, from, to) => {
   transform: scale(0.95);
 }
 
+/* 单位转换器 - iOS风格 */
 .unit-converter {
   margin-top: 20px;
 }
 
-.input-box {
-  margin-bottom: 16px;
+/* 分段控制器 */
+.unit-type-segmented {
+  display: flex;
+  background: #e5e5ea;
+  border-radius: 10px;
+  padding: 4px;
+  margin-bottom: 24px;
+  gap: 4px;
 }
 
-.input-box label {
+.segment-btn {
+  flex: 1;
+  padding: 10px 8px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: #000;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
-  font-size: 14px;
-  color: var(--text-secondary);
+  justify-content: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+}
+
+.segment-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.segment-btn.active {
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* 输入显示区域 */
+.unit-input-section {
+  background: #1c1c1e;
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.unit-display {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 12px 0;
+  cursor: pointer;
+  border-bottom: 1px solid #3a3a3c;
+}
+
+.unit-display:last-of-type {
+  border-bottom: none;
+}
+
+.unit-value {
+  font-size: 36px;
+  font-weight: 300;
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+}
+
+.unit-name {
+  font-size: 16px;
+  color: #ff9f0a;
   font-weight: 500;
 }
 
-.input-box label i {
-  color: var(--primary-color);
-  font-size: 12px;
-}
-
-.input-box select,
-.input-box input {
-  width: 100%;
-  padding: 14px 16px;
-  border: 1px solid var(--border-color);
-  border-radius: 12px;
-  font-size: 16px;
-  outline: none;
-  background: var(--input-bg);
-  color: var(--text-primary);
-  transition: all 0.3s ease;
-}
-
-.input-box select:focus,
-.input-box input:focus {
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.15);
-}
-
-.unit-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  margin-bottom: 16px;
-}
-
-.unit-col {
-  flex: 1;
-  position: relative;
-}
-
-.unit-label {
-  position: absolute;
-  top: -6px;
-  left: 10px;
-  background: var(--card-bg);
-  padding: 0 6px;
-  font-size: 11px;
-  color: var(--primary-color);
-  font-weight: 600;
-  z-index: 1;
-}
-
-.unit-col select {
-  width: 100%;
-  padding: 14px 16px;
-  border: 1px solid var(--border-color);
-  border-radius: 12px;
-  font-size: 16px;
-  outline: none;
-  background: var(--input-bg);
-  color: var(--text-primary);
-  transition: all 0.3s ease;
-}
-
-.unit-col select:focus {
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.15);
-}
-
-.swap-btn {
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
-  border: 1px solid var(--border-color);
-  background: var(--btn-secondary-bg);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 16px;
-  color: var(--primary-color);
-  flex-shrink: 0;
-  transition: all 0.3s ease;
-}
-
-.swap-btn:hover {
-  background: var(--primary-color);
-  color: white;
-  border-color: var(--primary-color);
-}
-
-.btn-convert {
-  width: 100%;
-  padding: 14px 20px;
+.unit-swap-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
   border: none;
-  border-radius: 12px;
-  background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
-  color: white;
-  font-size: 16px;
-  font-weight: 600;
+  background: #3a3a3c;
+  color: #ff9f0a;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  transition: all 0.3s ease;
-  margin-bottom: 20px;
-  box-shadow: 0 4px 15px rgba(67, 97, 238, 0.3);
+  margin: 8px auto;
+  transition: all 0.2s ease;
 }
 
-.btn-convert:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(67, 97, 238, 0.4);
+.unit-swap-btn:hover {
+  background: #48484a;
 }
 
-.btn-convert i {
-  font-size: 16px;
+.unit-swap-btn:active {
+  transform: scale(0.95);
 }
 
-.result {
-  background: var(--result-bg);
-  border-radius: 14px;
-  padding: 20px;
-  text-align: center;
-  transition: all 0.3s ease;
-  border: 1px solid var(--border-color);
+.unit-swap-btn svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* 数字键盘 */
+.unit-keyboard {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+
+.unit-key {
+  aspect-ratio: 1;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: #333333;
+  color: #fff;
+  font-size: 24px;
+  font-weight: 400;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.unit-key:hover {
+  background: #4a4a4a;
+}
+
+.unit-key:active {
+  background: #555555;
+  transform: scale(0.95);
+}
+
+.unit-key-function {
+  background: #a5a5a5;
+  color: #000;
+}
+
+.unit-key-function:hover {
+  background: #c4c4c4;
+}
+
+.unit-key-function:active {
+  background: #d4d4d4;
+}
+
+.unit-key-zero {
+  grid-column: span 1;
+}
+
+.unit-key svg {
+  width: 24px;
+  height: 24px;
+}
+
+/* 单位选择弹窗 */
+.unit-picker-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.unit-picker-content {
+  background: #1c1c1e;
+  border-radius: 16px 16px 0 0;
+  width: 100%;
+  max-width: 400px;
+  max-height: 70vh;
+  animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+.unit-picker-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid #3a3a3c;
+}
+
+.unit-picker-header span {
+  font-size: 18px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.unit-picker-header button {
+  background: none;
+  border: none;
+  color: #ff9f0a;
+  cursor: pointer;
+  padding: 4px;
+}
+
+.unit-picker-header button svg {
+  width: 24px;
+  height: 24px;
+}
+
+.unit-picker-list {
+  max-height: 50vh;
+  overflow-y: auto;
+  padding: 8px 0;
+}
+
+.unit-picker-item {
+  width: 100%;
+  padding: 16px 20px;
+  border: none;
+  background: transparent;
+  color: #fff;
+  font-size: 17px;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  transition: background 0.15s ease;
+}
+
+.unit-picker-item:hover {
+  background: #2c2c2e;
+}
+
+.unit-picker-item.active {
+  color: #ff9f0a;
+}
+
+.unit-picker-item svg {
+  width: 20px;
+  height: 20px;
 }
 
 .result-main {
@@ -832,6 +1045,47 @@ const convertVolume = (value, from, to) => {
 
   .input {
     font-size: 32px;
+  }
+
+  /* 单位转换器移动端适配 */
+  .unit-type-segmented {
+    margin-bottom: 16px;
+  }
+
+  .segment-btn {
+    padding: 8px 4px;
+    font-size: 12px;
+  }
+
+  .segment-btn svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  .unit-input-section {
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+
+  .unit-value {
+    font-size: 28px;
+  }
+
+  .unit-name {
+    font-size: 14px;
+  }
+
+  .unit-keyboard {
+    gap: 8px;
+  }
+
+  .unit-key {
+    font-size: 20px;
+  }
+
+  .unit-key svg {
+    width: 20px;
+    height: 20px;
   }
 
   .unit-row {
