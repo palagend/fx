@@ -637,73 +637,73 @@ const convertVolume = (value, from, to) => {
 }
 
 .btn-number {
-  background: #333333;
-  color: #ffffff;
+  background: var(--calc-number-bg, #333333);
+  color: var(--calc-number-color, #ffffff);
 }
 
 .btn-number:hover {
-  background: #4a4a4a;
+  background: var(--calc-number-hover, #4a4a4a);
 }
 
 .btn-number:active {
-  background: #555555;
+  background: var(--calc-number-active, #555555);
   transform: scale(0.95);
 }
 
 .btn-operator {
-  background: #ff9f0a;
+  background: var(--calc-operator-bg, #ff9f0a);
   color: white;
 }
 
 .btn-operator:hover {
-  background: #ffb340;
+  background: var(--calc-operator-hover, #ffb340);
 }
 
 .btn-operator:active {
-  background: #cc7f08;
+  background: var(--calc-operator-active, #cc7f08);
   transform: scale(0.95);
 }
 
 .btn-function {
-  background: #a5a5a5;
-  color: #000000;
+  background: var(--calc-function-bg, #a5a5a5);
+  color: var(--calc-function-color, #000000);
 }
 
 .btn-function:hover {
-  background: #c4c4c4;
+  background: var(--calc-function-hover, #c4c4c4);
 }
 
 .btn-function:active {
-  background: #d4d4d4;
+  background: var(--calc-function-active, #d4d4d4);
   transform: scale(0.95);
 }
 
 .btn-clear {
-  background: #a5a5a5;
-  color: #000000;
+  background: var(--calc-function-bg, #a5a5a5);
+  color: var(--calc-function-color, #000000);
   font-size: 18px;
 }
 
 .btn-clear:hover {
-  background: #c4c4c4;
+  background: var(--calc-function-hover, #c4c4c4);
 }
 
 .btn-clear:active {
-  background: #d4d4d4;
+  background: var(--calc-function-active, #d4d4d4);
   transform: scale(0.95);
 }
 
 .btn-equals {
-  background: #ff9f0a;
+  background: var(--calc-operator-bg, #ff9f0a);
   color: white;
 }
 
 .btn-equals:hover {
-  background: #ffb340;
+  background: var(--calc-operator-hover, #ffb340);
 }
 
 .btn-equals:active {
-  background: #cc7f08;
+  background: var(--calc-operator-active, #cc7f08);
   transform: scale(0.95);
 }
 
@@ -715,7 +715,7 @@ const convertVolume = (value, from, to) => {
 /* 分段控制器 */
 .unit-type-segmented {
   display: flex;
-  background: #e5e5ea;
+  background: var(--unit-segmented-bg, #e5e5ea);
   border-radius: 10px;
   padding: 4px;
   margin-bottom: 24px;
@@ -728,7 +728,7 @@ const convertVolume = (value, from, to) => {
   border: none;
   border-radius: 8px;
   background: transparent;
-  color: #000;
+  color: var(--unit-segmented-color, #000);
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
@@ -745,13 +745,14 @@ const convertVolume = (value, from, to) => {
 }
 
 .segment-btn.active {
-  background: #fff;
+  background: var(--unit-segmented-active-bg, #fff);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  color: var(--unit-segmented-active-color, #000);
 }
 
 /* 输入显示区域 */
 .unit-input-section {
-  background: #1c1c1e;
+  background: var(--unit-display-bg, #1c1c1e);
   border-radius: 16px;
   padding: 20px;
   margin-bottom: 20px;
@@ -763,7 +764,7 @@ const convertVolume = (value, from, to) => {
   justify-content: space-between;
   padding: 12px 0;
   cursor: pointer;
-  border-bottom: 1px solid #3a3a3c;
+  border-bottom: 1px solid var(--unit-display-border, #3a3a3c);
 }
 
 .unit-display:last-of-type {
@@ -773,13 +774,13 @@ const convertVolume = (value, from, to) => {
 .unit-value {
   font-size: 36px;
   font-weight: 300;
-  color: #fff;
+  color: var(--unit-value-color, #fff);
   font-variant-numeric: tabular-nums;
 }
 
 .unit-name {
   font-size: 16px;
-  color: #ff9f0a;
+  color: var(--unit-name-color, #ff9f0a);
   font-weight: 500;
 }
 
@@ -788,8 +789,8 @@ const convertVolume = (value, from, to) => {
   height: 36px;
   border-radius: 50%;
   border: none;
-  background: #3a3a3c;
-  color: #ff9f0a;
+  background: var(--unit-swap-bg, #3a3a3c);
+  color: var(--unit-swap-color, #ff9f0a);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -799,7 +800,7 @@ const convertVolume = (value, from, to) => {
 }
 
 .unit-swap-btn:hover {
-  background: #48484a;
+  background: var(--unit-swap-hover, #48484a);
 }
 
 .unit-swap-btn:active {
@@ -823,8 +824,8 @@ const convertVolume = (value, from, to) => {
   padding: 0;
   border: none;
   border-radius: 50%;
-  background: #333333;
-  color: #fff;
+  background: var(--unit-key-bg, #333333);
+  color: var(--unit-key-color, #fff);
   font-size: 24px;
   font-weight: 400;
   cursor: pointer;
@@ -835,25 +836,25 @@ const convertVolume = (value, from, to) => {
 }
 
 .unit-key:hover {
-  background: #4a4a4a;
+  background: var(--unit-key-hover, #4a4a4a);
 }
 
 .unit-key:active {
-  background: #555555;
+  background: var(--unit-key-active, #555555);
   transform: scale(0.95);
 }
 
 .unit-key-function {
-  background: #a5a5a5;
-  color: #000;
+  background: var(--unit-key-function-bg, #a5a5a5);
+  color: var(--unit-key-function-color, #000);
 }
 
 .unit-key-function:hover {
-  background: #c4c4c4;
+  background: var(--unit-key-function-hover, #c4c4c4);
 }
 
 .unit-key-function:active {
-  background: #d4d4d4;
+  background: var(--unit-key-function-active, #d4d4d4);
 }
 
 .unit-key-zero {
@@ -886,7 +887,7 @@ const convertVolume = (value, from, to) => {
 }
 
 .unit-picker-content {
-  background: #1c1c1e;
+  background: var(--unit-picker-bg, #1c1c1e);
   border-radius: 16px 16px 0 0;
   width: 100%;
   max-width: 400px;
@@ -904,19 +905,19 @@ const convertVolume = (value, from, to) => {
   align-items: center;
   justify-content: space-between;
   padding: 16px 20px;
-  border-bottom: 1px solid #3a3a3c;
+  border-bottom: 1px solid var(--unit-picker-border, #3a3a3c);
 }
 
 .unit-picker-header span {
   font-size: 18px;
   font-weight: 600;
-  color: #fff;
+  color: var(--unit-picker-header-color, #fff);
 }
 
 .unit-picker-header button {
   background: none;
   border: none;
-  color: #ff9f0a;
+  color: var(--unit-picker-close-color, #ff9f0a);
   cursor: pointer;
   padding: 4px;
 }
@@ -937,7 +938,7 @@ const convertVolume = (value, from, to) => {
   padding: 16px 20px;
   border: none;
   background: transparent;
-  color: #fff;
+  color: var(--unit-picker-item-color, #fff);
   font-size: 17px;
   text-align: left;
   cursor: pointer;
@@ -948,11 +949,11 @@ const convertVolume = (value, from, to) => {
 }
 
 .unit-picker-item:hover {
-  background: #2c2c2e;
+  background: var(--unit-picker-item-hover, #2c2c2e);
 }
 
 .unit-picker-item.active {
-  color: #ff9f0a;
+  color: var(--unit-picker-active-color, #ff9f0a);
 }
 
 .unit-picker-item svg {

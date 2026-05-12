@@ -505,6 +505,47 @@ onUnmounted(() => {
   --loss-border: rgba(245, 87, 108, 0.2);
   --bg-secondary: #f1f3f4;
   --bg-primary: #f8f9fa;
+  
+  /* 计算器浅色模式 */
+  --calc-number-bg: #f1f3f4;
+  --calc-number-color: #1a1d21;
+  --calc-number-hover: #e8eaed;
+  --calc-number-active: #dadce0;
+  --calc-operator-bg: #ff9f0a;
+  --calc-operator-hover: #ffb340;
+  --calc-operator-active: #cc7f08;
+  --calc-function-bg: #dadce0;
+  --calc-function-color: #1a1d21;
+  --calc-function-hover: #c5c9d0;
+  --calc-function-active: #b4b8bf;
+  
+  /* 单位转换器浅色模式 */
+  --unit-segmented-bg: #e5e5ea;
+  --unit-segmented-color: #1a1d21;
+  --unit-segmented-active-bg: #ffffff;
+  --unit-segmented-active-color: #1a1d21;
+  --unit-display-bg: #f8f9fa;
+  --unit-display-border: #e8eaed;
+  --unit-value-color: #1a1d21;
+  --unit-name-color: #4361ee;
+  --unit-swap-bg: #e8eaed;
+  --unit-swap-color: #4361ee;
+  --unit-swap-hover: #dadce0;
+  --unit-key-bg: #f1f3f4;
+  --unit-key-color: #1a1d21;
+  --unit-key-hover: #e8eaed;
+  --unit-key-active: #dadce0;
+  --unit-key-function-bg: #dadce0;
+  --unit-key-function-color: #1a1d21;
+  --unit-key-function-hover: #c5c9d0;
+  --unit-key-function-active: #b4b8bf;
+  --unit-picker-bg: #ffffff;
+  --unit-picker-border: #e8eaed;
+  --unit-picker-header-color: #1a1d21;
+  --unit-picker-close-color: #4361ee;
+  --unit-picker-item-color: #1a1d21;
+  --unit-picker-item-hover: #f8f9fa;
+  --unit-picker-active-color: #4361ee;
 }
 
 .dark {
@@ -525,6 +566,47 @@ onUnmounted(() => {
   --loss-border: rgba(245, 87, 108, 0.3);
   --bg-secondary: #2d2d2d;
   --bg-primary: #1e1e1e;
+  
+  /* 计算器深色模式 */
+  --calc-number-bg: #333333;
+  --calc-number-color: #ffffff;
+  --calc-number-hover: #4a4a4a;
+  --calc-number-active: #555555;
+  --calc-operator-bg: #ff9f0a;
+  --calc-operator-hover: #ffb340;
+  --calc-operator-active: #cc7f08;
+  --calc-function-bg: #a5a5a5;
+  --calc-function-color: #000000;
+  --calc-function-hover: #c4c4c4;
+  --calc-function-active: #d4d4d4;
+  
+  /* 单位转换器深色模式 */
+  --unit-segmented-bg: #2d2d2d;
+  --unit-segmented-color: #e9ecef;
+  --unit-segmented-active-bg: #3d3d3d;
+  --unit-segmented-active-color: #ffffff;
+  --unit-display-bg: #1c1c1e;
+  --unit-display-border: #3a3a3c;
+  --unit-value-color: #ffffff;
+  --unit-name-color: #ff9f0a;
+  --unit-swap-bg: #3a3a3c;
+  --unit-swap-color: #ff9f0a;
+  --unit-swap-hover: #48484a;
+  --unit-key-bg: #333333;
+  --unit-key-color: #ffffff;
+  --unit-key-hover: #4a4a4a;
+  --unit-key-active: #555555;
+  --unit-key-function-bg: #a5a5a5;
+  --unit-key-function-color: #000000;
+  --unit-key-function-hover: #c4c4c4;
+  --unit-key-function-active: #d4d4d4;
+  --unit-picker-bg: #1c1c1e;
+  --unit-picker-border: #3a3a3c;
+  --unit-picker-header-color: #ffffff;
+  --unit-picker-close-color: #ff9f0a;
+  --unit-picker-item-color: #ffffff;
+  --unit-picker-item-hover: #2c2c2e;
+  --unit-picker-active-color: #ff9f0a;
 }
 
 * {
