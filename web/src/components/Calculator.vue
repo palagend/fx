@@ -24,41 +24,45 @@
         </div>
 
         <div class="buttons">
+          <button class="btn btn-function" @click="backspace">
+            <Icon icon="mdi:backspace" />
+          </button>
           <button class="btn btn-clear" @click="clear">
-            <Icon icon="mdi:trash" />
+            {{ clearButtonText }}
           </button>
           <button class="btn btn-operator" @click="append('%')">%</button>
-          <button class="btn btn-operator" @click="append('/')">
+          <button class="btn btn-operator" @click="append('÷')">
             <Icon icon="mdi:divide" />
-          </button>
-          <button class="btn btn-operator" @click="append('×')">
-            <Icon icon="mdi:multiply" />
           </button>
 
           <button class="btn btn-number" @click="append('7')">7</button>
           <button class="btn btn-number" @click="append('8')">8</button>
           <button class="btn btn-number" @click="append('9')">9</button>
-          <button class="btn btn-operator" @click="append('-')">
-            <Icon icon="mdi:minus" />
+          <button class="btn btn-operator" @click="append('×')">
+            <Icon icon="mdi:multiply" />
           </button>
 
           <button class="btn btn-number" @click="append('4')">4</button>
           <button class="btn btn-number" @click="append('5')">5</button>
           <button class="btn btn-number" @click="append('6')">6</button>
-          <button class="btn btn-operator" @click="append('+')">
-            <Icon icon="mdi:plus" />
+          <button class="btn btn-operator" @click="append('-')">
+            <Icon icon="mdi:minus" />
           </button>
 
           <button class="btn btn-number" @click="append('1')">1</button>
           <button class="btn btn-number" @click="append('2')">2</button>
           <button class="btn btn-number" @click="append('3')">3</button>
-          <button class="btn btn-equals" @click="calculate" rowspan="2">
-            <Icon icon="mdi:equal" />
+          <button class="btn btn-operator" @click="append('+')">
+            <Icon icon="mdi:plus" />
           </button>
 
-          <button class="btn btn-zero" @click="append('0')">0</button>
+          <button class="btn btn-function" @click="toggleSign">+/-</button>
+          <button class="btn btn-number" @click="append('0')">0</button>
           <button class="btn btn-number" @click="append('.')">
             <Icon icon="mdi:dot" />
+          </button>
+          <button class="btn btn-equals" @click="calculate">
+            <Icon icon="mdi:equal" />
           </button>
         </div>
       </div>
@@ -122,6 +126,14 @@ import { Icon } from '@iconify/vue'
 const activeTab = ref('basic')
 const input = ref('')
 const history = ref('')
+const lastResult = ref('')
+
+const clearButtonText = computed(() => {
+  if (input.value === '') {
+    return 'AC'
+  }
+  return 'C'
+})
 
 const unitType = ref('length')
 const fromUnit = ref('m')
@@ -161,24 +173,123 @@ const units = {
 }
 
 const append = (value) => {
-  if (value === '×') {
-    input.value += '*'
+  if (value === '%') {
+    handlePercentage()
+  } else if (value === '×') {
+    input.value += '×'
+  } else if (value === '÷') {
+    input.value += '÷'
   } else {
     input.value += value
   }
 }
 
+const handlePercentage = () => {
+  // iOS 风格 % 运算符逻辑
+  // 解析当前表达式，找到最后一个运算符
+  const operators = ['+', '-', '×', '÷']
+  let lastOperatorIndex = -1
+  let lastOperator = ''
+  
+  for (let i = input.value.length - 1; i >= 0; i--) {
+    if (operators.includes(input.value[i])) {
+      lastOperatorIndex = i
+      lastOperator = input.value[i]
+      break
+    }
+  }
+  
+  if (lastOperatorIndex === -1) {
+    // 没有运算符，只是单个数字，直接除以100
+    const num = parseFloat(input.value) || 0
+    input.value = (num / 100).toString()
+  } else {
+    // 有运算符，根据运算符类型计算百分比
+    const basePart = input.value.substring(0, lastOperatorIndex)
+    const percentPart = input.value.substring(lastOperatorIndex + 1)
+    
+    const baseValue = parseFloat(basePart) || 0
+    const percentValue = parseFloat(percentPart) || 0
+    
+    let result = 0
+    switch (lastOperator) {
+      case '+':
+        // 100 + 15% = 100 + (100 * 0.15) = 115
+        result = baseValue + (baseValue * percentValue / 100)
+        break
+      case '-':
+        // 100 - 15% = 100 - (100 * 0.15) = 85
+        result = baseValue - (baseValue * percentValue / 100)
+        break
+      case '×':
+        // 100 × 15% = 100 × 0.15 = 15
+        result = baseValue * (percentValue / 100)
+        break
+      case '÷':
+        // 100 ÷ 15% = 100 ÷ 0.15 = 666.67
+        result = baseValue / (percentValue / 100)
+        break
+    }
+    
+    // 格式化结果，避免浮点数精度问题
+    input.value = parseFloat(result.toFixed(10)).toString()
+  }
+}
+
+const backspace = () => {
+  if (input.value.length > 0) {
+    input.value = input.value.slice(0, -1)
+  }
+}
+
 const clear = () => {
-  input.value = ''
-  history.value = ''
+  if (input.value !== '') {
+    input.value = ''
+  } else {
+    input.value = ''
+    history.value = ''
+    lastResult.value = ''
+  }
+}
+
+const toggleSign = () => {
+  if (input.value === '') return
+  
+  const operators = ['+', '-', '×', '÷']
+  let lastOperatorIndex = -1
+  
+  for (let i = input.value.length - 1; i >= 0; i--) {
+    if (operators.includes(input.value[i])) {
+      lastOperatorIndex = i
+      break
+    }
+  }
+  
+  if (lastOperatorIndex === -1) {
+    if (input.value.startsWith('-')) {
+      input.value = input.value.substring(1)
+    } else {
+      input.value = '-' + input.value
+    }
+  } else {
+    const beforeOperator = input.value.substring(0, lastOperatorIndex + 1)
+    const afterOperator = input.value.substring(lastOperatorIndex + 1)
+    
+    if (afterOperator.startsWith('-')) {
+      input.value = beforeOperator + afterOperator.substring(1)
+    } else {
+      input.value = beforeOperator + '-' + afterOperator
+    }
+  }
 }
 
 const calculate = () => {
   try {
-    const expression = input.value?.replace('×', '*')?.replace('÷', '/')
+    // 将显示符号转换为 JavaScript 运算符
+    const expression = input.value.replace(/×/g, '*').replace(/÷/g, '/')
     const result = new Function('return ' + expression)()
     history.value = `${input.value} = ${result}`
-    input.value = result.toString()
+    input.value = parseFloat(result.toFixed(10)).toString()
   } catch (error) {
     input.value = 'Error'
   }
@@ -398,78 +509,99 @@ const convertVolume = (value, from, to) => {
 .buttons {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 10px;
+  gap: 12px;
 }
 
 .btn {
-  padding: 18px;
+  aspect-ratio: 1;
+  padding: 0;
   border: none;
-  border-radius: 12px;
-  font-size: 20px;
-  font-weight: 600;
+  border-radius: 50%;
+  font-size: 22px;
+  font-weight: 500;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.3s ease;
+  transition: all 0.15s ease;
+  width: 100%;
+  height: auto;
 }
 
 .btn svg {
-  width: 18px;
-  height: 18px;
+  width: 22px;
+  height: 22px;
 }
 
 .btn-number {
-  background: var(--btn-secondary-bg);
-  color: var(--text-primary);
+  background: #333333;
+  color: #ffffff;
 }
 
 .btn-number:hover {
-  background: var(--border-color);
+  background: #4a4a4a;
+}
+
+.btn-number:active {
+  background: #555555;
+  transform: scale(0.95);
 }
 
 .btn-operator {
-  background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+  background: #ff9f0a;
   color: white;
-  box-shadow: 0 4px 12px rgba(67, 97, 238, 0.25);
 }
 
 .btn-operator:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(67, 97, 238, 0.35);
+  background: #ffb340;
+}
+
+.btn-operator:active {
+  background: #cc7f08;
+  transform: scale(0.95);
+}
+
+.btn-function {
+  background: #a5a5a5;
+  color: #000000;
+}
+
+.btn-function:hover {
+  background: #c4c4c4;
+}
+
+.btn-function:active {
+  background: #d4d4d4;
+  transform: scale(0.95);
 }
 
 .btn-clear {
-  background: linear-gradient(135deg, #dc3545, #c82333);
-  color: white;
-  box-shadow: 0 4px 12px rgba(220, 53, 69, 0.25);
+  background: #a5a5a5;
+  color: #000000;
+  font-size: 18px;
 }
 
 .btn-clear:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(220, 53, 69, 0.35);
+  background: #c4c4c4;
+}
+
+.btn-clear:active {
+  background: #d4d4d4;
+  transform: scale(0.95);
 }
 
 .btn-equals {
-  background: linear-gradient(135deg, #28a745, #218838);
+  background: #ff9f0a;
   color: white;
-  grid-row: span 2;
-  box-shadow: 0 4px 12px rgba(40, 167, 69, 0.25);
 }
 
 .btn-equals:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(40, 167, 69, 0.35);
+  background: #ffb340;
 }
 
-.btn-zero {
-  grid-column: span 2;
-  background: var(--btn-secondary-bg);
-  color: var(--text-primary);
-}
-
-.btn-zero:hover {
-  background: var(--border-color);
+.btn-equals:active {
+  background: #cc7f08;
+  transform: scale(0.95);
 }
 
 .unit-converter {
@@ -674,16 +806,20 @@ const convertVolume = (value, from, to) => {
   }
 
   .buttons {
-    gap: 8px;
+    gap: 10px;
   }
 
   .btn {
-    padding: 14px;
+    font-size: 20px;
   }
 
   .btn svg {
-    width: 16px;
-    height: 16px;
+    width: 20px;
+    height: 20px;
+  }
+
+  .btn-clear {
+    font-size: 16px;
   }
 
   .display {
@@ -695,7 +831,7 @@ const convertVolume = (value, from, to) => {
   }
 
   .input {
-    font-size: 24px;
+    font-size: 32px;
   }
 
   .unit-row {
