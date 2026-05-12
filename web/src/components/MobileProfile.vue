@@ -17,19 +17,7 @@
       </div>
     </header>
 
-    <section class="theme-section">
-      <div class="menu-group">
-        <button class="menu-item" @click="toggleTheme">
-          <div class="menu-icon dark-icon">
-            <Icon icon="mdi:theme-light-dark" />
-          </div>
-          <span class="menu-text">{{ isDarkRef ? '暗色模式' : '浅色模式' }}</span>
-          <div class="theme-switch" :class="{ active: isDarkRef }">
-            <div class="switch-circle"></div>
-          </div>
-        </button>
-      </div>
-    </section>    
+
 
     <section class="menu-section">
       <div class="menu-group">
@@ -203,7 +191,7 @@
 </template>
 
 <script setup>
-import { ref, computed, inject, watch } from 'vue'
+import { ref, computed, inject } from 'vue'
 import { Icon } from '@iconify/vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '../stores/user'
@@ -216,18 +204,8 @@ const userStore = useUserStore()
 const showAboutModal = ref(false)
 const showCacheConfirm = ref(false)
 
-const isDarkRef = ref(false)
-const isDark = inject('isDark', ref(false))
-const toggleTheme = inject('toggleTheme', () => {})
 const openProfileModal = inject('openProfileModal', () => {})
 const openPasswordModal = inject('openPasswordModal', () => {})
-
-if (isDark) {
-  isDarkRef.value = isDark.value
-  watch(isDark, (newVal) => {
-    isDarkRef.value = newVal
-  })
-}
 
 const showProfileHeader = computed(() => {
   return config.isFrontend || config.isBackend
@@ -575,49 +553,6 @@ const clearCache = () => {
   color: #dc3545;
 }
 
-.menu-icon.dark-icon {
-  background: linear-gradient(135deg, #ffa726, #ff7043);
-}
-
-.menu-icon.dark-icon svg {
-  color: white;
-}
-
-.theme-section {
-  padding: 0 16px 16px;
-  animation: slideInUp 0.4s ease-out 0.35s forwards;
-  opacity: 0;
-}
-
-.theme-switch {
-  width: 48px;
-  height: 26px;
-  background: #e8e8e8;
-  border-radius: 13px;
-  position: relative;
-  transition: background 0.3s ease;
-}
-
-.theme-switch.active {
-  background: linear-gradient(135deg, #4361ee, #7209b7);
-}
-
-.switch-circle {
-  position: absolute;
-  top: 3px;
-  left: 3px;
-  width: 20px;
-  height: 20px;
-  background: white;
-  border-radius: 50%;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
-  transition: transform 0.3s ease;
-}
-
-.theme-switch.active .switch-circle {
-  transform: translateX(22px);
-}
-
 .bottom-space {
   height: 16px;
 }
@@ -770,18 +705,6 @@ const clearCache = () => {
 
 .dark .menu-arrow {
   color: #6c757d;
-}
-
-.dark .theme-switch {
-  background: #3d3d3d;
-}
-
-.dark .theme-switch.active {
-  background: linear-gradient(135deg, #4a90e2, #6a5acd);
-}
-
-.dark .switch-circle {
-  background: #e9ecef;
 }
 
 .dark .modal-container {

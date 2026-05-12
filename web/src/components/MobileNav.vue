@@ -23,6 +23,13 @@
         <span class="nav-text">汇率</span>
       </router-link>
       
+      <div class="nav-item theme-toggle-item" @click="handleToggleTheme">
+        <div class="nav-icon theme-icon">
+          <Icon :icon="isDark ? 'solar:sun-bold' : 'solar:moon-bold'" />
+        </div>
+        <span class="nav-text">{{ isDark ? '浅色' : '深色' }}</span>
+      </div>
+      
       <router-link 
         to="/tools" 
         class="nav-item"
@@ -50,6 +57,13 @@
 
 <script setup>
 import { Icon } from '@iconify/vue'
+import { injectTheme } from '../composables/useTheme'
+
+const { isDark, toggleTheme } = injectTheme()
+
+const handleToggleTheme = () => {
+  toggleTheme()
+}
 </script>
 
 <style scoped>
@@ -89,6 +103,7 @@ import { Icon } from '@iconify/vue'
   color: #999999;
   transition: all 0.2s ease;
   position: relative;
+  cursor: pointer;
 }
 
 .nav-item.active {
@@ -119,6 +134,18 @@ import { Icon } from '@iconify/vue'
   font-weight: 500;
 }
 
+.theme-toggle-item {
+  color: #666;
+}
+
+.theme-toggle-item:active {
+  transform: scale(0.95);
+}
+
+.theme-icon {
+  color: #ff9f0a;
+}
+
 .dark .mobile-nav {
   background: rgba(30, 30, 30, 0.98);
   border-top-color: rgba(255, 255, 255, 0.08);
@@ -130,5 +157,13 @@ import { Icon } from '@iconify/vue'
 
 .dark .nav-item.active {
   color: #4a90e2;
+}
+
+.dark .theme-toggle-item {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.dark .theme-icon {
+  color: #ffd60a;
 }
 </style>
