@@ -2,7 +2,6 @@ package api
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -352,12 +351,6 @@ func DeleteTrade(c *gin.Context) {
 	var trade models.Trade
 	if err := db.Where("id = ? AND user_id = ?", tradeID, uid).First(&trade).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "交易记录不存在"})
-		return
-	}
-
-	// 只能删除24小时内的交易
-	if time.Since(trade.CreatedAt) > 24*time.Hour {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "只能删除24小时内的交易记录"})
 		return
 	}
 

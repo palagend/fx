@@ -824,12 +824,6 @@ export const localPortfolioApi = {
     }
 
     const trade = trades[tradeIndex]
-    const tradeTime = new Date(trade.created_at)
-    const now = new Date()
-    if (now.getTime() - tradeTime.getTime() > 24 * 60 * 60 * 1000) {
-      throw new Error('只能删除24小时内的交易记录')
-    }
-
     const remainingTrades = trades.filter(t => t.id !== id)
     const simulatedHoldings = recalcAllHoldings([...remainingTrades])
 
