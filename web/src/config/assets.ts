@@ -146,7 +146,8 @@ export const USSTOCK_CONFIG = {
     'QQQI': '#8E44AD',      // 紫罗兰 - QQQI 独特紫色，区别于其他
     'TCEHY': '#00A1E0',     // 天蓝 - 腾讯美股
     'PURR': '#FF6B6B',      // 珊瑚红 - Petco 可爱红
-    'QQQ': '#1E88E5'        // 亮蓝 - Nasdaq 100 指数蓝
+    'QQQ': '#1E88E5',        // 亮蓝 - Nasdaq 100 指数蓝
+    'BABA': '#FF6A00'        // 阿里橙 - 阿里巴巴品牌色
   } as Record<string, string>,
   ICONS: {
     'AAPL': 'logos:apple',
@@ -160,10 +161,10 @@ export const USSTOCK_CONFIG = {
     'ORCL': 'simple-icons:oracle',
     'CRCL': 'simple-icons:circle',
     'MSTR': 'simple-icons:microstrategy',
-    'QQQI': 'mdi:chart-line',
+    'QQQ': 'mdi:chart-line',
+    'QQQI': 'mdi:chart-box',
     'TCEHY': 'simple-icons:tencentqq',
-    'PURR': 'token:hyper-evm',
-    'QQQ': 'mdi:chart-box'
+    'PURR': 'token:hyper-evm'
   } as Record<string, string>,
   NAMES: {
     'AAPL': 'Apple',
@@ -177,10 +178,10 @@ export const USSTOCK_CONFIG = {
     'ORCL': 'Oracle',
     'CRCL': 'Circle',
     'MSTR': 'MicroStrategy',
-    'QQQI': 'Nasdaq 100 Income',
-    'TCEHY': '腾讯',
-    'PURR': 'Petco Health & Wellness',
-    'QQQ': 'Invesco QQQ Trust'
+    'QQQI': 'NEOS Nasdaq 100 Income',
+    'TCEHY': 'Tencent',
+    'PURR': 'HYPRLQD STR ORD',
+    'QQQ': 'Invesco Nasdaq 100'
   } as Record<string, string>
 }
 
