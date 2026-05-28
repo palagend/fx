@@ -4466,7 +4466,7 @@ watch(() => userStore.isLoggedIn, async (isLoggedIn) => {
 }
 
 .selected-asset-info .iconify {
-  font-size: 24px;
+  font-size: 32px;
 }
 
 .selected-asset-name {

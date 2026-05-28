@@ -334,6 +334,11 @@ const amountInputRef = ref(null)
   color: white;
 }
 
+/* 资产按钮图标放大 */
+.asset-btn .iconify {
+  font-size: 28px;
+}
+
 .asset-code {
   font-weight: 600;
   font-size: 0.85rem;

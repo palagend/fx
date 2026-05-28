@@ -187,7 +187,10 @@ const supportedUSStocks: Record<string, boolean> = {
   'ORCL': true,
   'CRCL': true,
   'MSTR': true,
-  'QQQI': true
+  'QQQI': true,
+  'TCEHY': true,
+  'PURR': true,
+  'QQQ': true
 }
 
 const symbolToCoinCapId: Record<string, string> = {

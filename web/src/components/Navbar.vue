@@ -90,7 +90,7 @@ const toggleTheme = () => {
 
 .nav-logo {
   color: white;
-  font-size: 1.5rem;
+  font-size: 2rem;
   font-weight: 700;
   text-decoration: none;
   display: flex;
@@ -99,8 +99,8 @@ const toggleTheme = () => {
 }
 
 .nav-logo svg {
-  width: 1.3rem;
-  height: 1.3rem;
+  width: 1.8rem;
+  height: 1.8rem;
 }
 
 .nav-logo span {

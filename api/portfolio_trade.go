@@ -61,18 +61,21 @@ var supportedCryptos = map[string]bool{
 
 // 支持的美股列表
 var supportedUSStocks = map[string]bool{
-	"AAPL": true,
-	"MSFT": true,
-	"GOOG": true,
-	"AMZN": true,
-	"TSLA": true,
-	"META": true,
-	"NVDA": true,
-	"BABA": true,
-	"ORCL": true,
-	"CRCL": true,
-	"MSTR": true,
-	"QQQI": true,
+	"AAPL":   true,
+	"MSFT":   true,
+	"GOOG":   true,
+	"AMZN":   true,
+	"TSLA":   true,
+	"META":   true,
+	"NVDA":   true,
+	"BABA":   true,
+	"ORCL":   true,
+	"CRCL":   true,
+	"MSTR":   true,
+	"QQQI":   true,
+	"TCEHY":  true,
+	"PURR":   true,
+	"QQQ":    true,
 }
 
 // BusinessError 业务错误类型

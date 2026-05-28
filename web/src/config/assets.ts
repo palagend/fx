@@ -140,11 +140,13 @@ export const USSTOCK_CONFIG = {
     'TSLA': '#E82127',      // 特斯拉红 - 品牌标志性红色
     'META': '#0668E1',      // 深蓝 - Meta 品牌蓝
     'NVDA': '#76B900',      // 亮绿 - NVIDIA 品牌绿，保持不变
-    'BABA': '#FF6A00',      // 阿里橙 - 保持不变
     'ORCL': '#C74634',      // 砖红 - Oracle 品牌红，区别于特斯拉
     'CRCL': '#00D4AA',      // 青绿 - Circle 稳定币清新色
     'MSTR': '#E04403',      // 深橙 - MicroStrategy 强调色
-    'QQQI': '#8E44AD'       // 紫罗兰 - QQQI 独特紫色，区别于其他
+    'QQQI': '#8E44AD',      // 紫罗兰 - QQQI 独特紫色，区别于其他
+    'TCEHY': '#00A1E0',     // 天蓝 - 腾讯美股
+    'PURR': '#FF6B6B',      // 珊瑚红 - Petco 可爱红
+    'QQQ': '#1E88E5'        // 亮蓝 - Nasdaq 100 指数蓝
   } as Record<string, string>,
   ICONS: {
     'AAPL': 'logos:apple',
@@ -158,7 +160,10 @@ export const USSTOCK_CONFIG = {
     'ORCL': 'simple-icons:oracle',
     'CRCL': 'simple-icons:circle',
     'MSTR': 'simple-icons:microstrategy',
-    'QQQI': 'mdi:chart-line'
+    'QQQI': 'mdi:chart-line',
+    'TCEHY': 'simple-icons:tencentqq',
+    'PURR': 'token:hyper-evm',
+    'QQQ': 'mdi:chart-box'
   } as Record<string, string>,
   NAMES: {
     'AAPL': 'Apple',
@@ -172,7 +177,10 @@ export const USSTOCK_CONFIG = {
     'ORCL': 'Oracle',
     'CRCL': 'Circle',
     'MSTR': 'MicroStrategy',
-    'QQQI': 'Nasdaq 100 Income'
+    'QQQI': 'Nasdaq 100 Income',
+    'TCEHY': '腾讯',
+    'PURR': 'Petco Health & Wellness',
+    'QQQ': 'Invesco QQQ Trust'
   } as Record<string, string>
 }
 
@@ -203,7 +211,7 @@ export const HKSTOCK_CONFIG = {
 export const AVAILABLE_ASSETS = {
   CRYPTO: ['BTC', 'ETH', 'BNB', 'SOL', 'TRX', 'HYPE', 'XRP', 'POL', 'DOGE', 'AVAX', 'ADA', 'DOT'] as const,
   A_STOCK: ['600519', '000858', '000333', '002415', '300750', '601318', '600036', '000002'] as const,
-  US_STOCK: ['GOOG', 'TSLA', 'CRCL', 'QQQI', 'NVDA', 'AAPL', 'MSTR', 'AMZN', 'BABA', 'META', 'MSFT', 'ORCL'] as const,
+  US_STOCK: ['GOOG', 'TSLA', 'CRCL', 'QQQI', 'NVDA', 'AAPL', 'MSTR', 'AMZN', 'BABA', 'META', 'MSFT', 'ORCL', 'TCEHY', 'PURR', 'QQQ'] as const,
   HK_STOCK: ['0700', '3690', '9988', '2318', '0005'] as const
 }
 
