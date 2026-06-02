@@ -8,11 +8,11 @@ database:
   type: "mysql"  # 数据库类型: mysql, postgres, sqlite
 
   # MySQL/PostgreSQL 配置
-  host: "172.23.112.1"
-  port: 3306
-  user: "admin"
-  password: "ctsi@Passw0rd"
-  name: "fx"
+  host: "mysql6.sqlpub.com"
+  port: 3311 
+  user: "palagend"
+  password: "JxIFhCdzBLcEdSC5"
+  name: "palagend"
   charset: "utf8mb4"  # 仅MySQL有效
   ssl_mode: "disable" # 仅PostgreSQL有效 (disable, require, verify-ca, verify-full)
 

@@ -67,7 +67,7 @@ export const useUserStore = defineStore('user', () => {
     localStorage.removeItem(STORAGE_KEY_USER)
   }
 
-  async function register(email: string, username: string, password: string): Promise<LoginResult> {
+  async function register(username: string, email: string, password: string): Promise<LoginResult> {
     isLoading.value = true
     error.value = null
 
@@ -75,7 +75,7 @@ export const useUserStore = defineStore('user', () => {
       const response = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, username, password })
+        body: JSON.stringify({ username, email, password })
       })
       const data = await response.json()
       if (!response.ok) {
