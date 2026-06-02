@@ -341,7 +341,7 @@ export const usePortfolioStore = defineStore('portfolio', () => {
     error.value = null
 
     try {
-      const localData = data as unknown as { version: string; trades: { id: number; uuid: string; asset_type: 'crypto' | 'us_stock' | 'cash'; symbol: string; type: 'buy' | 'sell' | 'recharge'; amount: number; price: number; total: number; currency: string; created_at: string }[] }
+      const localData = data as unknown as { version: string; exported?: string; fingerprint?: string; trades: { id: number; uuid: string; asset_type: 'crypto' | 'us_stock' | 'cash'; symbol: string; type: 'buy' | 'sell' | 'recharge'; amount: number; price: number; total: number; currency: string; created_at: string }[] }
       const response = await portfolioApi.importPreview(localData)
       return { success: true, preview: response.data.preview }
     } catch (err) {
@@ -371,7 +371,7 @@ export const usePortfolioStore = defineStore('portfolio', () => {
     error.value = null
 
     try {
-      const localData = data as unknown as { version: string; trades: { id: number; uuid: string; asset_type: 'crypto' | 'us_stock' | 'cash'; symbol: string; type: 'buy' | 'sell' | 'recharge'; amount: number; price: number; total: number; currency: string; created_at: string }[] }
+      const localData = data as unknown as { version: string; exported?: string; fingerprint?: string; trades: { id: number; uuid: string; asset_type: 'crypto' | 'us_stock' | 'cash'; symbol: string; type: 'buy' | 'sell' | 'recharge'; amount: number; price: number; total: number; currency: string; created_at: string }[] }
       const strategy = conflictStrategy === 'overwrite' ? 'overwrite' : 'skip'
       const response = await portfolioApi.importConfirm(localData, strategy)
       return {

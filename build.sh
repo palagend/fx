@@ -106,15 +106,27 @@ fi
 
 cd web
 
-if [ ! -d "node_modules" ]; then
-    echo "安装 npm 依赖..."
-    npm install
+# 检测包管理器（优先使用 pnpm）
+if command -v pnpm &> /dev/null; then
+    PKG_MANAGER="pnpm"
+    PKG_RUN="pnpm run"
+elif command -v npm &> /dev/null; then
+    PKG_MANAGER="npm"
+    PKG_RUN="npm run"
 else
-    echo "跳过 npm 安装（node_modules 已存在）"
+    echo "错误: 未找到 pnpm 或 npm，请先安装 Node.js 包管理器" >&2
+    exit 1
+fi
+
+if [ ! -d "node_modules" ] || [ ! -f "node_modules/.bin/vite" ]; then
+    echo "安装依赖 (使用 $PKG_MANAGER)..."
+    $PKG_MANAGER install
+else
+    echo "跳过依赖安装（node_modules 已存在）"
 fi
 
 echo "构建 Vue 项目 (VITE_APP_MODE=$VITE_APP_MODE)..."
-VITE_APP_MODE="$VITE_APP_MODE" npm run build
+VITE_APP_MODE="$VITE_APP_MODE" $PKG_RUN build
 
 if [ ! -d "dist" ]; then
     echo "错误: Vue 构建失败，dist 目录不存在" >&2

@@ -52,6 +52,7 @@ func calculateFingerprint(version, exported string, trades []TradeExport) string
 }
 
 type TradeExport struct {
+	ID        int     `json:"id"`
 	UUID      string  `json:"uuid"`
 	AssetType string  `json:"asset_type"`
 	Symbol    string  `json:"symbol"`
