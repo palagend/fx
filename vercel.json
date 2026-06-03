@@ -1,20 +1,30 @@
 {
   "version": 2,
-  "framework": null,
   "builds": [
     {
-      "src": "api/portfolio/*.go",
+      "src": "package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "dist"
+      }
+    },
+    {
+      "src": "portfolio/*.go",
+      "use": "@vercel/go"
+    },
+    {
+      "src": "auth/*.go",
       "use": "@vercel/go"
     }
   ],
   "routes": [
     {
-      "src": "/api/portfolio/(.*)",
-      "dest": "/api/portfolio/index.go"
+      "src": "/api/auth/(.*)",
+      "dest": "auth/index.go"
     },
     {
-      "src": "/(.*)",
-      "dest": "/api/portfolio/index.go"
+      "src": "/api/portfolio/(.*)",
+      "dest": "portfolio/index.go"
     }
   ]
 }
