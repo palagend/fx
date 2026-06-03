@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { portfolioApi, config } from '../api'
+import type { ImportPreviewResponse, ImportConfirmResponse } from '../api/portfolio'
 import { useUserStore } from './user'
 import type { Asset, Trade } from '../types'
 
@@ -343,7 +344,9 @@ export const usePortfolioStore = defineStore('portfolio', () => {
     try {
       const localData = data as unknown as { version: string; exported?: string; fingerprint?: string; trades: { id: number; uuid: string; asset_type: 'crypto' | 'us_stock' | 'cash'; symbol: string; type: 'buy' | 'sell' | 'recharge'; amount: number; price: number; total: number; currency: string; created_at: string }[] }
       const response = await portfolioApi.importPreview(localData)
-      return { success: true, preview: response.data.preview }
+      // utils.Success 返回格式: { success: true, data: { preview: ... } }
+      const responseData = response.data as { data?: ImportPreviewResponse }
+      return { success: true, preview: responseData.data?.preview }
     } catch (err) {
       const e = err as { response?: { data?: { error?: string } }; message?: string }
       let errorMsg = e.response?.data?.error
@@ -374,11 +377,13 @@ export const usePortfolioStore = defineStore('portfolio', () => {
       const localData = data as unknown as { version: string; exported?: string; fingerprint?: string; trades: { id: number; uuid: string; asset_type: 'crypto' | 'us_stock' | 'cash'; symbol: string; type: 'buy' | 'sell' | 'recharge'; amount: number; price: number; total: number; currency: string; created_at: string }[] }
       const strategy = conflictStrategy === 'overwrite' ? 'overwrite' : 'skip'
       const response = await portfolioApi.importConfirm(localData, strategy)
+      // utils.Success 返回格式: { success: true, data: { imported: ..., skipped: ..., overwritten: ... } }
+      const confirmData = response.data as { data?: ImportConfirmResponse }
       return {
         success: true,
-        imported: response.data.imported,
-        skipped: response.data.skipped,
-        overwritten: response.data.overwritten
+        imported: confirmData.data?.imported ?? 0,
+        skipped: confirmData.data?.skipped ?? 0,
+        overwritten: confirmData.data?.overwritten ?? 0
       }
     } catch (err) {
       const e = err as { response?: { data?: { error?: string } }; message?: string }
