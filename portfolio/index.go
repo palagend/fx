@@ -73,40 +73,7 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 	path := strings.TrimPrefix(r.URL.Path, "/api/portfolio")
 	path = strings.TrimPrefix(path, "/")
 
-	// 根据路径和方法分发
-	if path == "" || path == "dashboard" {
-		if r.Method == http.MethodGet {
-			handleDashboard(w, r)
-			return
-		}
-	}
-
-	if path == "trades" || strings.HasPrefix(path, "trades/") {
-		handleTrades(w, r)
-		return
-	}
-
-	if path == "export" {
-		if r.Method == http.MethodGet {
-			handleExport(w, r)
-			return
-		}
-	}
-
-	if path == "import/preview" {
-		if r.Method == http.MethodPost {
-			handleImportPreview(w, r)
-			return
-		}
-	}
-
-	if path == "import/confirm" {
-		if r.Method == http.MethodPost {
-			handleImportConfirm(w, r)
-			return
-		}
-	}
-
+	// 健康检查不需要认证
 	if path == "health" {
 		if r.Method == http.MethodGet {
 			utils.Success(w, map[string]interface{}{
@@ -114,9 +81,48 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 			})
 			return
 		}
+		utils.Error(w, http.StatusNotFound, "接口不存在")
+		return
 	}
 
-	utils.Error(w, http.StatusNotFound, "接口不存在")
+	// 所有其他路由都需要 JWT 认证
+	middleware.AuthMiddleware(func(w http.ResponseWriter, r *http.Request) {
+		// 根据路径和方法分发
+		if path == "" || path == "dashboard" {
+			if r.Method == http.MethodGet {
+				handleDashboard(w, r)
+				return
+			}
+		}
+
+		if path == "trades" || strings.HasPrefix(path, "trades/") {
+			handleTrades(w, r)
+			return
+		}
+
+		if path == "export" {
+			if r.Method == http.MethodGet {
+				handleExport(w, r)
+				return
+			}
+		}
+
+		if path == "import/preview" {
+			if r.Method == http.MethodPost {
+				handleImportPreview(w, r)
+				return
+			}
+		}
+
+		if path == "import/confirm" {
+			if r.Method == http.MethodPost {
+				handleImportConfirm(w, r)
+				return
+			}
+		}
+
+		utils.Error(w, http.StatusNotFound, "接口不存在")
+	})(w, r)
 }
 
 func handleDashboard(w http.ResponseWriter, r *http.Request) {

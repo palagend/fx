@@ -54,7 +54,7 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 		}
 	case "logout":
 		if r.Method == http.MethodPost {
-			handleLogout(w, r)
+			middleware.AuthMiddleware(handleLogout)(w, r)
 			return
 		}
 	case "refresh":
@@ -64,7 +64,7 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 		}
 	case "change-password":
 		if r.Method == http.MethodPost {
-			handleChangePassword(w, r)
+			middleware.AuthMiddleware(handleChangePassword)(w, r)
 			return
 		}
 	}
