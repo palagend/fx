@@ -224,7 +224,20 @@ type ImportConfirmRequest struct {
 }
 
 func Handler(w http.ResponseWriter, r *http.Request) {
-	path := strings.TrimPrefix(r.URL.Path, "/api/portfolio")
+	path := r.URL.Path
+
+	// /api/prices/{symbol}?asset_type=... — 不经过 AuthMiddleware
+	if strings.HasPrefix(path, "/api/prices/") {
+		if r.Method == http.MethodGet {
+			handleAssetPrice(w, r)
+			return
+		}
+		utils.Error(w, http.StatusMethodNotAllowed, "方法不允许")
+		return
+	}
+
+	// /api/portfolio/... 路由
+	path = strings.TrimPrefix(path, "/api/portfolio")
 	path = strings.TrimPrefix(path, "/")
 
 	// 健康检查不需要认证
@@ -345,6 +358,57 @@ func fetchCryptoPrices() (map[string]float64, map[string]float64, int64) {
 	}
 
 	return prices, priceChanges, updatedAt
+}
+
+// handleAssetPrice 获取单个资产价格 (/api/prices/{symbol}?asset_type=crypto|us_stock)
+func handleAssetPrice(w http.ResponseWriter, r *http.Request) {
+	symbol := strings.TrimPrefix(r.URL.Path, "/api/prices/")
+	symbol = strings.TrimSuffix(symbol, "/")
+	if symbol == "" {
+		utils.BadRequest(w, "资产代码不能为空")
+		return
+	}
+
+	assetType := r.URL.Query().Get("asset_type")
+	if assetType == "" {
+		assetType = "crypto"
+	}
+
+	switch assetType {
+	case "crypto":
+		if !supportedCryptos[symbol] {
+			utils.BadRequest(w, fmt.Sprintf("不支持的加密货币: %s", symbol))
+			return
+		}
+		prices, _, updatedAt := fetchCryptoPrices()
+		price := prices[symbol]
+		utils.Success(w, map[string]interface{}{
+			"symbol":     symbol,
+			"price":      price,
+			"asset_type": "crypto",
+			"currency":   "USD",
+			"updated_at": updatedAt,
+		})
+	case "us_stock":
+		if !supportedUSStocks[symbol] {
+			utils.BadRequest(w, fmt.Sprintf("不支持的美股: %s", symbol))
+			return
+		}
+		price, err := fetchUSStockPrice(symbol)
+		if err != nil {
+			utils.InternalError(w, fmt.Sprintf("获取股票价格失败: %v", err))
+			return
+		}
+		utils.Success(w, map[string]interface{}{
+			"symbol":     symbol,
+			"price":      price,
+			"asset_type": "us_stock",
+			"currency":   "USD",
+			"updated_at": time.Now().Unix(),
+		})
+	default:
+		utils.BadRequest(w, fmt.Sprintf("不支持的资产类型: %s", assetType))
+	}
 }
 
 func handleDashboard(w http.ResponseWriter, r *http.Request) {

@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { portfolioApi, config } from '../api'
-import type { ImportPreviewResponse, ImportConfirmResponse } from '../api/portfolio'
+import type { ImportPreviewResponse, ImportConfirmResponse, AssetPriceResponse } from '../api/portfolio'
 import { useUserStore } from './user'
 import type { Asset, Trade } from '../types'
 
@@ -224,21 +224,26 @@ export const usePortfolioStore = defineStore('portfolio', () => {
   async function fetchAssetPrice(symbol: string, assetType: 'crypto' | 'us_stock' = 'crypto'): Promise<TradeResult & { price?: number; updatedAt?: number }> {
     try {
       const response = await portfolioApi.getAssetPrice(symbol, assetType)
+      // utils.Success 返回格式: { success: true, data: { price: ..., updated_at: ... } }
+      const responseData = response.data as { data?: AssetPriceResponse }
+      if (!responseData.data) {
+        return { success: false, error: '无效的响应格式' }
+      }
       if (assetType === 'crypto') {
         dashboardData.value.prices = {
           ...dashboardData.value.prices,
-          [symbol]: response.data.price
+          [symbol]: responseData.data.price
         }
       } else if (assetType === 'us_stock') {
         dashboardData.value.us_stock_prices = {
           ...dashboardData.value.us_stock_prices,
-          [symbol]: response.data.price
+          [symbol]: responseData.data.price
         }
       }
-      const updatedAt = new Date(response.data.updated_at as string).getTime()
+      const updatedAt = new Date(responseData.data.updated_at as string).getTime()
       return {
         success: true,
-        price: response.data.price,
+        price: responseData.data.price,
         updatedAt
       }
     } catch (err) {

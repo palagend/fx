@@ -25,6 +25,10 @@
     {
       "src": "/api/portfolio/(.*)",
       "dest": "portfolio/index.go"
+    },
+    {
+      "src": "/api/prices/(.*)",
+      "dest": "portfolio/index.go"
     }
   ]
 }
