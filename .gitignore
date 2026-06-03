@@ -34,3 +34,5 @@ fx
 fx-server
 *.log
 .atomcode
+.vercel
+.env*.local

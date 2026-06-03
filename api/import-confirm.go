@@ -12,7 +12,9 @@ import (
 	"api/middleware"
 	"api/models"
 	"api/utils"
+
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 )
 
 type TradeExport struct {

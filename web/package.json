@@ -3,9 +3,11 @@
   "version": "1.1.0",
   "description": "",
   "main": "index.js",
+
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "vercel-build": "vite build",
     "preview": "vite preview"
   },
   "repository": {
