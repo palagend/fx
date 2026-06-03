@@ -22,7 +22,10 @@ var (
 // GetDB 返回数据库连接（单例模式，适配 Serverless）
 func GetDB() *gorm.DB {
 	once.Do(func() {
-		dsn := os.Getenv("DATABASE_URL")
+		dsn := os.Getenv("STORAGE_DATABASE_URL")
+		if dsn == "" {
+			dsn = os.Getenv("DATABASE_URL")
+		}
 		if dsn == "" {
 			host := os.Getenv("DB_HOST")
 			port := os.Getenv("DB_PORT")
