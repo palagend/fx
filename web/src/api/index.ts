@@ -1,14 +1,11 @@
 import { config } from '../config'
 import { backendPortfolioApi } from './portfolio'
-import { localPortfolioApi } from './localStorage/portfolio'
-import { localUserApi } from './localStorage/user'
-import * as localPasswordApi from './localStorage/password'
 
-export const portfolioApi = config.isBackend ? backendPortfolioApi : localPortfolioApi
+export const portfolioApi = backendPortfolioApi
 
-export const userApi = config.isBackend ? null : localUserApi
+export const userApi = null
 
-export const passwordApi = localPasswordApi
+export const passwordApi = null
 
 export { apiClient } from './axios'
 
