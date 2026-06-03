@@ -2,7 +2,11 @@
   "version": 2,
   "builds": [
     {
-      "src": "api/*.go",
+      "src": "api/auth/*.go",
+      "use": "@vercel/go"
+    },
+    {
+      "src": "api/portfolio/*.go",
       "use": "@vercel/go"
     },
     {
@@ -15,60 +19,12 @@
   ],
   "routes": [
     {
-      "src": "/api/health",
-      "dest": "/api/health.go"
+      "src": "/api/auth/(.*)",
+      "dest": "/api/auth/index.go"
     },
     {
-      "src": "/api/auth/register",
-      "dest": "/api/register.go"
-    },
-    {
-      "src": "/api/auth/login",
-      "dest": "/api/login.go"
-    },
-    {
-      "src": "/api/auth/refresh",
-      "dest": "/api/refresh.go"
-    },
-    {
-      "src": "/api/auth/logout",
-      "dest": "/api/logout.go"
-    },
-    {
-      "src": "/api/auth/me",
-      "dest": "/api/me.go"
-    },
-    {
-      "src": "/api/auth/change-password",
-      "dest": "/api/change-password.go"
-    },
-    {
-      "src": "/api/auth/logout-all",
-      "dest": "/api/logout-all.go"
-    },
-    {
-      "src": "/api/portfolio/dashboard",
-      "dest": "/api/dashboard.go"
-    },
-    {
-      "src": "/api/portfolio/trades",
-      "dest": "/api/trades.go"
-    },
-    {
-      "src": "/api/portfolio/trades/(.*)",
-      "dest": "/api/trades.go"
-    },
-    {
-      "src": "/api/portfolio/export",
-      "dest": "/api/export.go"
-    },
-    {
-      "src": "/api/portfolio/import/preview",
-      "dest": "/api/import-preview.go"
-    },
-    {
-      "src": "/api/portfolio/import/confirm",
-      "dest": "/api/import-confirm.go"
+      "src": "/api/portfolio/(.*)",
+      "dest": "/api/portfolio/index.go"
     },
     {
       "handle": "filesystem"
