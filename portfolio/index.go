@@ -5,9 +5,11 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"api/db"
@@ -16,8 +18,160 @@ import (
 	"api/utils"
 
 	"github.com/google/uuid"
+	"golang.org/x/text/encoding/simplifiedchinese"
+	"golang.org/x/text/transform"
 	"gorm.io/gorm"
 )
+
+// 支持的加密货币
+var supportedCryptos = map[string]bool{
+	"BTC":  true,
+	"ETH":  true,
+	"BNB":  true,
+	"XRP":  true,
+	"ADA":  true,
+	"SOL":  true,
+	"DOGE": true,
+	"TRX":  true,
+	"AVAX": true,
+	"HYPE": true,
+	"POL":  true,
+	"DOT":  true,
+}
+
+// 支持的美股列表
+var supportedUSStocks = map[string]bool{
+	"AAPL":  true,
+	"MSFT":  true,
+	"GOOG":  true,
+	"AMZN":  true,
+	"TSLA":  true,
+	"META":  true,
+	"NVDA":  true,
+	"BABA":  true,
+	"ORCL":  true,
+	"CRCL":  true,
+	"MSTR":  true,
+	"QQQI":  true,
+	"TCEHY": true,
+	"PURR":  true,
+	"QQQ":   true,
+}
+
+// BusinessError 业务错误类型
+type BusinessError struct {
+	Message string
+}
+
+func (e *BusinessError) Error() string {
+	return e.Message
+}
+
+// validateTradeRequest 对交易请求进行业务校验
+func validateTradeRequest(req *CreateTradeRequest) error {
+	switch req.Type {
+	case "recharge":
+		if req.AssetType != "cash" {
+			return &BusinessError{"充值资产类型必须是cash"}
+		}
+		if req.Symbol != "USD" {
+			return &BusinessError{"充值只支持USD"}
+		}
+		if req.Price != 1 {
+			return &BusinessError{"充值价格必须为1"}
+		}
+	case "buy", "sell":
+		switch req.AssetType {
+		case "crypto":
+			if !supportedCryptos[req.Symbol] {
+				return &BusinessError{fmt.Sprintf("不支持的加密货币: %s", req.Symbol)}
+			}
+		case "us_stock":
+			if !supportedUSStocks[req.Symbol] {
+				return &BusinessError{fmt.Sprintf("不支持的美股: %s", req.Symbol)}
+			}
+		default:
+			return &BusinessError{fmt.Sprintf("买卖交易不支持资产类型: %s", req.AssetType)}
+		}
+	}
+	return nil
+}
+
+// --- 美股价格缓存 (轻量级，替代被删除的 utils/stock.go) ---
+
+type stockPriceCache struct {
+	price      float64
+	updateTime time.Time
+}
+
+var (
+	stockCache     = make(map[string]*stockPriceCache)
+	stockCacheMux  sync.RWMutex
+	tencentAPIURL  = "https://qt.gtimg.cn"
+	cacheTTL       = 5 * time.Minute
+)
+
+func getCachedPrice(symbol string) (float64, bool) {
+	stockCacheMux.RLock()
+	defer stockCacheMux.RUnlock()
+	if c, ok := stockCache[symbol]; ok && time.Since(c.updateTime) < cacheTTL {
+		return c.price, true
+	}
+	return 0, false
+}
+
+func setCachedPrice(symbol string, price float64) {
+	stockCacheMux.Lock()
+	defer stockCacheMux.Unlock()
+	stockCache[symbol] = &stockPriceCache{price: price, updateTime: time.Now()}
+}
+
+func fetchUSStockPrice(symbol string) (float64, error) {
+	if price, ok := getCachedPrice(symbol); ok {
+		return price, nil
+	}
+
+	url := fmt.Sprintf("%s/q=us%s", tencentAPIURL, symbol)
+	req, _ := http.NewRequest("GET", url, nil)
+	req.Header.Set("User-Agent", "Mozilla/5.0")
+	req.Header.Set("Referer", "https://gu.qq.com/")
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return 0, err
+	}
+	defer resp.Body.Close()
+
+	reader := transform.NewReader(resp.Body, simplifiedchinese.GBK.NewDecoder())
+	body, _ := io.ReadAll(reader)
+	text := string(body)
+
+	// 腾讯格式: v_usAAPL="...|...|当前价|..."
+	parts := strings.Split(text, "~")
+	if len(parts) >= 4 {
+		price, err := strconv.ParseFloat(parts[3], 64)
+		if err == nil && price > 0 {
+			setCachedPrice(symbol, price)
+			return price, nil
+		}
+	}
+	return 0, fmt.Errorf("获取股票价格失败: %s", symbol)
+}
+
+func fetchUSStockPrices(symbols []string) map[string]float64 {
+	prices := make(map[string]float64)
+	for _, symbol := range symbols {
+		if price, ok := getCachedPrice(symbol); ok {
+			prices[symbol] = price
+			continue
+		}
+		if price, err := fetchUSStockPrice(symbol); err == nil {
+			prices[symbol] = price
+		}
+	}
+	return prices
+}
 
 type CreateTradeRequest struct {
 	AssetType string  `json:"asset_type"`
@@ -125,6 +279,74 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 	})(w, r)
 }
 
+// PortfolioItem 投资组合单项
+type PortfolioItem struct {
+	AssetType      string  `json:"asset_type"`
+	Symbol         string  `json:"symbol"`
+	Amount         float64 `json:"amount"`
+	CurrentPrice   float64 `json:"current_price"`
+	AvgCost        float64 `json:"avg_cost"`
+	MarketValue    float64 `json:"market_value"`
+	Cost           float64 `json:"cost"`
+	ProfitLoss     float64 `json:"profit_loss"`
+	PLRate         float64 `json:"pl_rate"`
+	RealizedPL     float64 `json:"realized_pl"`
+	RealizedPLRate float64 `json:"realized_pl_rate"`
+	Currency       string  `json:"currency"`
+}
+
+// fetchCryptoPrices 获取加密货币价格 (CoinCap API)
+func fetchCryptoPrices() (map[string]float64, map[string]float64, int64) {
+	// 从 supportedCryptos 构建 CoinCap ID 列表
+	symbolToID := map[string]string{
+		"BTC": "bitcoin", "ETH": "ethereum", "BNB": "binance-coin",
+		"XRP": "xrp", "ADA": "cardano", "SOL": "solana",
+		"DOGE": "dogecoin", "TRX": "tron", "AVAX": "avalanche",
+		"HYPE": "hyperliquid", "POL": "polygon", "DOT": "polkadot",
+	}
+	ids := make([]string, 0, len(symbolToID))
+	for _, id := range symbolToID {
+		ids = append(ids, id)
+	}
+	idsParam := strings.Join(ids, ",")
+	url := fmt.Sprintf("https://rest.coincap.io/v3/assets?ids=%s", idsParam)
+
+	req, _ := http.NewRequest("GET", url, nil)
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return map[string]float64{}, map[string]float64{}, 0
+	}
+	defer resp.Body.Close()
+
+	prices := map[string]float64{}
+	priceChanges := map[string]float64{}
+	var updatedAt int64
+
+	if resp.StatusCode == http.StatusOK {
+		var result struct {
+			Timestamp int64 `json:"timestamp"`
+			Data      []struct {
+				Symbol            string `json:"symbol"`
+				PriceUsd          string `json:"priceUsd"`
+				ChangePercent24Hr string `json:"changePercent24Hr"`
+			} `json:"data"`
+		}
+
+		if err := json.NewDecoder(resp.Body).Decode(&result); err == nil {
+			for _, item := range result.Data {
+				price, _ := strconv.ParseFloat(item.PriceUsd, 64)
+				change24hPercent, _ := strconv.ParseFloat(item.ChangePercent24Hr, 64)
+				prices[item.Symbol] = price
+				priceChanges[item.Symbol] = change24hPercent / 100
+			}
+			updatedAt = result.Timestamp
+		}
+	}
+
+	return prices, priceChanges, updatedAt
+}
+
 func handleDashboard(w http.ResponseWriter, r *http.Request) {
 	userID, ok := middleware.GetUserID(r)
 	if !ok {
@@ -138,82 +360,192 @@ func handleDashboard(w http.ResponseWriter, r *http.Request) {
 	database.Where("user_id = ?", userID).Find(&holdings)
 
 	var trades []models.Trade
-	database.Where("user_id = ?", userID).Order("created_at desc").Find(&trades)
+	database.Where("user_id = ?", userID).Order("created_at asc").Find(&trades)
 
-	// 从持仓和交易记录计算前端所需的统计数据
-	var cashBalance float64
-	var portfolioItems []map[string]interface{}
-	var cryptoValue, usStockValue float64
+	// 获取价格数据
+	cryptoPrices, cryptoChanges, cryptoUpdatedAt := fetchCryptoPrices()
 
-	for _, h := range holdings {
-		if h.AssetType == models.AssetTypeCash {
-			cashBalance = h.Amount
+	usStockSymbols := make([]string, 0, len(supportedUSStocks))
+	for sym := range supportedUSStocks {
+		usStockSymbols = append(usStockSymbols, sym)
+	}
+	usStockPrices := fetchUSStockPrices(usStockSymbols)
+
+	// 计算统计数据
+	portfolio, cryptoValue, usStockValue, cashBalance, totalAssetsValue,
+		totalUnrealizedPL, totalUnrealizedPLRate, totalRealizedPL, totalRealizedPLRate :=
+		calculatePortfolioStats(holdings, cryptoPrices, usStockPrices, trades)
+
+	utils.JSON(w, http.StatusOK, map[string]interface{}{
+		"prices":                      cryptoPrices,
+		"us_stock_prices":             usStockPrices,
+		"price_changes":               cryptoChanges,
+		"exchange_rates":              map[string]interface{}{},
+		"crypto_updated_at":           cryptoUpdatedAt,
+		"btc_price":                   cryptoPrices["BTC"],
+		"portfolio":                   portfolio,
+		"crypto_value":                cryptoValue,
+		"us_stock_value":              usStockValue,
+		"cash_balance":                cashBalance,
+		"total_assets_value":          totalAssetsValue,
+		"unrealized_profit_loss":      totalUnrealizedPL,
+		"unrealized_profit_loss_rate": totalUnrealizedPLRate,
+		"realized_profit_loss":        totalRealizedPL,
+		"realized_profit_loss_rate":   totalRealizedPLRate,
+		"total_profit_loss":           totalUnrealizedPL + totalRealizedPL,
+		"value_change_24h":            0.0,
+	})
+}
+
+// calculatePortfolioStats 计算投资组合统计
+func calculatePortfolioStats(holdings []models.Holding, cryptoPrices, usStockPrices map[string]float64,
+	trades []models.Trade) (portfolio []PortfolioItem, cryptoValue, usStockValue, cashBalance, totalAssetsValue,
+	totalUnrealizedPL, totalUnrealizedPLRate, totalRealizedPL, totalRealizedPLRate float64) {
+
+	portfolio = make([]PortfolioItem, 0, len(holdings))
+	var totalUnrealizedPLVal, totalHistoricalCost float64
+
+	// 按资产类型和代码分组计算成本跟踪
+	type assetData struct {
+		amount     float64
+		cost       float64
+		totalIn    float64
+		realizedPL float64
+	}
+	assetDataMap := make(map[string]map[string]*assetData)
+
+	// 遍历交易记录计算每项资产的成本
+	for _, t := range trades {
+		if t.Type == "recharge" {
 			continue
 		}
 
-		// 计算持仓均价
-		var buyTotal, buyAmount float64
-		for _, t := range trades {
-			if t.Symbol == h.Symbol && t.AssetType == h.AssetType && t.Type == "buy" {
-				buyAmount += t.Amount
-				buyTotal += t.Total
+		if assetDataMap[t.AssetType] == nil {
+			assetDataMap[t.AssetType] = make(map[string]*assetData)
+		}
+		if assetDataMap[t.AssetType][t.Symbol] == nil {
+			assetDataMap[t.AssetType][t.Symbol] = &assetData{}
+		}
+		d := assetDataMap[t.AssetType][t.Symbol]
+
+		switch t.Type {
+		case "buy":
+			d.amount += t.Amount
+			d.cost += t.Total
+			d.totalIn += t.Total
+		case "sell":
+			if d.amount > 0 && t.Amount > 0 {
+				sellRatio := t.Amount / d.amount
+				costRecovered := d.cost * sellRatio
+				pl := t.Total - costRecovered
+
+				d.realizedPL += pl
+				d.cost -= costRecovered
+				d.amount -= t.Amount
 			}
-		}
-		avgCost := 0.0
-		if buyAmount > 0 {
-			avgCost = buyTotal / buyAmount
-		}
-
-		item := map[string]interface{}{
-			"asset_type":    h.AssetType,
-			"symbol":        h.Symbol,
-			"amount":        h.Amount,
-			"avg_cost":      avgCost,
-			"current_price": 0.0,
-			"market_value":  0.0,
-			"cost":          avgCost * h.Amount,
-			"profit_loss":   0.0,
-			"pl_rate":       0.0,
-			"realized_pl":   0.0,
-			"realized_pl_rate": 0.0,
-			"currency":      h.Currency,
-		}
-		portfolioItems = append(portfolioItems, item)
-
-		if h.AssetType == models.AssetTypeCrypto {
-			cryptoValue += h.Amount
-		} else if h.AssetType == models.AssetTypeUSStock {
-			usStockValue += h.Amount
 		}
 	}
 
 	// 计算已实现盈亏
-	var realizedPL float64
-	for _, t := range trades {
-		if t.Type == "sell" {
-			realizedPL += t.Total - t.Amount*t.Price
+	for _, symbols := range assetDataMap {
+		for _, d := range symbols {
+			totalRealizedPL += d.realizedPL
+			totalHistoricalCost += d.totalIn
 		}
 	}
 
-	utils.JSON(w, http.StatusOK, map[string]interface{}{
-		"prices":                    map[string]interface{}{},
-		"us_stock_prices":           map[string]interface{}{},
-		"price_changes":             map[string]interface{}{},
-		"exchange_rates":            map[string]interface{}{},
-		"crypto_updated_at":         0,
-		"btc_price":                 0,
-		"portfolio":                 portfolioItems,
-		"crypto_value":              cryptoValue,
-		"us_stock_value":            usStockValue,
-		"cash_balance":              cashBalance,
-		"total_assets_value":        cryptoValue + usStockValue + cashBalance,
-		"unrealized_profit_loss":    0.0,
-		"unrealized_profit_loss_rate": 0.0,
-		"realized_profit_loss":      realizedPL,
-		"realized_profit_loss_rate": 0.0,
-		"total_profit_loss":         realizedPL,
-		"value_change_24h":          0.0,
-	})
+	// 计算总实现盈亏率
+	if totalHistoricalCost != 0 {
+		totalRealizedPLRate = (totalRealizedPL / totalHistoricalCost) * 100
+	}
+
+	// 遍历持仓构建组合项
+	for _, h := range holdings {
+		if h.AssetType == models.AssetTypeCash && h.Symbol == "USD" {
+			cashBalance = h.Amount
+			continue
+		}
+
+		// 获取当前价格
+		var price float64
+		switch h.AssetType {
+		case models.AssetTypeCrypto:
+			price = cryptoPrices[h.Symbol]
+		case models.AssetTypeUSStock:
+			price = usStockPrices[h.Symbol]
+		}
+
+		marketValue := h.Amount * price
+
+		// 从成本跟踪数据获取
+		d := assetDataMap[h.AssetType][h.Symbol]
+		var cost float64
+		var realizedPL float64
+		if d != nil {
+			cost = d.cost
+			realizedPL = d.realizedPL
+		}
+
+		// 累加到对应资产类型的总市值
+		switch h.AssetType {
+		case models.AssetTypeCrypto:
+			cryptoValue += marketValue
+		case models.AssetTypeUSStock:
+			usStockValue += marketValue
+		}
+
+		avgCost := 0.0
+		if h.Amount != 0 {
+			avgCost = cost / h.Amount
+		}
+
+		profitLoss := marketValue - cost
+		plRate := 0.0
+		if cost != 0 {
+			plRate = (profitLoss / cost) * 100
+		}
+
+		totalUnrealizedPLVal += profitLoss
+
+		// 计算单项已实现盈亏率
+		realizedPLRate := 0.0
+		if d != nil && d.totalIn != 0 {
+			realizedPLRate = (realizedPL / d.totalIn) * 100
+		}
+
+		portfolio = append(portfolio, PortfolioItem{
+			AssetType:      h.AssetType,
+			Symbol:         h.Symbol,
+			Amount:         h.Amount,
+			CurrentPrice:   price,
+			AvgCost:        avgCost,
+			MarketValue:    marketValue,
+			Cost:           cost,
+			ProfitLoss:     profitLoss,
+			PLRate:         plRate,
+			RealizedPL:     realizedPL,
+			RealizedPLRate: realizedPLRate,
+			Currency:       h.Currency,
+		})
+	}
+
+	totalAssetsValue = cryptoValue + usStockValue + cashBalance
+
+	// 计算总未实现盈亏率
+	totalCost := 0.0
+	for _, h := range holdings {
+		if h.AssetType != models.AssetTypeCash {
+			if d := assetDataMap[h.AssetType][h.Symbol]; d != nil {
+				totalCost += d.cost
+			}
+		}
+	}
+	if totalCost != 0 {
+		totalUnrealizedPLRate = (totalUnrealizedPLVal / totalCost) * 100
+	}
+
+	totalUnrealizedPL = totalUnrealizedPLVal
+	return
 }
 
 func handleTrades(w http.ResponseWriter, r *http.Request) {
@@ -276,6 +608,26 @@ func createTrade(w http.ResponseWriter, r *http.Request) {
 		req.Total = req.Amount * req.Price
 	}
 
+	// 业务层参数校验（资产白名单、充值规则）
+	if err := validateTradeRequest(&req); err != nil {
+		if _, ok := err.(*BusinessError); ok {
+			utils.BadRequest(w, err.Error())
+		} else {
+			utils.InternalError(w, err.Error())
+		}
+		return
+	}
+
+	database := db.GetDB()
+
+	// 使用事务保证数据一致性
+	tx := database.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
 	trade := models.Trade{
 		UUID:      uuid.New().String(),
 		UserID:    userID,
@@ -288,14 +640,20 @@ func createTrade(w http.ResponseWriter, r *http.Request) {
 		Currency:  req.Currency,
 	}
 
-	database := db.GetDB()
-	if err := database.Create(&trade).Error; err != nil {
+	if err := tx.Create(&trade).Error; err != nil {
+		tx.Rollback()
 		utils.InternalError(w, "创建交易失败")
 		return
 	}
 
-	if err := recalcHoldings(database, userID); err != nil {
+	if err := recalcHoldings(tx, userID); err != nil {
+		tx.Rollback()
 		utils.InternalError(w, "更新持仓失败")
+		return
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		utils.InternalError(w, "提交事务失败")
 		return
 	}
 
