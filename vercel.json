@@ -1,0 +1,85 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "api/*.go",
+      "use": "@vercel/go"
+    },
+    {
+      "src": "web/package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "web/dist"
+      }
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/health",
+      "dest": "/api/health.go"
+    },
+    {
+      "src": "/api/auth/register",
+      "dest": "/api/register.go"
+    },
+    {
+      "src": "/api/auth/login",
+      "dest": "/api/login.go"
+    },
+    {
+      "src": "/api/auth/refresh",
+      "dest": "/api/refresh.go"
+    },
+    {
+      "src": "/api/auth/logout",
+      "dest": "/api/logout.go"
+    },
+    {
+      "src": "/api/auth/me",
+      "dest": "/api/me.go"
+    },
+    {
+      "src": "/api/auth/change-password",
+      "dest": "/api/change-password.go"
+    },
+    {
+      "src": "/api/auth/logout-all",
+      "dest": "/api/logout-all.go"
+    },
+    {
+      "src": "/api/portfolio/dashboard",
+      "dest": "/api/dashboard.go"
+    },
+    {
+      "src": "/api/portfolio/trades",
+      "dest": "/api/trades.go"
+    },
+    {
+      "src": "/api/portfolio/trades/(.*)",
+      "dest": "/api/trades.go"
+    },
+    {
+      "src": "/api/portfolio/export",
+      "dest": "/api/export.go"
+    },
+    {
+      "src": "/api/portfolio/import/preview",
+      "dest": "/api/import-preview.go"
+    },
+    {
+      "src": "/api/portfolio/import/confirm",
+      "dest": "/api/import-confirm.go"
+    },
+    {
+      "handle": "filesystem"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/web/dist/index.html"
+    }
+  ],
+  "env": {
+    "DATABASE_URL": "@database_url",
+    "JWT_SECRET": "@jwt_secret"
+  }
+}
