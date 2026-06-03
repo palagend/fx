@@ -137,18 +137,82 @@ func handleDashboard(w http.ResponseWriter, r *http.Request) {
 	var holdings []models.Holding
 	database.Where("user_id = ?", userID).Find(&holdings)
 
-	var recentTrades []models.Trade
-	database.Where("user_id = ?", userID).Order("created_at desc").Limit(5).Find(&recentTrades)
+	var trades []models.Trade
+	database.Where("user_id = ?", userID).Order("created_at desc").Find(&trades)
 
-	var totalTrades int64
-	database.Model(&models.Trade{}).Where("user_id = ?", userID).Count(&totalTrades)
+	// 从持仓和交易记录计算前端所需的统计数据
+	var cashBalance float64
+	var portfolioItems []map[string]interface{}
+	var cryptoValue, usStockValue float64
 
-	utils.Success(w, map[string]interface{}{
-		"holdings":      holdings,
-		"recent_trades": recentTrades,
-		"stats": map[string]interface{}{
-			"total_trades": totalTrades,
-		},
+	for _, h := range holdings {
+		if h.AssetType == models.AssetTypeCash {
+			cashBalance = h.Amount
+			continue
+		}
+
+		// 计算持仓均价
+		var buyTotal, buyAmount float64
+		for _, t := range trades {
+			if t.Symbol == h.Symbol && t.AssetType == h.AssetType && t.Type == "buy" {
+				buyAmount += t.Amount
+				buyTotal += t.Total
+			}
+		}
+		avgCost := 0.0
+		if buyAmount > 0 {
+			avgCost = buyTotal / buyAmount
+		}
+
+		item := map[string]interface{}{
+			"asset_type":    h.AssetType,
+			"symbol":        h.Symbol,
+			"amount":        h.Amount,
+			"avg_cost":      avgCost,
+			"current_price": 0.0,
+			"market_value":  0.0,
+			"cost":          avgCost * h.Amount,
+			"profit_loss":   0.0,
+			"pl_rate":       0.0,
+			"realized_pl":   0.0,
+			"realized_pl_rate": 0.0,
+			"currency":      h.Currency,
+		}
+		portfolioItems = append(portfolioItems, item)
+
+		if h.AssetType == models.AssetTypeCrypto {
+			cryptoValue += h.Amount
+		} else if h.AssetType == models.AssetTypeUSStock {
+			usStockValue += h.Amount
+		}
+	}
+
+	// 计算已实现盈亏
+	var realizedPL float64
+	for _, t := range trades {
+		if t.Type == "sell" {
+			realizedPL += t.Total - t.Amount*t.Price
+		}
+	}
+
+	utils.JSON(w, http.StatusOK, map[string]interface{}{
+		"prices":                    map[string]interface{}{},
+		"us_stock_prices":           map[string]interface{}{},
+		"price_changes":             map[string]interface{}{},
+		"exchange_rates":            map[string]interface{}{},
+		"crypto_updated_at":         0,
+		"btc_price":                 0,
+		"portfolio":                 portfolioItems,
+		"crypto_value":              cryptoValue,
+		"us_stock_value":            usStockValue,
+		"cash_balance":              cashBalance,
+		"total_assets_value":        cryptoValue + usStockValue + cashBalance,
+		"unrealized_profit_loss":    0.0,
+		"unrealized_profit_loss_rate": 0.0,
+		"realized_profit_loss":      realizedPL,
+		"realized_profit_loss_rate": 0.0,
+		"total_profit_loss":         realizedPL,
+		"value_change_24h":          0.0,
 	})
 }
 
@@ -179,7 +243,9 @@ func getTrades(w http.ResponseWriter, r *http.Request) {
 	var trades []models.Trade
 	db.GetDB().Where("user_id = ?", userID).Order("created_at desc").Find(&trades)
 
-	utils.Success(w, trades)
+	utils.JSON(w, http.StatusOK, map[string]interface{}{
+		"trades": trades,
+	})
 }
 
 func createTrade(w http.ResponseWriter, r *http.Request) {
@@ -233,7 +299,7 @@ func createTrade(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	utils.Success(w, trade)
+	utils.JSON(w, http.StatusOK, trade)
 }
 
 func deleteTrade(w http.ResponseWriter, r *http.Request) {
