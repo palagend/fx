@@ -105,10 +105,10 @@ type stockPriceCache struct {
 }
 
 var (
-	stockCache     = make(map[string]*stockPriceCache)
-	stockCacheMux  sync.RWMutex
-	tencentAPIURL  = "https://qt.gtimg.cn"
-	cacheTTL       = 5 * time.Minute
+	stockCache    = make(map[string]*stockPriceCache)
+	stockCacheMux sync.RWMutex
+	tencentAPIURL = "https://qt.gtimg.cn"
+	cacheTTL      = 5 * time.Minute
 )
 
 func getCachedPrice(symbol string) (float64, bool) {
@@ -308,24 +308,36 @@ type PortfolioItem struct {
 	Currency       string  `json:"currency"`
 }
 
-// fetchCryptoPrices 获取加密货币价格 (CoinCap API)
+// fetchCryptoPrices 获取加密货币价格 (CoinGecko API - 免费免Key)
+// CoinGecko API文档: https://www.coingecko.com/api/documentation
 func fetchCryptoPrices() (map[string]float64, map[string]float64, int64) {
-	// 从 supportedCryptos 构建 CoinCap ID 列表
-	symbolToID := map[string]string{
-		"BTC": "bitcoin", "ETH": "ethereum", "BNB": "binance-coin",
-		"XRP": "xrp", "ADA": "cardano", "SOL": "solana",
-		"DOGE": "dogecoin", "TRX": "tron", "AVAX": "avalanche",
-		"HYPE": "hyperliquid", "POL": "polygon", "DOT": "polkadot",
+	// CoinGecko ID 映射表 (币种 symbol -> CoinGecko ID)
+	symbolToGeckoID := map[string]string{
+		"BTC": "bitcoin", "ETH": "ethereum", "BNB": "binancecoin",
+		"XRP": "ripple", "ADA": "cardano", "SOL": "solana",
+		"DOGE": "dogecoin", "TRX": "tron", "AVAX": "avalanche-2",
+		"HYPE": "hyperliquid", "POL": "polygon-ecosystem-token", "DOT": "polkadot",
 	}
-	ids := make([]string, 0, len(symbolToID))
-	for _, id := range symbolToID {
+
+	// 构建 ids 参数
+	ids := make([]string, 0, len(symbolToGeckoID))
+	for _, id := range symbolToGeckoID {
 		ids = append(ids, id)
 	}
 	idsParam := strings.Join(ids, ",")
-	url := fmt.Sprintf("https://rest.coincap.io/v3/assets?ids=%s", idsParam)
+
+	// CoinGecko 免费公共 API (无需 API Key)
+	url := fmt.Sprintf(
+		"https://api.coingecko.com/api/v3/simple/price?ids=%s&vs_currencies=usd&include_24hr_change=true",
+		idsParam,
+	)
 
 	req, _ := http.NewRequest("GET", url, nil)
-	client := &http.Client{Timeout: 10 * time.Second}
+	req.Header.Set("Accept", "application/json")
+	// 添加 User-Agent 避免被限流
+	req.Header.Set("User-Agent", "Mozilla/5.0 (compatible; PortfolioApp/1.0)")
+
+	client := &http.Client{Timeout: 15 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
 		return map[string]float64{}, map[string]float64{}, 0
@@ -334,26 +346,30 @@ func fetchCryptoPrices() (map[string]float64, map[string]float64, int64) {
 
 	prices := map[string]float64{}
 	priceChanges := map[string]float64{}
-	var updatedAt int64
+	updatedAt := time.Now().Unix()
 
 	if resp.StatusCode == http.StatusOK {
-		var result struct {
-			Timestamp int64 `json:"timestamp"`
-			Data      []struct {
-				Symbol            string `json:"symbol"`
-				PriceUsd          string `json:"priceUsd"`
-				ChangePercent24Hr string `json:"changePercent24Hr"`
-			} `json:"data"`
+		// CoinGecko 返回格式: {"bitcoin": {"usd": 50000, "usd_24h_change": 2.5}, ...}
+		var result map[string]struct {
+			Usd          float64 `json:"usd"`
+			Usd24hChange float64 `json:"usd_24h_change"`
 		}
 
 		if err := json.NewDecoder(resp.Body).Decode(&result); err == nil {
-			for _, item := range result.Data {
-				price, _ := strconv.ParseFloat(item.PriceUsd, 64)
-				change24hPercent, _ := strconv.ParseFloat(item.ChangePercent24Hr, 64)
-				prices[item.Symbol] = price
-				priceChanges[item.Symbol] = change24hPercent / 100
+			// 反向映射: geckoID -> symbol
+			geckoIDToSymbol := make(map[string]string, len(symbolToGeckoID))
+			for sym, gid := range symbolToGeckoID {
+				geckoIDToSymbol[gid] = sym
 			}
-			updatedAt = result.Timestamp
+
+			for geckoID, data := range result {
+				if symbol, ok := geckoIDToSymbol[geckoID]; ok {
+					prices[symbol] = data.Usd
+					// CoinGecko 返回的是百分比数值 (如 2.5 表示 +2.5%)
+					// 转换为小数形式 (如 0.025) 保持与原有逻辑一致
+					priceChanges[symbol] = data.Usd24hChange / 100
+				}
+			}
 		}
 	}
 
