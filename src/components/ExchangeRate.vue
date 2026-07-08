@@ -146,8 +146,8 @@
                 <span class="loss-item-label">每万元损耗</span>
                 <span class="loss-item-value">{{ formatNumber(lossData.per10000Loss) }} {{ to }}</span>
               </div>
-              <div class="loss-item highlight">
-                <span class="loss-item-label">损耗率</span>
+              <div class="loss-item highlight" :class="{ 'profit': lossData.lossRate < 0 }">
+                <span class="loss-item-label">{{ lossData.lossRate < 0 ? '换汇优惠' : '损耗率' }}</span>
                 <span class="loss-item-value">{{ lossData.lossRate.toFixed(2) }}%</span>
               </div>
             </div>
@@ -596,11 +596,6 @@ const calcLoss = () => {
   }
 
   const currentLoss = Number(result.value) - actualAmount.value
-  if (currentLoss < 0) {
-    showToast('实际到账不能高于换算结果', 'mdi:alert-circle')
-    return
-  }
-
   const lossRate = (currentLoss / Number(result.value)) * 100
   const per10000Loss = (currentLoss / Number(amount.value)) * 10000
 
@@ -1223,6 +1218,10 @@ watch([from, to], () => {
 .loss-item.highlight .loss-item-value {
   color: #f44336;
   font-size: 18px;
+}
+
+.loss-item.highlight.profit .loss-item-value {
+  color: #4caf50;
 }
 
 /* 历史记录卡片 */
