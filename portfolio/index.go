@@ -314,9 +314,10 @@ func fetchCryptoPrices() (map[string]float64, map[string]float64, int64) {
 	// CoinGecko ID 映射表 (币种 symbol -> CoinGecko ID)
 	symbolToGeckoID := map[string]string{
 		"BTC": "bitcoin", "ETH": "ethereum", "BNB": "binancecoin",
-		"XRP": "ripple", "ADA": "cardano", "SOL": "solana",
+		"XRP": "ripple", "SOL": "solana",
 		"DOGE": "dogecoin", "TRX": "tron", "AVAX": "avalanche-2",
-		"HYPE": "hyperliquid", "POL": "polygon-ecosystem-token", "DOT": "polkadot",
+		"HYPE": "hyperliquid", "POL": "polygon-ecosystem-token",
+		"ASTER": "aster-2", "XPL": "plasma",
 	}
 
 	// 构建 ids 参数

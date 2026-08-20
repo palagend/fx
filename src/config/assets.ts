@@ -15,7 +15,7 @@ export const ASSET_TYPES: Record<string, AssetTypeConfig> = {
     currency: 'USD',
     currencyName: '美元',
     currencyIcon: 'mdi:currency-usd',
-    priceApi: 'coincap',
+    priceApi: 'coingecko',
     defaultColor: '#26A17B'
   },
   A_STOCK: {
@@ -59,42 +59,42 @@ export const CRYPTO_CONFIG = {
     ETH: '#627EEA',
     BNB: '#F3BA2F',
     XRP: '#00A5DF',
-    ADA: '#0033AD',
     SOL: '#9945FF',
     DOGE: '#C2A633',
     TRX: '#EB0029',
     AVAX: '#E84142',
     HYPE: '#89F0E6',
     POL: '#8247E5',
-    DOT: '#E6007A'
+    ASTER: '#FFD700',
+    XPL: '#00CED1'
   } as Record<string, string>,
   ICONS: {
     BTC: 'cryptocurrency-color:btc',
     ETH: 'cryptocurrency-color:eth',
     BNB: 'cryptocurrency-color:bnb',
     XRP: 'cryptocurrency-color:xrp',
-    ADA: 'cryptocurrency-color:ada',
     SOL: 'token-branded:sol',
     DOGE: 'cryptocurrency-color:doge',
     TRX: 'cryptocurrency-color:trx',
     AVAX: 'cryptocurrency-color:avax',
     HYPE: 'token:hyper-evm',
     POL: 'token-branded:polygon-zkevm',
-    DOT: 'token-branded:polkadot'
+    ASTER: 'icons8:asterisk',
+    XPL: 'token:plasma'
   } as Record<string, string>,
   NAMES: {
     BTC: 'Bitcoin',
     ETH: 'Ethereum',
     BNB: 'Binance Coin',
     XRP: 'Ripple',
-    ADA: 'Cardano',
     SOL: 'Solana',
     DOGE: 'Dogecoin',
     TRX: 'Tron',
     AVAX: 'Avalanche',
     HYPE: 'Hyperliquid',
     POL: 'Polygon',
-    DOT: 'Polkadot'
+    ASTER: 'Aster',
+    XPL: 'XPL'
   } as Record<string, string>
 }
 
@@ -210,7 +210,7 @@ export const HKSTOCK_CONFIG = {
 }
 
 export const AVAILABLE_ASSETS = {
-  CRYPTO: ['BTC', 'ETH', 'BNB', 'SOL', 'TRX', 'HYPE', 'XRP', 'POL', 'DOGE', 'AVAX', 'ADA', 'DOT'] as const,
+  CRYPTO: ['BTC', 'ETH', 'BNB', 'SOL', 'TRX', 'HYPE', 'XRP', 'POL', 'DOGE', 'AVAX', 'ASTER', 'XPL'] as const,
   A_STOCK: ['600519', '000858', '000333', '002415', '300750', '601318', '600036', '000002'] as const,
   US_STOCK: ['GOOG', 'TSLA', 'CRCL', 'QQQI', 'NVDA', 'AAPL', 'MSTR', 'AMZN', 'BABA', 'META', 'MSFT', 'ORCL', 'TCEHY', 'PURR', 'QQQ'] as const,
   HK_STOCK: ['0700', '3690', '9988', '2318', '0005'] as const
